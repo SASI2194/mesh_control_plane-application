@@ -1,0 +1,100 @@
+{
+  "id": "6a65616e757673756776000000000065",
+  "mode": "router",
+  "listen": {
+    "endpoints": ["tcp/192.168.3.65:7447"]
+  },
+  "connect": {
+    "timeout_ms": {
+      "router": 1000,
+      "peer": 1000
+    },
+    "endpoints": [
+      "tcp/192.168.3.66:7447",
+      "tcp/192.168.3.67:7447",
+      "tcp/192.168.3.68:7447",
+      "tcp/192.168.3.69:7447",
+      "tcp/192.168.3.70:7447",
+      "tcp/192.168.3.71:7447",
+      "tcp/192.168.3.72:7447",
+      "tcp/192.168.3.73:7447"
+    ],
+    "retry": {
+      "period_init_ms": 1000,
+      "period_max_ms": 5000,
+      "period_increase_factor": 2
+    }
+  },
+  "scouting": {
+    "multicast": { "enabled": false },
+    "gossip": { "enabled": true, "multihop": true }
+  },
+  "routing": {
+    "router": {
+      "peers_failover_brokering": true
+    },
+    "interests": {
+      "timeout": 10000
+    }
+  },
+  "timestamping": { "enabled": { "router": true, "peer": true, "client": true } },
+  "downsampling": [],
+  "access_control": {
+    "enabled": false,
+    "default_permission": "deny",
+    "rules": [
+      {
+        "id": "allow_filtered_topics",
+        "permission": "allow",
+        "messages": ["put", "declare_subscriber"],
+        "flows": ["egress"],
+        "key_exprs": [
+          "filtered/**"
+        ]
+      },
+      {
+        "id": "allow_mesh_control",
+        "permission": "allow",
+        "messages": ["put", "declare_subscriber"],
+        "flows": ["egress", "ingress"],
+        "key_exprs": [
+          "mesh/**"
+        ]
+      }
+    ],
+    "subjects": [{ "id": "all" }],
+    "policies": [
+      {
+        "rules": ["allow_filtered_topics", "allow_mesh_control"],
+        "subjects": ["all"]
+      }
+    ]
+  },
+  "transport": {
+    "unicast": {
+      "open_timeout": 30000,
+      "accept_timeout": 30000,
+      "accept_pending": 10000,
+      "max_sessions": 10000,
+      "qos": { "enabled": true },
+      "compression": { "enabled": true }
+    },
+    "link": {
+      "tx": {
+        "lease": 10000,
+        "keep_alive": 4,
+        "batch_size": 20971520
+      },
+      "rx": {
+        "buffer_size": 20971520
+      }
+    }
+  },
+  "adminspace": {
+    "enabled": true,
+    "permissions": {
+      "read": false,
+      "write": false
+    }
+  }
+}
