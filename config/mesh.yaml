@@ -1,0 +1,65 @@
+node:
+
+  id: AGV01
+
+  type: AGV
+
+router:
+
+  endpoint: tcp/192.168.3.65:7447
+
+zenoh:
+
+ config_directory: /home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp
+
+  peer_config: zenoh_peer_tcp.json5
+
+  router_config: zenoh_router_tcp.json5
+  
+  mode: peer
+
+radio:
+
+  host: 192.168.3.3
+
+  username: mesh
+
+  password: mesh123
+
+  api_port: 8728
+
+network:
+
+  configured_nodes: 9
+
+  configured_gcs: 3
+
+  configured_agv: 6
+
+  minimum_operational_nodes: 2
+
+heartbeat:
+
+  interval: 1.0
+
+scheduler:
+
+  maximum_bandwidth_mbps: 600
+
+  hysteresis_percent: 10
+
+neighbors:
+
+  preferred_count: 2
+
+logging:
+
+  level: INFO
+
+mesh:
+
+  version: 2.0
+
+  control_topic_prefix: "/mesh"
+
+  application_topic_prefix: "/"

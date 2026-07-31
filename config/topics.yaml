@@ -1,0 +1,101 @@
+topics:
+
+  - id: 1
+    name: /topic_01
+    priority: 1
+    bandwidth: 40
+
+  - id: 2
+    name: /topic_02
+    priority: 1
+    bandwidth: 60
+
+  - id: 3
+    name: /topic_03
+    priority: 1
+    bandwidth: 20
+
+  - id: 4
+    name: /topic_04
+    priority: 1
+    bandwidth: 80
+
+  - id: 5
+    name: /topic_05
+    priority: 2
+    bandwidth: 30
+
+  - id: 6
+    name: /topic_06
+    priority: 2
+    bandwidth: 70
+
+  - id: 7
+    name: /topic_07
+    priority: 2
+    bandwidth: 10
+
+  - id: 8
+    name: /topic_08
+    priority: 2
+    bandwidth: 90
+
+  - id: 9
+    name: /topic_09
+    priority: 3
+    bandwidth: 50
+
+  - id: 10
+    name: /topic_10
+    priority: 3
+    bandwidth: 50
+
+  - id: 11
+    name: /topic_11
+    priority: 3
+    bandwidth: 10
+
+  - id: 12
+    name: /topic_12
+    priority: 3
+    bandwidth: 20
+
+  - id: 13
+    name: /topic_13
+    priority: 4
+    bandwidth: 30
+
+  - id: 14
+    name: /topic_14
+    priority: 4
+    bandwidth: 40
+
+  - id: 15
+    name: /topic_15
+    priority: 4
+    bandwidth: 50
+
+  - id: 16
+    name: /topic_16
+    priority: 4
+    bandwidth: 60
+
+  - id: 17
+    name: /topic_17
+    priority: 5
+    bandwidth: 70
+
+  - id: 18
+    name: /topic_18
+    priority: 5
+    bandwidth: 80
+
+  - id: 19
+    name: /topic_19
+    priority: 5
+    bandwidth: 90
+
+  - id: 20
+    name: /topic_20
+    priority: 5
+    bandwidth: 50

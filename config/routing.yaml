@@ -1,0 +1,21 @@
+routing:
+
+  coordinator:
+
+    enabled: true
+
+  neighbor_selection:
+
+    maximum_neighbors: 2
+
+  routing_metric:
+
+    rssi_weight: 0.30
+
+    snr_weight: 0.15
+
+    packet_loss_weight: 0.20
+
+    latency_weight: 0.15
+
+    bandwidth_weight: 0.20

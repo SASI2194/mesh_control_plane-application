@@ -1,0 +1,31 @@
+priority:
+
+  LEVEL1:
+
+    description: Mesh Management
+
+    value: 1
+
+  LEVEL2:
+
+    description: Mission Critical
+
+    value: 2
+
+  LEVEL3:
+
+    description: High Priority
+
+    value: 3
+
+  LEVEL4:
+
+    description: Medium Priority
+
+    value: 4
+
+  LEVEL5:
+
+    description: Low Priority
+
+    value: 5
