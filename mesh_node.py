@@ -5,7 +5,7 @@
 
 Mesh Control Plane
 
-Main Application
+Main Application with Real-Time Dynamic Topic Bandwidth Measurement & Sequence Tracking
 
 ===============================================================================
 """
@@ -23,6 +23,7 @@ from scheduler.admission_controller import AdmissionController
 
 from ros.topic_database import TopicRegistry
 from utils.config_manager import ConfigManager
+from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
 
 from core.network_models import MeshSample
 
@@ -38,9 +39,15 @@ class MeshNode:
 
         print()
         print("============================================================")
-        print("Mesh Control Plane")
+        print("Mesh Control Plane (Real-Time Dynamic Rate Mode)")
         print("============================================================")
         print()
+
+        #
+        # Real-time Bandwidth Monitor
+        #
+
+        self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
 
         #
         # Transport Sessions
@@ -128,13 +135,7 @@ class MeshNode:
     def callback(self, sample):
 
         #
-        # Convert Zenoh transport key
-        #
-        # 40/topic_01/...
-        #
-        # into
-        #
-        # /topic_01
+        # Convert Zenoh transport key (e.g. 55/topic_01/...) into ROS topic (/topic_01)
         #
 
         ros_topic = self.mapper.zenoh_to_ros(
@@ -143,11 +144,21 @@ class MeshNode:
 
         )
 
+        payload_bytes = sample.payload.to_bytes()
+
+        #
+        # Record real-time bandwidth & get sequence number
+        #
+
+        seq_num = self.bw_monitor.record_sample(ros_topic, len(payload_bytes))
+
         mesh_sample = MeshSample(
 
             key=ros_topic,
 
-            payload=sample.payload.to_bytes()
+            payload=payload_bytes,
+
+            sequence_number=seq_num
 
         )
 
@@ -167,7 +178,7 @@ class MeshNode:
 
         if mesh_sample.allowed:
 
-            print(f"[ALLOW] {mesh_sample.key}")
+            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num})")
 
         else:
 
@@ -186,6 +197,14 @@ class MeshNode:
     #####################################################################
 
     def update_scheduler(self):
+
+        #
+        # Update registry with live measured bandwidths
+        #
+
+        self.registry.update_measured_bandwidths(
+            self.bw_monitor.get_all_bandwidths()
+        )
 
         self.scheduler.available_bandwidth = self.max_bandwidth
 

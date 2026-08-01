@@ -5,7 +5,7 @@ from mesh_transport.zenoh_session import ZenohSession
 
 MeshLogger.initialize("AGV01")
 
-config_file = "config/zenoh/zenoh_router_tcp.json5"
+config_file = "config/zenoh/zenoh_peer_tcp.json5"
 z = ZenohSession(config_file)
 z.connect()
 print("[SUCCESS] Zenoh Session connected successfully with enabled access_control!")

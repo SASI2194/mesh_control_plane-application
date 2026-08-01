@@ -44,7 +44,7 @@ heartbeat:
 
 scheduler:
 
-  maximum_bandwidth_mbps: 400
+  maximum_bandwidth_mbps: 350
 
   hysteresis_percent: 10
 

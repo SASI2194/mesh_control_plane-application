@@ -10,6 +10,11 @@ Purpose : Common data models used throughout the Mesh Control Plane.
 
 from dataclasses import dataclass, field
 from typing import Dict, List
+import struct
+import time
+
+HEADER_FORMAT = "!Qd"  # 8-byte uint64 seq_num, 8-byte float64 timestamp
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 16 bytes
 
 
 # =============================================================================
@@ -158,9 +163,6 @@ class StatisticsInfo:
 
     total_bandwidth: float = 0.0
 
-from dataclasses import dataclass
-import time
-
 
 @dataclass
 class MeshSample:
@@ -172,7 +174,7 @@ class MeshSample:
 
     payload: bytes
 
-    timestamp: float = time.time()
+    timestamp: float = field(default_factory=time.time)
 
     source: str = ""
 
@@ -181,3 +183,20 @@ class MeshSample:
     bandwidth: float = 0.0
 
     allowed: bool = True
+
+    sequence_number: int = 0
+
+    @staticmethod
+    def pack_payload(seq_num: int, timestamp: float, raw_payload: bytes) -> bytes:
+        header = struct.pack(HEADER_FORMAT, seq_num, timestamp)
+        return header + raw_payload
+
+    @staticmethod
+    def unpack_payload(payload: bytes):
+        if len(payload) >= HEADER_SIZE:
+            try:
+                seq_num, timestamp = struct.unpack(HEADER_FORMAT, payload[:HEADER_SIZE])
+                return seq_num, timestamp, payload[HEADER_SIZE:]
+            except Exception:
+                pass
+        return 0, 0.0, payload

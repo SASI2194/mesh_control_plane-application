@@ -86,7 +86,7 @@ class BandwidthScheduler:
 
             for topic in topics:
 
-                required = topic["bandwidth"]
+                required = float(topic["bandwidth"])
 
                 if required <= remaining:
 
@@ -127,7 +127,7 @@ class BandwidthScheduler:
         print()
 
         print("==================================================")
-        print("Bandwidth Scheduler")
+        print("Bandwidth Scheduler (Real-Time Dynamic Rate)")
         print("==================================================")
 
         print(f"Available Bandwidth : {self.available_bandwidth:.1f} Mbps")
@@ -142,11 +142,11 @@ class BandwidthScheduler:
 
             print(
 
-                f"{topic:12}"
+                f"{topic:14}"
 
                 f" P{info['priority']}"
 
-                f" {info['bandwidth']:3d} Mbps"
+                f" {float(info['bandwidth']):6.1f} Mbps"
 
             )
 

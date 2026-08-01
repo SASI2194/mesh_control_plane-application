@@ -9,10 +9,9 @@ Forwarding Engine
 
 Only this module is allowed to publish data to the mesh network.
 
-Responsibilities
-
+Responsibility:
 1. Receive scheduler decisions
-2. Forward admitted topics
+2. Forward admitted topics with sequence tracking metadata
 3. Drop rejected topics
 4. Maintain forwarding statistics
 
@@ -50,6 +49,7 @@ class ForwardingEngine:
 
         """
         Forward one message if admitted by the scheduler.
+        Attaches sequence metadata for receiver-side loss tracking.
         """
 
         #################################################################
@@ -68,11 +68,7 @@ class ForwardingEngine:
         #################################################################
         # Remove ROS leading slash
         #
-        # /topic_01
-        #
-        # becomes
-        #
-        # topic_01
+        # /topic_01 -> topic_01
         #################################################################
 
         topic_name = sample.key.lstrip("/")
@@ -84,6 +80,16 @@ class ForwardingEngine:
         output_key = f"filtered/{topic_name}"
 
         #################################################################
+        # Pack payload with sequence metadata header
+        #################################################################
+
+        packed_payload = MeshSample.pack_payload(
+            sample.sequence_number,
+            sample.timestamp,
+            sample.payload
+        )
+
+        #################################################################
         # Publish
         #################################################################
 
@@ -93,7 +99,7 @@ class ForwardingEngine:
 
                 output_key,
 
-                sample.payload
+                packed_payload
 
             )
 
@@ -101,7 +107,7 @@ class ForwardingEngine:
 
             self.forwarded_bytes += len(sample.payload)
 
-            print(f"[FORWARD] {output_key}")
+            print(f"[FORWARD] {output_key} (Seq #{sample.sequence_number})")
 
         except Exception as ex:
 

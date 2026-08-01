@@ -7,7 +7,7 @@ Mesh Control Plane
 
 Verification Statistics
 
-Maintains runtime statistics for every forwarded topic.
+Maintains runtime statistics and sequence tracking for every forwarded topic.
 
 ===============================================================================
 """
@@ -30,6 +30,14 @@ class TopicStatistics:
         self.packet_count = 0
 
         self.byte_count = 0
+
+        #
+        # Sequence tracking for lossless verification
+        #
+
+        self.last_seq = 0
+
+        self.sequence_errors = 0
 
         #
         # Timing
@@ -71,7 +79,7 @@ class TopicStatistics:
 
     ###########################################################################
 
-    def update(self, payload_size):
+    def update(self, payload_size, seq_num=0):
 
         now = time.time()
 
@@ -84,6 +92,20 @@ class TopicStatistics:
             self.first_packet = now
 
             self.last_arrival = now
+
+            self.last_seq = seq_num
+
+        elif seq_num > 0:
+
+            expected_seq = self.last_seq + 1
+
+            if seq_num != expected_seq:
+
+                gap = abs(seq_num - expected_seq)
+
+                self.sequence_errors += gap
+
+            self.last_seq = seq_num
 
         #
         # Timing
@@ -173,33 +195,19 @@ class TopicStatistics:
 
     ###########################################################################
 
-    def loss_percentage(self, expected_rate=25.0):
+    def loss_percentage(self):
 
-        if self.first_packet is None:
-
-            return 0.0
-
-        duration = self.last_packet - self.first_packet
-
-        expected_packets = duration * expected_rate
-
-        if expected_packets <= 0:
+        if self.packet_count == 0:
 
             return 0.0
 
-        loss = (
+        total_expected = self.packet_count + self.sequence_errors
 
-            expected_packets -
+        if total_expected <= 0:
 
-            self.packet_count
+            return 0.0
 
-        )
-
-        if loss < 0:
-
-            loss = 0
-
-        return 100.0 * loss / expected_packets
+        return (self.sequence_errors / total_expected) * 100.0
 
     ###########################################################################
 
@@ -223,6 +231,8 @@ class TopicStatistics:
 
             "loss": self.loss_percentage(),
 
+            "seq_errors": self.sequence_errors,
+
             "jitter": self.jitter
 
         }
@@ -241,7 +251,7 @@ class StatisticsDatabase:
 
     ###########################################################################
 
-    def update(self, topic, payload):
+    def update(self, topic, payload, seq_num=0):
 
         if topic not in self.database:
 
@@ -249,7 +259,9 @@ class StatisticsDatabase:
 
         self.database[topic].update(
 
-            len(payload)
+            len(payload),
+
+            seq_num
 
         )
 

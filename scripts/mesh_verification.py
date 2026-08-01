@@ -10,12 +10,10 @@ Verification Framework
 End-to-End Verification Tool
 
 Validates:
-
-    • Scheduler Decisions
-    • Forwarded Topics
-    • Measured Bandwidth
-    • Packet Statistics
-    • Scheduler Accuracy
+    • Real-time Dynamic Topic Bandwidth
+    • Lossless Full Data Transmission (0% Packet Loss)
+    • Scheduler Decisions & Topic Forwarding
+    • System Throughput & Scheduler Accuracy
 
 ===============================================================================
 """
@@ -113,7 +111,7 @@ class MeshVerification:
         print()
 
         print("==========================================================")
-        print("      MESH CONTROL PLANE VERIFICATION")
+        print("   MESH CONTROL PLANE REAL-TIME LOSSLESS VERIFICATION")
         print("==========================================================")
 
         print()
@@ -132,17 +130,28 @@ class MeshVerification:
 
         print()
 
-        print("==========================================================================")
-        print("Topic                 Packets      Mbps        Avg Packet")
-        print("==========================================================================")
+        print("========================================================================================")
+        print("Topic                 Packets       Rx Mbps     Loss %   Sequence Status")
+        print("========================================================================================")
 
         total_packets = 0
+        all_lossless = True
 
         for topic in stats.topics():
 
             s = stats.statistics(topic)
 
             total_packets += s["packets"]
+            loss_pct = s["loss"]
+
+            if loss_pct == 0.0 and s["packets"] > 0:
+                status_str = "[FULL DATA 100%]"
+            elif s["packets"] == 0:
+                status_str = "[NO DATA]"
+                all_lossless = False
+            else:
+                status_str = f"[LOSS: {loss_pct:.1f}% ({s['seq_errors']} pkts)]"
+                all_lossless = False
 
             print(
 
@@ -152,13 +161,19 @@ class MeshVerification:
 
                 f"{s['mbps']:12.2f}"
 
-                f"{s['avg_packet']/1024:14.1f} KB"
+                f"{loss_pct:9.1f}%"
+
+                f"   {status_str}"
 
             )
 
-        print("--------------------------------------------------------------------------")
+        print("----------------------------------------------------------------------------------------")
 
-        print(f"Total Packets : {total_packets}")
+        print(f"Total Packets Received : {total_packets}")
+        if total_packets > 0 and all_lossless:
+            print("Lossless Full Data Verification : PASS (100% Complete Transmission)")
+        else:
+            print("Lossless Full Data Verification : WAITING / MONITORING")
 
         print()
 
@@ -174,7 +189,7 @@ class MeshVerification:
 
             while True:
 
-                time.sleep(5)
+                time.sleep(3)
 
                 stats = self.monitor.database()
 

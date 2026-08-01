@@ -9,13 +9,14 @@ Verification Framework
 
 Packet Monitor
 
-Receives forwarded mesh packets and updates runtime statistics.
+Receives forwarded mesh packets and updates runtime statistics with sequence tracking.
 
 ===============================================================================
 """
 
 from mesh_transport.zenoh_session import ZenohSession
 from verification.statistics import StatisticsDatabase
+from core.network_models import MeshSample
 
 
 class PacketMonitor:
@@ -51,7 +52,7 @@ class PacketMonitor:
         print()
 
         print("=========================================================")
-        print("Packet Monitor")
+        print("Packet Monitor (Lossless Sequence Verification)")
         print("=========================================================")
 
         self.subscriber = self.session.subscribe(
@@ -74,11 +75,16 @@ class PacketMonitor:
 
         payload = sample.payload.to_bytes()
 
+        # Unpack sequence number and timestamp
+        seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload)
+
         self.statistics.update(
 
             topic,
 
-            payload
+            raw_payload,
+
+            seq_num
 
         )
 
