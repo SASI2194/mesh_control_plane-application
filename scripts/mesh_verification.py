@@ -11,7 +11,8 @@ End-to-End Verification Tool
 
 Validates:
     • Real-time Dynamic Topic Bandwidth
-    • Lossless Full Data Transmission (0% Packet Loss)
+    • Packet Loss Tolerance Limit Verification
+    • Low-Priority Topic Shedding Evaluation
     • Scheduler Decisions & Topic Forwarding
     • System Throughput & Scheduler Accuracy
 
@@ -58,20 +59,25 @@ class MeshVerification:
         self.registry = TopicRegistry()
 
         #
-        # Scheduler
+        # Configuration
         #
-
-        self.scheduler = BandwidthScheduler(self.registry)
 
         from utils.config_manager import ConfigManager
 
         self.config_mgr = ConfigManager()
         self.config_mgr.load()
         mesh_cfg = self.config_mgr.get("mesh")
-        max_bw = float(mesh_cfg.get("scheduler", {}).get("maximum_bandwidth_mbps", 600.0))
+        sched_cfg = mesh_cfg.get("scheduler", {})
 
-        self.scheduler.available_bandwidth = max_bw
+        self.max_bw = float(sched_cfg.get("maximum_bandwidth_mbps", 600.0))
+        self.loss_tolerance = float(sched_cfg.get("packet_loss_tolerance_percent", 5.0))
 
+        #
+        # Scheduler
+        #
+
+        self.scheduler = BandwidthScheduler(self.registry)
+        self.scheduler.available_bandwidth = self.max_bw
         self.scheduler.schedule()
 
         #
@@ -111,14 +117,16 @@ class MeshVerification:
         print()
 
         print("==========================================================")
-        print("   MESH CONTROL PLANE REAL-TIME LOSSLESS VERIFICATION")
+        print("   MESH CONTROL PLANE LOSS-TOLERANCE VERIFICATION")
         print("==========================================================")
 
         print()
 
-        print(f"Expected Bandwidth : {self.scheduler.used_bandwidth:.1f} Mbps")
+        print(f"Expected Bandwidth       : {self.scheduler.used_bandwidth:.1f} Mbps")
 
-        print(f"Available Bandwidth: {self.scheduler.available_bandwidth:.1f} Mbps")
+        print(f"Available Bandwidth      : {self.scheduler.available_bandwidth:.1f} Mbps")
+
+        print(f"Packet Loss Limit        : {self.loss_tolerance:.1f} %")
 
         print()
 
@@ -130,12 +138,13 @@ class MeshVerification:
 
         print()
 
-        print("========================================================================================")
+        print("==========================================================================================================")
         print("Topic                 Packets       Rx Mbps     Loss %   Sequence Status")
-        print("========================================================================================")
+        print("==========================================================================================================")
 
         total_packets = 0
-        all_lossless = True
+        within_tolerance = True
+        congested_topics = []
 
         for topic in stats.topics():
 
@@ -144,14 +153,15 @@ class MeshVerification:
             total_packets += s["packets"]
             loss_pct = s["loss"]
 
-            if loss_pct == 0.0 and s["packets"] > 0:
-                status_str = "[FULL DATA 100%]"
-            elif s["packets"] == 0:
+            if s["packets"] == 0:
                 status_str = "[NO DATA]"
-                all_lossless = False
+                within_tolerance = False
+            elif loss_pct <= self.loss_tolerance:
+                status_str = f"[PASS: Loss <= {self.loss_tolerance:.1f}%]"
             else:
-                status_str = f"[LOSS: {loss_pct:.1f}% ({s['seq_errors']} pkts)]"
-                all_lossless = False
+                status_str = f"[EXCEEDS TOLERANCE ({loss_pct:.1f}% > {self.loss_tolerance:.1f}%) -> SHED LOW PRIORITY]"
+                within_tolerance = False
+                congested_topics.append(topic)
 
             print(
 
@@ -167,13 +177,14 @@ class MeshVerification:
 
             )
 
-        print("----------------------------------------------------------------------------------------")
+        print("----------------------------------------------------------------------------------------------------------")
 
         print(f"Total Packets Received : {total_packets}")
-        if total_packets > 0 and all_lossless:
-            print("Lossless Full Data Verification : PASS (100% Complete Transmission)")
-        else:
-            print("Lossless Full Data Verification : WAITING / MONITORING")
+
+        if total_packets > 0 and within_tolerance:
+            print(f"Loss Tolerance Verification     : PASS (All topics loss <= {self.loss_tolerance:.1f}%)")
+        elif congested_topics:
+            print(f"Loss Tolerance Verification     : CONGESTION DETECTED on {len(congested_topics)} topic(s) (Triggers Low-Priority Shedding)")
 
         print()
 

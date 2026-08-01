@@ -5,7 +5,8 @@
 
 Mesh Control Plane
 
-Main Application with Real-Time Dynamic Topic Bandwidth Measurement & Sequence Tracking
+Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Sequence Tracking,
+and Packet Loss Tolerance Congestion Control.
 
 ===============================================================================
 """
@@ -20,6 +21,7 @@ from routing.forwarding_engine import ForwardingEngine
 
 from scheduler.bandwidth_scheduler import BandwidthScheduler
 from scheduler.admission_controller import AdmissionController
+from scheduler.congestion_controller import CongestionController
 
 from ros.topic_database import TopicRegistry
 from utils.config_manager import ConfigManager
@@ -39,7 +41,7 @@ class MeshNode:
 
         print()
         print("============================================================")
-        print("Mesh Control Plane (Real-Time Dynamic Rate Mode)")
+        print("Mesh Control Plane (Real-Time Dynamic Rate & Congestion Control)")
         print("============================================================")
         print()
 
@@ -80,19 +82,29 @@ class MeshNode:
         self.config_mgr = ConfigManager()
         self.config_mgr.load()
         mesh_cfg = self.config_mgr.get("mesh")
-        self.max_bandwidth = float(mesh_cfg.get("scheduler", {}).get("maximum_bandwidth_mbps", 600.0))
+        sched_cfg = mesh_cfg.get("scheduler", {})
+
+        self.max_bandwidth = float(sched_cfg.get("maximum_bandwidth_mbps", 600.0))
+        self.loss_tolerance = float(sched_cfg.get("packet_loss_tolerance_percent", 5.0))
+        self.hysteresis = float(sched_cfg.get("hysteresis_percent", 2.0))
 
         #
-        # Scheduler
+        # Scheduler & Congestion Controller
         #
 
         self.scheduler = BandwidthScheduler(self.registry)
-
         self.scheduler.available_bandwidth = self.max_bandwidth
 
-        self.scheduler.schedule()
+        self.congestion = CongestionController(
+            tolerance_percent=self.loss_tolerance,
+            hysteresis_percent=self.hysteresis
+        )
 
+        self.scheduler.schedule()
         self.scheduler.print_schedule()
+
+        print(f"Packet Loss Tolerance Limit: {self.loss_tolerance:.1f} %")
+        print()
 
         #
         # Admission Controller
@@ -196,7 +208,7 @@ class MeshNode:
 
     #####################################################################
 
-    def update_scheduler(self):
+    def update_scheduler(self, current_loss_percent=0.0):
 
         #
         # Update registry with live measured bandwidths
@@ -209,6 +221,16 @@ class MeshNode:
         self.scheduler.available_bandwidth = self.max_bandwidth
 
         self.scheduler.schedule()
+
+        #
+        # Apply congestion controller feedback and shedding rules
+        #
+
+        self.congestion.update_feedback(
+            current_loss_percent,
+            self.scheduler,
+            self.registry
+        )
 
     #####################################################################
 
