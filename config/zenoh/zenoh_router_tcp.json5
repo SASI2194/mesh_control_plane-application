@@ -47,7 +47,7 @@
         "id": "allow_filtered_topics",
         "permission": "allow",
         "messages": ["put", "declare_subscriber"],
-        "flows": ["egress"],
+        "flows": ["egress", "ingress"],
         "key_exprs": [
           "filtered/**"
         ]
@@ -60,12 +60,21 @@
         "key_exprs": [
           "mesh/**"
         ]
+      },
+      {
+        "id": "allow_ros_dds_topics",
+        "permission": "allow",
+        "messages": ["put", "declare_subscriber", "declare_queryable"],
+        "flows": ["egress", "ingress"],
+        "key_exprs": [
+          "**"
+        ]
       }
     ],
     "subjects": [{ "id": "all" }],
     "policies": [
       {
-        "rules": ["allow_filtered_topics", "allow_mesh_control"],
+        "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros_dds_topics"],
         "subjects": ["all"]
       }
     ]
@@ -83,7 +92,13 @@
       "tx": {
         "lease": 10000,
         "keep_alive": 4,
-        "batch_size": 20971520
+        "batch_size": 65536,
+        "queue": {
+          "batching": {
+            "enabled": true,
+            "time_limit": 1
+          }
+        }
       },
       "rx": {
         "buffer_size": 20971520
