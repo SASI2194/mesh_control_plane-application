@@ -63,17 +63,16 @@ class MeshVerification:
         # Scheduler
         #
 
-        self.scheduler = BandwidthScheduler(
+        self.scheduler = BandwidthScheduler(self.registry)
 
-            self.registry
+        from utils.config_manager import ConfigManager
 
-        )
+        self.config_mgr = ConfigManager()
+        self.config_mgr.load()
+        mesh_cfg = self.config_mgr.get("mesh")
+        max_bw = float(mesh_cfg.get("scheduler", {}).get("maximum_bandwidth_mbps", 600.0))
 
-        #
-        # Same bandwidth used in mesh_node.py
-        #
-
-        self.scheduler.available_bandwidth = 250.0
+        self.scheduler.available_bandwidth = max_bw
 
         self.scheduler.schedule()
 

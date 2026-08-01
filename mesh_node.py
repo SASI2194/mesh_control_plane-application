@@ -22,6 +22,7 @@ from scheduler.bandwidth_scheduler import BandwidthScheduler
 from scheduler.admission_controller import AdmissionController
 
 from ros.topic_database import TopicRegistry
+from utils.config_manager import ConfigManager
 
 from core.network_models import MeshSample
 
@@ -66,16 +67,21 @@ class MeshNode:
         self.registry.print_topics()
 
         #
+        # Configuration
+        #
+
+        self.config_mgr = ConfigManager()
+        self.config_mgr.load()
+        mesh_cfg = self.config_mgr.get("mesh")
+        self.max_bandwidth = float(mesh_cfg.get("scheduler", {}).get("maximum_bandwidth_mbps", 600.0))
+
+        #
         # Scheduler
         #
 
         self.scheduler = BandwidthScheduler(self.registry)
 
-        #
-        # Temporary bandwidth
-        #
-
-        self.scheduler.available_bandwidth = 250.0
+        self.scheduler.available_bandwidth = self.max_bandwidth
 
         self.scheduler.schedule()
 
@@ -181,11 +187,7 @@ class MeshNode:
 
     def update_scheduler(self):
 
-        #
-        # Placeholder
-        #
-
-        self.scheduler.available_bandwidth = 250.0
+        self.scheduler.available_bandwidth = self.max_bandwidth
 
         self.scheduler.schedule()
 
