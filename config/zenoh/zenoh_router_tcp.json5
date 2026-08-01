@@ -40,7 +40,7 @@
   "timestamping": { "enabled": { "router": true, "peer": true, "client": true } },
   "downsampling": [],
   "access_control": {
-    "enabled": false,
+    "enabled": true,
     "default_permission": "deny",
     "rules": [
       {
