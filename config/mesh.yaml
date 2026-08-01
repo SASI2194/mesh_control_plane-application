@@ -10,7 +10,7 @@ router:
 
 zenoh:
 
- config_directory: /home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp
+  config_directory: /home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp
 
   peer_config: zenoh_peer_tcp.json5
 
@@ -44,7 +44,7 @@ heartbeat:
 
 scheduler:
 
-  maximum_bandwidth_mbps: 600
+  maximum_bandwidth_mbps: 400
 
   hysteresis_percent: 10
 
