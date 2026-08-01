@@ -1,54 +1,25 @@
 import time
 
 from utils.logger import MeshLogger
-
-from utils.config_manager import ConfigManager
-
-from transport.zenoh_manager import ZenohManager
-
+from mesh_transport.zenoh_session import ZenohSession
 
 MeshLogger.initialize("AGV01")
 
-cfg = ConfigManager()
-
-cfg.load()
-
-z = ZenohManager()
-
-if not z.connect():
-
-    print("Unable to connect")
-
-    exit()
-
+config_file = "config/zenoh/zenoh_router_tcp.json5"
+z = ZenohSession(config_file)
+z.connect()
+print("[SUCCESS] Zenoh Session connected successfully with enabled access_control!")
 
 def callback(sample):
+    print("Received sample on key:", sample.key_expr)
+    print("Payload:", sample.payload.to_bytes().decode())
 
-    print()
+sub = z.subscribe("mesh/test", callback)
+time.sleep(0.5)
 
-    print("Received")
+z.publish("mesh/test", "Hello Mesh Control Plane")
+print("[SUCCESS] Published to key: mesh/test")
 
-    print(sample.key_expr)
-
-    print(sample.payload.to_bytes().decode())
-
-    print()
-
-
-z.subscribe("/mesh/test", callback)
-
-time.sleep(1)
-
-z.publish(
-    "/mesh/test",
-    {
-        "node": "AGV01",
-        "message": "Hello Mesh"
-    }
-)
-
-print("Published")
-
-time.sleep(5)
-
+time.sleep(1.0)
 z.close()
+print("[SUCCESS] Session closed cleanly.")
