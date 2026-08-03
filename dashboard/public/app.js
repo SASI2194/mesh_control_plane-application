@@ -4,7 +4,7 @@
  *
  * Architecture:
  *   • 7 Physical Wireless Radios (NetMetal AX): Form an explicit 7-Sided Polygon (Heptagon)
- *   • GCS NetMetal AX Radio Hub connects via Ethernet Switch to GCS-01, GCS-02, GCS-03
+ *   • GCS NetMetal AX Radio Hub connects via Ethernet Switch OUTSIDE polygon to GCS-01, GCS-02, GCS-03
  */
 
 let activeFilter = 'all';
@@ -91,26 +91,28 @@ function renderTopology(topology) {
     ];
 
     const positions = {};
-    const cx = 350;
-    const cy = 175;
-    const rx = 240;
+    const cx = 270;
+    const cy = 170;
+    const rx = 190;
     const ry = 110;
     const n = radioOrder.length; // 7
 
     const polygonPoints = [];
     for (let i = 0; i < n; i++) {
-        const angle = (2 * Math.PI * i / n) - (Math.PI / 2);
+        // Position GCS-RADIO explicitly at angle 0 (rightmost edge of polygon)
+        const angle = (2 * Math.PI * i / n);
         const ptX = Math.round(cx + rx * Math.cos(angle));
         const ptY = Math.round(cy + ry * Math.sin(angle));
         positions[radioOrder[i]] = { x: ptX, y: ptY };
         polygonPoints.push(`${ptX},${ptY}`);
     }
 
-    // Add 3 GCS Processing System positions connected via Ethernet Switch
-    const gcsRadioPos = positions['GCS-RADIO'];
-    positions['GCS-01'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y - 65 };
-    positions['GCS-02'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y };
-    positions['GCS-03'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y + 65 };
+    // Add 3 GCS Processing Stations strictly OUTSIDE polygon to the right
+    const gcsRadioPos = positions['GCS-RADIO']; // x = ~460, y = 170
+    const switchX = gcsRadioPos.x + 75; // x = ~535
+    positions['GCS-01'] = { x: gcsRadioPos.x + 180, y: 65 };
+    positions['GCS-02'] = { x: gcsRadioPos.x + 180, y: 170 };
+    positions['GCS-03'] = { x: gcsRadioPos.x + 180, y: 275 };
 
     let html = '';
 
@@ -160,15 +162,26 @@ function renderTopology(topology) {
         `;
     });
 
-    // 3. Draw Ethernet Switch Lines connecting GCS-RADIO Hub to 3 GCS Stations
+    // 3. Draw Ethernet Switch Hub & Connection Lines OUTSIDE Polygon
+    html += `
+        <!-- Ethernet Switch Icon/Box -->
+        <rect x="${switchX - 22}" y="152" width="44" height="36" rx="4" 
+              fill="rgba(168, 85, 247, 0.2)" stroke="#a855f7" stroke-width="1.5" />
+        <text x="${switchX}" y="174" fill="#a855f7" font-size="9" font-weight="800" text-anchor="middle">SWITCH</text>
+        
+        <!-- Connection from GCS-RADIO to Switch -->
+        <line x1="${gcsRadioPos.x}" y1="${gcsRadioPos.y}" x2="${switchX - 22}" y2="170" 
+              stroke="#a855f7" stroke-width="2" stroke-dasharray="2 2" />
+    `;
+
+    // Connect Ethernet Switch to 3 GCS Stations OUTSIDE polygon
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
-        const src = positions['GCS-RADIO'];
         const tgt = positions[gcsId];
         const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
         const color = isOnline ? '#a855f7' : 'rgba(244, 63, 94, 0.4)';
 
         html += `
-            <line x1="${src.x}" y1="${src.y}" x2="${tgt.x}" y2="${tgt.y}" 
+            <line x1="${switchX + 22}" y1="170" x2="${tgt.x - 28}" y2="${tgt.y}" 
                   stroke="${color}" stroke-width="2" opacity="${isOnline ? 0.9 : 0.4}" />
         `;
     });
@@ -190,7 +203,7 @@ function renderTopology(topology) {
         `;
     });
 
-    // 5. Draw 3 GCS Processing Stations
+    // 5. Draw 3 GCS Processing Stations OUTSIDE Polygon
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
         const pos = positions[gcsId];
         const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
@@ -199,7 +212,7 @@ function renderTopology(topology) {
 
         html += `
             <g transform="translate(${pos.x}, ${pos.y})" opacity="${isOnline ? 1.0 : 0.45}">
-                <rect x="-24" y="-14" width="48" height="28" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2" />
+                <rect x="-28" y="-14" width="56" height="28" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2" />
                 <text y="4" fill="#f1f5f9" font-size="10" font-weight="700" text-anchor="middle">${gcsId}</text>
                 <text y="24" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" text-anchor="middle">${statusText}</text>
             </g>
