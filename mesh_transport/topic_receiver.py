@@ -7,7 +7,8 @@ Mesh Control Plane
 
 Topic Receiver
 
-Subscribes to all deployment topics through their Zenoh transport keys.
+Subscribes to local deployment topics and inter-device control plane topics (filtered/**)
+so running mesh_node.py automatically initiates inter-system mesh transmission.
 
 ===============================================================================
 """
@@ -38,14 +39,19 @@ class TopicReceiver:
         print()
 
         print("======================================================")
-        print("Starting Topic Receiver")
+        print("Starting Topic Receiver (Local & Inter-Device Control Plane)")
         print("======================================================")
 
-        for topic in self.registry.all_topics().values():
+        # 1. Subscribe to inter-device Control Plane topics (filtered/**)
+        filtered_sub = self.peer.subscribe(
+            "filtered/**",
+            self.callback
+        )
+        self.subscribers.append(filtered_sub)
+        print("[SUBSCRIBE] filtered/** (Inter-Device Mesh Control Plane)")
 
-            #
-            # Convert ROS topic to Zenoh transport key
-            #
+        # 2. Subscribe to local ROS deployment topics
+        for topic in self.registry.all_topics().values():
 
             zenoh_key = self.mapper.ros_to_zenoh(
 

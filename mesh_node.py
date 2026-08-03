@@ -6,7 +6,7 @@
 Mesh Control Plane
 
 Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Sequence Tracking,
-Packet Loss Tolerance Congestion Control, and Web Dashboard Telemetry.
+Packet Loss Tolerance Congestion Control, and Automatic Web Dashboard Telemetry.
 
 ===============================================================================
 """
@@ -42,7 +42,7 @@ class MeshNode:
 
         print()
         print("============================================================")
-        print("Mesh Control Plane (Real-Time Dynamic Rate & Web Dashboard)")
+        print("Mesh Control Plane (Real-Time Dynamic Rate & Automatic Dashboard)")
         print("============================================================")
         print()
 
@@ -53,7 +53,7 @@ class MeshNode:
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
 
         #
-        # Web Dashboard Background Telemetry Server
+        # Web Dashboard Telemetry Server (Automatic Mode)
         #
 
         try:
@@ -157,17 +157,24 @@ class MeshNode:
 
     def callback(self, sample):
 
-        #
-        # Convert Zenoh transport key (e.g. 55/topic_01/...) into ROS topic (/topic_01)
-        #
-
-        ros_topic = self.mapper.zenoh_to_ros(
-
-            str(sample.key_expr)
-
-        )
-
+        key_str = str(sample.key_expr)
         payload_bytes = sample.payload.to_bytes()
+
+        #
+        # Handle Inter-Device Control Plane Samples (filtered/**)
+        #
+
+        if key_str.startswith("filtered/"):
+            # Incoming sample from another mesh node over physical interface
+            seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
+            print(f"[RECV MESH] {key_str} (Seq #{seq_num}, Bytes: {len(raw_payload)})")
+            return
+
+        #
+        # Handle Local ROS Deployment Topics
+        #
+
+        ros_topic = self.mapper.zenoh_to_ros(key_str)
 
         #
         # Record real-time bandwidth & get sequence number
@@ -196,26 +203,22 @@ class MeshNode:
         )
 
         #
-        # Debug
+        # Debug & Forwarding
         #
 
         if mesh_sample.allowed:
 
             print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num})")
 
+            self.forwarding.forward(
+
+                mesh_sample
+
+            )
+
         else:
 
             print(f"[BLOCK ] {mesh_sample.key}")
-
-        #
-        # Forward
-        #
-
-        self.forwarding.forward(
-
-            mesh_sample
-
-        )
 
     #####################################################################
 
