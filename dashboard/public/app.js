@@ -8,6 +8,7 @@
  *   • GCS Radio moved DOWN to center-right vertex (rightmost tip)
  *   • Ethernet Switch moved ASIDE to the right of GCS Radio, clear of all nodes
  *   • Real-Time Topic Table displays Live Rate (Hz), Msg Size (KB/MB), and Live Bandwidth
+ *   • Ultra-Fast Live Polling: 500 ms (2 Hz live stream updates)
  */
 
 let activeFilter = 'all';
@@ -17,7 +18,7 @@ let cachedData = null;
 document.addEventListener('DOMContentLoaded', () => {
     setupFilterListeners();
     fetchTelemetryData();
-    setInterval(fetchTelemetryData, 1500); // Poll every 1.5 seconds
+    setInterval(fetchTelemetryData, 500); // Poll every 500ms (2 Hz live updates)
 });
 
 // Setup Filter Buttons

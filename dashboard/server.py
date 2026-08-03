@@ -11,6 +11,7 @@ Lightweight HTTP REST API & Web Server providing real-time telemetry for
 6 UGVs (Jetson Orin + NetMetal AX) and 3 GCSs (Processing System + Switch + NetMetal AX).
 
 Features:
+    • Ultra-Fast Non-Blocking Parallel Ping Monitoring (200ms Timeout)
     • 7-Sided Polygon (Heptagon) Wireless Mesh Topology Generator (7 NetMetal AX Radios)
     • Real-time Live ICMP Ping & Heartbeat Monitoring for all 9 devices
     • Dynamic Bandwidth Utilization, Real-Time Frequency (Hz), and Data Size Tracking
@@ -25,6 +26,7 @@ import socket
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from threading import Thread, Lock
 
@@ -78,7 +80,8 @@ class TelemetryDataProvider:
             {"id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "ONLINE", "rssi": -69, "latency": 6.5, "loss": 0.8, "uptime": "1h 50m"},
         ]
 
-        # Start live ping monitor daemon thread
+        self.ping_executor = ThreadPoolExecutor(max_workers=9)
+        # Start live parallel ping monitor daemon thread
         self.monitor_thread = Thread(target=self._live_ping_loop, daemon=True)
         self.monitor_thread.start()
 
@@ -89,25 +92,35 @@ class TelemetryDataProvider:
             self.scheduler = scheduler
 
     def _live_ping_loop(self):
-        """Continuously pings all 9 devices to measure real-time latency & availability."""
+        """Continuously pings all 9 devices in parallel (non-blocking 200ms timeout)."""
         while True:
+            futures = []
             for node in self.nodes:
-                ip = node["ip"]
-                status, latency = self._ping_device(ip)
-                with self.lock:
-                    node["status"] = status
-                    if status == "ONLINE":
-                        node["latency"] = latency
-                        if latency < 5.0:
-                            node["rssi"] = -60
-                        elif latency < 10.0:
-                            node["rssi"] = -68
+                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"])))
+
+            for node, future in futures:
+                try:
+                    status, latency = future.result(timeout=0.5)
+                    with self.lock:
+                        node["status"] = status
+                        if status == "ONLINE":
+                            node["latency"] = latency
+                            if latency < 5.0:
+                                node["rssi"] = -60
+                            elif latency < 10.0:
+                                node["rssi"] = -68
+                            else:
+                                node["rssi"] = -75
                         else:
-                            node["rssi"] = -75
-                    else:
+                            node["latency"] = 0.0
+                            node["rssi"] = -95
+                except Exception:
+                    with self.lock:
+                        node["status"] = "OFFLINE"
                         node["latency"] = 0.0
                         node["rssi"] = -95
-            time.sleep(2.5)
+
+            time.sleep(1.0)
 
     def _ping_device(self, ip):
         try:
