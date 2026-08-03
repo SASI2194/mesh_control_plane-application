@@ -82,6 +82,12 @@ class TelemetryDataProvider:
         self.monitor_thread = Thread(target=self._live_ping_loop, daemon=True)
         self.monitor_thread.start()
 
+    def attach_components(self, registry, scheduler):
+        """Attaches live MeshNode registry & scheduler instances for real-time telemetry updates."""
+        with self.lock:
+            self.registry = registry
+            self.scheduler = scheduler
+
     def _live_ping_loop(self):
         """Continuously pings all 9 devices to measure real-time latency & availability."""
         while True:

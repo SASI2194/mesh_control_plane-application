@@ -26,7 +26,7 @@ from scheduler.congestion_controller import CongestionController
 from ros.topic_database import TopicRegistry
 from utils.config_manager import ConfigManager
 from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
-from dashboard.server import start_dashboard_background
+from dashboard.server import start_dashboard_background, DATA_PROVIDER
 
 from core.network_models import MeshSample
 
@@ -51,16 +51,6 @@ class MeshNode:
         #
 
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
-
-        #
-        # Web Dashboard Telemetry Server (Automatic Mode)
-        #
-
-        try:
-            start_dashboard_background(host="0.0.0.0", port=8080)
-            print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
-        except Exception as e:
-            print(f"[WARNING] Web Dashboard failed to start: {e}")
 
         #
         # Transport Sessions
@@ -116,6 +106,17 @@ class MeshNode:
 
         print(f"Packet Loss Tolerance Limit: {self.loss_tolerance:.1f} %")
         print()
+
+        #
+        # Web Dashboard Telemetry Server (Automatic Mode & Live Instance Linking)
+        #
+
+        try:
+            start_dashboard_background(host="0.0.0.0", port=8080)
+            DATA_PROVIDER.attach_components(self.registry, self.scheduler)
+            print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
+        except Exception as e:
+            print(f"[WARNING] Web Dashboard failed to start: {e}")
 
         #
         # Admission Controller
