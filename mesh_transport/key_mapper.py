@@ -7,7 +7,8 @@ Mesh Control Plane
 
 Zenoh Transport Key Mapper
 
-Maps ROS topics to Zenoh transport keys using robust wildcard matching.
+Maps ROS topics to Zenoh transport keys using specific domain matching
+to prevent loopback matching on control plane topics (filtered/**).
 
 ===============================================================================
 """
@@ -31,9 +32,9 @@ class KeyMapper:
 
             /topic_01
 
-        into wildcard Zenoh key matcher:
+        into explicit domain matcher excluding filtered/** keys:
 
-            **/topic_01/**
+            */topic_01/**
         """
 
         if ros_topic.startswith("/"):
@@ -41,7 +42,9 @@ class KeyMapper:
         else:
             clean_topic = ros_topic
 
-        return f"**/{clean_topic}/**"
+        # Use single wildcard */ to match ROS domain ID prefix (e.g. 40/topic_01/...)
+        # and prevent matching filtered/topic_01
+        return f"*/{clean_topic}/**"
 
     #####################################################################
 
@@ -49,7 +52,7 @@ class KeyMapper:
         """
         Convert
 
-            55/topic_01/sensor_msgs::...  OR  filtered/topic_01
+            40/topic_01/sensor_msgs::...  OR  filtered/topic_01
 
         into
 
@@ -60,11 +63,6 @@ class KeyMapper:
         for part in parts:
             if part.startswith("topic_"):
                 return "/" + part
-            elif part in ["topic_01", "topic_02", "topic_03", "topic_04", "topic_05",
-                          "topic_06", "topic_07", "topic_08", "topic_09", "topic_10",
-                          "topic_11", "topic_12", "topic_13", "topic_14", "topic_15",
-                          "topic_16", "topic_17", "topic_18", "topic_19", "topic_20"]:
-                return "/" + part
 
         return ""
 
@@ -73,15 +71,9 @@ class KeyMapper:
     def print_example(self):
 
         print()
-
         print("============== Key Mapper ==============")
-
         example = "/topic_01"
-
         print(example)
-
         print("↓")
-
         print(self.ros_to_zenoh(example))
-
         print()

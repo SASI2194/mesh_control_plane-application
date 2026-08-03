@@ -162,10 +162,6 @@ class MeshNode:
         if key_str.startswith("filtered/"):
             # Incoming sample from another mesh node over physical interface
             seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
-            ros_topic = self.mapper.zenoh_to_ros(key_str)
-            if ros_topic:
-                self.bw_monitor.record_sample(ros_topic, len(raw_payload))
-
             print(f"[RECV MESH] {key_str} (Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
 
@@ -174,9 +170,11 @@ class MeshNode:
         #
 
         ros_topic = self.mapper.zenoh_to_ros(key_str)
+        if not ros_topic:
+            return
 
         #
-        # Record real-time bandwidth, Hz, and msg size & get sequence number
+        # Record real-time bandwidth, Hz, and msg size ONCE per local sample
         #
 
         seq_num = self.bw_monitor.record_sample(ros_topic, len(payload_bytes))
