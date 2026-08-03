@@ -5,10 +5,10 @@
 
 Mesh Control Plane
 
-Real-Time Dynamic Bandwidth Monitor
+Real-Time Dynamic Bandwidth & Topic Metrics Monitor
 
-Measures incoming ROS topic bandwidth and packet rates in real-time
-using a sliding time window.
+Measures incoming ROS topic bandwidth, packet rates (Hz), and message data sizes
+in real-time using a sliding time window.
 
 ===============================================================================
 """
@@ -16,6 +16,16 @@ using a sliding time window.
 import time
 from collections import deque
 from threading import Lock
+
+
+def format_bytes(num_bytes):
+    """Formats bytes into human readable B, KB, MB strings."""
+    if num_bytes < 1024:
+        return f"{num_bytes:.0f} B"
+    elif num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024.0:.1f} KB"
+    else:
+        return f"{num_bytes / (1024.0 * 1024.0):.2f} MB"
 
 
 class TopicWindowStats:
@@ -44,28 +54,39 @@ class TopicWindowStats:
         while self.samples and self.samples[0][0] < cutoff:
             self.samples.popleft()
 
-    def get_bandwidth_mbps(self):
+    def get_metrics(self):
+        """
+        Returns a dict containing live Mbps, Hz (pps), avg message size in bytes, and formatted string.
+        """
         with self.lock:
             now = time.time()
             self._clean_old_samples(now)
             if not self.samples:
-                return 0.0
-            total_bytes = sum(s[1] for s in self.samples)
-            # Mbps = (bytes * 8) / 1,000,000 over window_size_sec
-            return (total_bytes * 8.0) / (self.window_size_sec * 1e6)
+                return {
+                    "mbps": 0.0,
+                    "hz": 0.0,
+                    "avg_bytes": 0.0,
+                    "data_size_str": "0 B"
+                }
 
-    def get_packet_rate(self):
-        with self.lock:
-            now = time.time()
-            self._clean_old_samples(now)
-            if not self.samples:
-                return 0.0
-            return len(self.samples) / self.window_size_sec
+            total_bytes = sum(s[1] for s in self.samples)
+            count = len(self.samples)
+
+            mbps = (total_bytes * 8.0) / (self.window_size_sec * 1e6)
+            hz = count / self.window_size_sec
+            avg_bytes = total_bytes / count if count > 0 else 0.0
+
+            return {
+                "mbps": round(mbps, 2),
+                "hz": round(hz, 1),
+                "avg_bytes": round(avg_bytes, 1),
+                "data_size_str": format_bytes(avg_bytes)
+            }
 
 
 class RealtimeBandwidthMonitor:
     """
-    Monitors real-time bandwidth across all active ROS topics.
+    Monitors real-time bandwidth, frequency (Hz), and payload data sizes across all active ROS topics.
     """
 
     def __init__(self, window_size_sec=1.0):
@@ -84,15 +105,20 @@ class RealtimeBandwidthMonitor:
 
         return stats.add_sample(byte_size)
 
-    def get_topic_bandwidth(self, topic_name):
+    def get_topic_metrics(self, topic_name):
         """
-        Get the current measured Mbps for a topic.
+        Get the current measured metrics for a topic.
         """
         with self.lock:
             stats = self.topic_stats.get(topic_name)
             if stats:
-                return stats.get_bandwidth_mbps()
-            return 0.0
+                return stats.get_metrics()
+            return {
+                "mbps": 0.0,
+                "hz": 0.0,
+                "avg_bytes": 0.0,
+                "data_size_str": "0 B"
+            }
 
     def get_all_bandwidths(self):
         """
@@ -103,5 +129,18 @@ class RealtimeBandwidthMonitor:
 
         result = {}
         for topic in topics:
-            result[topic] = self.get_topic_bandwidth(topic)
+            metrics = self.get_topic_metrics(topic)
+            result[topic] = metrics["mbps"]
+        return result
+
+    def get_all_metrics(self):
+        """
+        Get a dict mapping topic_name -> full metrics dict (mbps, hz, avg_bytes, data_size_str).
+        """
+        with self.lock:
+            topics = list(self.topic_stats.keys())
+
+        result = {}
+        for topic in topics:
+            result[topic] = self.get_topic_metrics(topic)
         return result

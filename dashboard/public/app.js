@@ -7,6 +7,7 @@
  *   • UGV-01 moved UP to top-right vertex
  *   • GCS Radio moved DOWN to center-right vertex (rightmost tip)
  *   • Ethernet Switch moved ASIDE to the right of GCS Radio, clear of all nodes
+ *   • Real-Time Topic Table displays Live Rate (Hz), Msg Size (KB/MB), and Live Bandwidth
  */
 
 let activeFilter = 'all';
@@ -230,7 +231,7 @@ function renderTopology(topology) {
     svg.innerHTML = html;
 }
 
-// Render Priority Topics Table
+// Render Priority Topics Table with Real-Time Hz, Msg Size, and Live Bandwidth
 function renderTopics(topics) {
     if (!topics) return;
     const tbody = document.getElementById('topics-tbody');
@@ -241,12 +242,18 @@ function renderTopics(topics) {
         const statusClass = isAllowed ? 'allowed' : 'blocked';
         const verifClass = isAllowed ? 'text-emerald' : 'text-amber';
 
+        const hzStr = (t.hz !== undefined && t.hz !== null) ? `${t.hz.toFixed(1)} Hz` : '0.0 Hz';
+        const msgSizeStr = t.data_size_str || '0 B';
+        const liveBwStr = `${t.bandwidth_mbps.toFixed(1)} Mbps`;
+
         html += `
             <tr>
                 <td><strong>P${t.priority}</strong></td>
                 <td>${t.name}</td>
                 <td>Priority ${t.priority}</td>
-                <td>${t.bandwidth_mbps} Mbps</td>
+                <td><span class="text-cyan font-bold">${hzStr}</span></td>
+                <td><span class="text-purple font-bold">${msgSizeStr}</span></td>
+                <td><span class="text-emerald font-bold">${liveBwStr}</span></td>
                 <td><span class="status-badge ${statusClass}">${t.status}</span></td>
                 <td class="${verifClass}">${t.verification}</td>
             </tr>

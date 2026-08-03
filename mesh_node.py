@@ -47,7 +47,7 @@ class MeshNode:
         print()
 
         #
-        # Real-time Bandwidth Monitor
+        # Real-time Bandwidth & Hz / Payload Monitor
         #
 
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
@@ -122,9 +122,7 @@ class MeshNode:
         #
 
         self.admission = AdmissionController(
-
             self.scheduler
-
         )
 
         #
@@ -132,23 +130,17 @@ class MeshNode:
         #
 
         self.forwarding = ForwardingEngine(
-
             self.forward_session
-
         )
 
         #
-        # Topic Receiver
+        # Topic Receiver (Automatic Subscription to filtered/** and local ROS topics)
         #
 
         self.receiver = TopicReceiver(
-
             self.peer,
-
             self.registry,
-
             self.callback
-
         )
 
         self.receiver.start()
@@ -177,19 +169,15 @@ class MeshNode:
         ros_topic = self.mapper.zenoh_to_ros(key_str)
 
         #
-        # Record real-time bandwidth & get sequence number
+        # Record real-time bandwidth, Hz, and msg size & get sequence number
         #
 
         seq_num = self.bw_monitor.record_sample(ros_topic, len(payload_bytes))
 
         mesh_sample = MeshSample(
-
             key=ros_topic,
-
             payload=payload_bytes,
-
             sequence_number=seq_num
-
         )
 
         #
@@ -197,9 +185,7 @@ class MeshNode:
         #
 
         mesh_sample.allowed = self.admission.evaluate(
-
             mesh_sample.key
-
         )
 
         #
@@ -207,17 +193,11 @@ class MeshNode:
         #
 
         if mesh_sample.allowed:
-
-            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num})")
-
+            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
             self.forwarding.forward(
-
                 mesh_sample
-
             )
-
         else:
-
             print(f"[BLOCK ] {mesh_sample.key}")
 
     #####################################################################
@@ -225,11 +205,11 @@ class MeshNode:
     def update_scheduler(self, current_loss_percent=0.0):
 
         #
-        # Update registry with live measured bandwidths
+        # Update registry with live measured bandwidths, Hz, and data sizes
         #
 
-        self.registry.update_measured_bandwidths(
-            self.bw_monitor.get_all_bandwidths()
+        self.registry.update_measured_metrics(
+            self.bw_monitor.get_all_metrics()
         )
 
         self.scheduler.available_bandwidth = self.max_bandwidth
@@ -251,15 +231,11 @@ class MeshNode:
     def run(self):
 
         try:
-
             while True:
-
                 self.update_scheduler()
-
                 time.sleep(1)
 
         except KeyboardInterrupt:
-
             self.shutdown()
 
     #####################################################################
@@ -267,17 +243,12 @@ class MeshNode:
     def shutdown(self):
 
         print()
-
         print("Stopping Mesh Control Plane")
-
         print()
 
         self.forwarding.statistics()
-
         self.receiver.stop()
-
         self.peer.close()
-
         self.forward_session.close()
 
 
@@ -286,5 +257,4 @@ class MeshNode:
 if __name__ == "__main__":
 
     node = MeshNode()
-
     node.run()

@@ -13,7 +13,7 @@ Lightweight HTTP REST API & Web Server providing real-time telemetry for
 Features:
     • 7-Sided Polygon (Heptagon) Wireless Mesh Topology Generator (7 NetMetal AX Radios)
     • Real-time Live ICMP Ping & Heartbeat Monitoring for all 9 devices
-    • Dynamic Bandwidth Utilization & Latency Tracking
+    • Dynamic Bandwidth Utilization, Real-Time Frequency (Hz), and Data Size Tracking
     • Priority Admission & Topic Lossless Verification Data
 
 ===============================================================================
@@ -148,7 +148,6 @@ class TelemetryDataProvider:
         """Generates 7-Sided Polygon (Heptagon) Wireless Interconnection Links."""
         with self.lock:
             links = []
-            # 7 Wireless Radio Endpoints: UGV-01..06 + GCS-Radio
             radio_endpoints = [
                 "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06", "GCS-RADIO"
             ]
@@ -156,7 +155,6 @@ class TelemetryDataProvider:
             n = len(radio_endpoints)
             node_dict = {n["id"]: n for n in self.nodes}
 
-            # Generate 21 mesh links between the 7 wireless radios
             for i in range(n):
                 for j in range(i + 1, n):
                     r1 = radio_endpoints[i]
@@ -188,11 +186,17 @@ class TelemetryDataProvider:
             allowed = self.scheduler.allowed_topics
             for name, topic in self.registry.all_topics().items():
                 is_allowed = name in allowed
+                bw = topic.get("measured_bandwidth", topic.get("bandwidth", 0.0))
+                hz = topic.get("hz", 0.0)
+                data_size_str = topic.get("data_size_str", "0 B")
+
                 result.append({
                     "id": topic["id"],
                     "name": topic["name"],
                     "priority": topic["priority"],
-                    "bandwidth_mbps": topic["bandwidth"],
+                    "bandwidth_mbps": round(bw, 1),
+                    "hz": round(hz, 1),
+                    "data_size_str": data_size_str,
                     "status": "ALLOWED" if is_allowed else "BLOCKED",
                     "loss_percent": 0.0 if is_allowed else 100.0,
                     "verification": "FULL DATA 100%" if is_allowed else "SHEDDED"
