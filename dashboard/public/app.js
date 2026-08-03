@@ -4,7 +4,9 @@
  *
  * Architecture:
  *   • 7 Physical Wireless Radios (NetMetal AX): Form an explicit 7-Sided Polygon (Heptagon)
- *   • GCS Radio (7th vertex of polygon) connects via Ethernet Switch to GCS-01, GCS-02, GCS-03 (OUTSIDE polygon)
+ *   • UGV-01 moved UP to top-right vertex
+ *   • GCS Radio moved DOWN to center-right vertex (rightmost tip)
+ *   • Ethernet Switch moved ASIDE to the right of GCS Radio, clear of all nodes
  */
 
 let activeFilter = 'all';
@@ -85,34 +87,41 @@ function renderTopology(topology) {
     if (!topology || !topology.nodes) return;
     const svg = document.getElementById('topology-svg');
 
-    // 7 Vertices of the 7-Sided Polygon (6 UGV NetMetal AX Radios + 1 GCS Radio)
+    // Order vertices around Heptagon: UGV-01 UP, GCS-RADIO DOWN to center-right tip
     const radioOrder = [
-        'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06', 'GCS-RADIO'
+        'UGV-06',      // Vertex 0: Top Center (-90°)
+        'UGV-01',      // Vertex 1: Top Right (-38.5°)  [MOVED UP]
+        'GCS-RADIO',   // Vertex 2: Center Right (+12.8°) [MOVED DOWN to rightmost tip]
+        'UGV-02',      // Vertex 3: Bottom Right (+64.3°)
+        'UGV-03',      // Vertex 4: Bottom Left (+115.7°)
+        'UGV-04',      // Vertex 5: Center Left (+167.1°)
+        'UGV-05'       // Vertex 6: Top Left (+218.5°)
     ];
 
     const positions = {};
-    const cx = 270;
-    const cy = 170;
-    const rx = 190;
+    const cx = 260;
+    const cy = 175;
+    const rx = 195;
     const ry = 110;
     const n = radioOrder.length; // 7
 
     const polygonPoints = [];
     for (let i = 0; i < n; i++) {
-        // Position GCS-RADIO explicitly at angle 0 (rightmost vertex of polygon)
-        const angle = (2 * Math.PI * i / n);
+        const angle = (2 * Math.PI * i / n) - (Math.PI / 2);
         const ptX = Math.round(cx + rx * Math.cos(angle));
         const ptY = Math.round(cy + ry * Math.sin(angle));
         positions[radioOrder[i]] = { x: ptX, y: ptY };
         polygonPoints.push(`${ptX},${ptY}`);
     }
 
-    // Connect Ethernet Switch and 3 GCS Stations directly to GCS-RADIO
-    const gcsRadioPos = positions['GCS-RADIO']; // GCS-RADIO point (rightmost vertex)
-    const switchX = gcsRadioPos.x + 75; // x = ~535
-    positions['GCS-01'] = { x: gcsRadioPos.x + 180, y: 65 };
-    positions['GCS-02'] = { x: gcsRadioPos.x + 180, y: 170 };
-    positions['GCS-03'] = { x: gcsRadioPos.x + 180, y: 275 };
+    // Connect Ethernet Switch & 3 GCS Stations to GCS-RADIO (moved aside to the right)
+    const gcsRadioPos = positions['GCS-RADIO']; // x = ~455, y = ~195
+    const switchX = gcsRadioPos.x + 95;        // x = ~550 (moved ASIDE, clear of all nodes)
+    const switchY = gcsRadioPos.y;
+
+    positions['GCS-01'] = { x: switchX + 115, y: 65 };
+    positions['GCS-02'] = { x: switchX + 115, y: 175 };
+    positions['GCS-03'] = { x: switchX + 115, y: 285 };
 
     let html = '';
 
@@ -124,7 +133,7 @@ function renderTopology(topology) {
                  stroke="rgba(0, 229, 255, 0.4)" 
                  stroke-width="2" 
                  stroke-dasharray="6 3" />
-        <text x="${cx}" y="24" fill="var(--accent-cyan)" font-size="11" font-weight="700" text-anchor="middle">
+        <text x="${cx}" y="22" fill="var(--accent-cyan)" font-size="11" font-weight="700" text-anchor="middle">
             7-SIDED POLYGON WIRELESS MESH (7 NETMETAL AX RADIOS)
         </text>
     `;
@@ -161,16 +170,16 @@ function renderTopology(topology) {
         `;
     });
 
-    // 3. Draw Ethernet Switch Hub & Connection Lines DIRECTLY FROM GCS-RADIO TO GCS STATIONS
+    // 3. Draw Ethernet Switch Hub (MOVED ASIDE) & Connection Lines DIRECTLY FROM GCS-RADIO TO GCS STATIONS
     html += `
         <!-- Ethernet Switch Icon/Box -->
-        <rect x="${switchX - 22}" y="152" width="44" height="36" rx="4" 
-              fill="rgba(168, 85, 247, 0.2)" stroke="#a855f7" stroke-width="1.5" />
-        <text x="${switchX}" y="174" fill="#a855f7" font-size="9" font-weight="800" text-anchor="middle">SWITCH</text>
+        <rect x="${switchX - 24}" y="${switchY - 18}" width="48" height="36" rx="6" 
+              fill="rgba(168, 85, 247, 0.25)" stroke="#a855f7" stroke-width="1.8" />
+        <text x="${switchX}" y="${switchY + 4}" fill="#a855f7" font-size="9" font-weight="800" text-anchor="middle">SWITCH</text>
         
-        <!-- Connection from GCS-RADIO to Ethernet Switch -->
-        <line x1="${gcsRadioPos.x}" y1="${gcsRadioPos.y}" x2="${switchX - 22}" y2="170" 
-              stroke="#a855f7" stroke-width="2" stroke-dasharray="2 2" />
+        <!-- Connection line from GCS-RADIO to Ethernet Switch -->
+        <line x1="${gcsRadioPos.x}" y1="${gcsRadioPos.y}" x2="${switchX - 24}" y2="${switchY}" 
+              stroke="#a855f7" stroke-width="2" stroke-dasharray="3 2" />
     `;
 
     // Connect Ethernet Switch to 3 GCS Stations
@@ -180,7 +189,7 @@ function renderTopology(topology) {
         const color = isOnline ? '#a855f7' : 'rgba(244, 63, 94, 0.4)';
 
         html += `
-            <line x1="${switchX + 22}" y1="170" x2="${tgt.x - 28}" y2="${tgt.y}" 
+            <line x1="${switchX + 24}" y1="${switchY}" x2="${tgt.x - 28}" y2="${tgt.y}" 
                   stroke="${color}" stroke-width="2" opacity="${isOnline ? 0.9 : 0.4}" />
         `;
     });
