@@ -76,41 +76,47 @@ function renderSummary(summary) {
     }
 }
 
-// Render SVG Mesh Topology Graph (6 UGVs + 3 GCSs)
+// Render SVG Full Mesh Topology Graph (6 UGVs + 3 GCSs)
 function renderTopology(topology) {
     if (!topology || !topology.nodes) return;
     const svg = document.getElementById('topology-svg');
 
-    // Layout node coordinates (3 GCSs on left, 6 UGVs in arc/grid on right)
-    const positions = {
-        'GCS-01': { x: 120, y: 80 },
-        'GCS-02': { x: 120, y: 170 },
-        'GCS-03': { x: 120, y: 260 },
+    // Layout 9 nodes evenly in a full mesh ring/ellipse
+    const positions = {};
+    const nodeOrder = [
+        'GCS-01', 'GCS-02', 'GCS-03',
+        'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06'
+    ];
 
-        'UGV-01': { x: 380, y: 170 }, // Router / Mesh Hub UGV
+    const cx = 400;
+    const cy = 170;
+    const rx = 310;
+    const ry = 115;
+    const n = nodeOrder.length;
 
-        'UGV-02': { x: 620, y: 60 },
-        'UGV-03': { x: 650, y: 130 },
-        'UGV-04': { x: 650, y: 210 },
-        'UGV-05': { x: 620, y: 280 },
-        'UGV-06': { x: 480, y: 270 },
-    };
+    for (let i = 0; i < n; i++) {
+        const angle = (2 * Math.PI * i / n) - (Math.PI / 2);
+        positions[nodeOrder[i]] = {
+            x: Math.round(cx + rx * Math.cos(angle)),
+            y: Math.round(cy + ry * Math.sin(angle))
+        };
+    }
 
     let html = '';
 
     // Create lookup for online status
     const nodeStatusMap = {};
-    topology.nodes.forEach(n => {
-        nodeStatusMap[n.id] = n.status;
+    topology.nodes.forEach(node => {
+        nodeStatusMap[node.id] = node.status;
     });
 
-    // Draw Links ONLY for active online pairs
+    // Draw Full Mesh Links ONLY for active online node pairs
     topology.links.forEach(link => {
         const src = positions[link.source];
         const tgt = positions[link.target];
         if (!src || !tgt) return;
 
-        // Skip links to offline devices
+        // Skip mesh links to offline devices
         if (nodeStatusMap[link.source] !== 'ONLINE' || nodeStatusMap[link.target] !== 'ONLINE') {
             return;
         }
@@ -121,9 +127,7 @@ function renderTopology(topology) {
 
         html += `
             <line x1="${src.x}" y1="${src.y}" x2="${tgt.x}" y2="${tgt.y}" 
-                  stroke="${strokeColor}" stroke-width="2" stroke-dasharray="4 2" opacity="0.85" />
-            <text x="${(src.x + tgt.x)/2}" y="${(src.y + tgt.y)/2 - 5}" 
-                  fill="#94a3b8" font-size="10" text-anchor="middle">${link.rssi} dBm</text>
+                  stroke="${strokeColor}" stroke-width="1.8" stroke-dasharray="4 2" opacity="0.7" />
         `;
     });
 
@@ -135,16 +139,16 @@ function renderTopology(topology) {
         const isOnline = node.status === 'ONLINE';
         const isGCS = node.type === 'GCS';
         const color = !isOnline ? '#f43f5e' : (isGCS ? '#a855f7' : '#00e5ff');
-        const radius = node.id === 'UGV-01' || node.id === 'GCS-01' ? 22 : 18;
+        const radius = isGCS ? 20 : 18;
         const opacity = isOnline ? 1.0 : 0.45;
         const statusText = isOnline ? node.ip : 'OFFLINE';
 
         html += `
             <g transform="translate(${pos.x}, ${pos.y})" opacity="${opacity}">
-                <circle r="${radius}" fill="rgba(15, 23, 42, 0.9)" stroke="${color}" stroke-width="2.5" />
-                <circle r="6" fill="${color}" />
-                <text y="${radius + 14}" fill="#f1f5f9" font-size="11" font-weight="700" text-anchor="middle">${node.id}</text>
-                <text y="${radius + 26}" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" font-weight="${isOnline ? 'normal' : 'bold'}" text-anchor="middle">${statusText}</text>
+                <circle r="${radius}" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2.5" />
+                <circle r="5" fill="${color}" />
+                <text y="${radius + 13}" fill="#f1f5f9" font-size="11" font-weight="700" text-anchor="middle">${node.id}</text>
+                <text y="${radius + 24}" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" font-weight="${isOnline ? 'normal' : 'bold'}" text-anchor="middle">${statusText}</text>
             </g>
         `;
     });

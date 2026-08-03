@@ -11,6 +11,7 @@ Lightweight HTTP REST API & Web Server providing real-time telemetry for
 6 UGVs (Jetson Orin + NetMetal AX) and 3 GCSs (Processing System + Switch + NetMetal AX).
 
 Features:
+    • Full Mesh Network Topology Interconnection Generator (36 Mesh Links)
     • Real-time Live ICMP Ping & Heartbeat Monitoring for all 9 devices
     • Dynamic Bandwidth Utilization & Latency Tracking
     • Priority Admission & Topic Lossless Verification Data
@@ -41,7 +42,7 @@ PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
 class TelemetryDataProvider:
     """
-    Generates real-time dynamic state data for all 9 mesh devices and system metrics.
+    Generates real-time dynamic state data for all 9 mesh devices and full mesh topology.
     """
 
     def __init__(self):
@@ -65,7 +66,7 @@ class TelemetryDataProvider:
 
         # Define 9 mesh nodes: 6 UGVs + 3 GCSs
         self.nodes = [
-            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Router / Node", "status": "ONLINE", "rssi": -62, "latency": 5.2, "loss": 0.0, "uptime": "1h 42m"},
+            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "ONLINE", "rssi": -62, "latency": 5.2, "loss": 0.0, "uptime": "1h 42m"},
             {"id": "UGV-02", "name": "UGV Unit 02", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.66", "role": "Field Unit", "status": "ONLINE", "rssi": -68, "latency": 6.8, "loss": 1.2, "uptime": "1h 38m"},
             {"id": "UGV-03", "name": "UGV Unit 03", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.67", "role": "Field Unit", "status": "ONLINE", "rssi": -65, "latency": 5.8, "loss": 0.5, "uptime": "1h 40m"},
             {"id": "UGV-04", "name": "UGV Unit 04", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.68", "role": "Field Unit", "status": "ONLINE", "rssi": -74, "latency": 9.1, "loss": 2.8, "uptime": "1h 15m"},
@@ -91,7 +92,6 @@ class TelemetryDataProvider:
                     node["status"] = status
                     if status == "ONLINE":
                         node["latency"] = latency
-                        # Estimate RSSI dynamically based on latency
                         if latency < 5.0:
                             node["rssi"] = -60
                         elif latency < 10.0:
@@ -144,18 +144,28 @@ class TelemetryDataProvider:
             return list(self.nodes)
 
     def get_topology(self):
+        """Generates Full Mesh Interconnection Links (36 Mesh Pairs)."""
         with self.lock:
             links = []
-            for node in self.nodes:
-                if node["id"] != "UGV-01":
+            n = len(self.nodes)
+
+            # Full Mesh Interconnection: Pair every node with every other node
+            for i in range(n):
+                for j in range(i + 1, n):
+                    node1 = self.nodes[i]
+                    node2 = self.nodes[j]
+
+                    worst_rssi = min(node1["rssi"], node2["rssi"])
+                    worst_latency = round(max(node1["latency"], node2["latency"]), 1)
+
                     links.append({
-                        "source": "UGV-01",
-                        "target": node["id"],
-                        "rssi": node["rssi"],
-                        "latency": node["latency"],
-                        "status": node["status"],
-                        "quality": "EXCELLENT" if node["rssi"] > -65 else ("GOOD" if node["rssi"] > -75 else "POOR")
+                        "source": node1["id"],
+                        "target": node2["id"],
+                        "rssi": worst_rssi,
+                        "latency": worst_latency,
+                        "quality": "EXCELLENT" if worst_rssi > -65 else ("GOOD" if worst_rssi > -75 else "POOR")
                     })
+
             return {
                 "nodes": list(self.nodes),
                 "links": links
