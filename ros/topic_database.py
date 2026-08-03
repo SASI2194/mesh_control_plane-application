@@ -21,15 +21,13 @@ class TopicRegistry:
         self._topics = {}
 
         with open(filename, "r") as f:
-
             cfg = yaml.safe_load(f)
 
         for topic in cfg["topics"]:
-
-            # Store both static fallback and measured dynamic metrics
+            # Store both static baseline requirement and live measured dynamic metrics
             t_copy = dict(topic)
             t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0))
-            t_copy["measured_bandwidth"] = float(topic.get("bandwidth", 0))
+            t_copy["measured_bandwidth"] = 0.0  # 0.0 Mbps until samples enter mesh
             t_copy["hz"] = 0.0
             t_copy["data_size_bytes"] = 0.0
             t_copy["data_size_str"] = "0 B"
@@ -39,25 +37,25 @@ class TopicRegistry:
 
     def update_measured_bandwidths(self, measured_map: dict):
         """
-        Update registry with real-time measured Mbps map.
+        Update registry with real-time measured metrics map (Mbps, Hz, Data Size).
         """
-        for name, val in measured_map.items():
-            if name in self._topics:
+        for name, topic in self._topics.items():
+            if name in measured_map:
+                val = measured_map[name]
                 if isinstance(val, dict):
                     mbps = val.get("mbps", 0.0)
                     hz = val.get("hz", 0.0)
                     data_size_str = val.get("data_size_str", "0 B")
 
-                    if mbps > 0.0 or hz > 0.0:
-                        self._topics[name]["measured_bandwidth"] = mbps
-                        self._topics[name]["bandwidth"] = mbps
-                        self._topics[name]["hz"] = hz
-                        self._topics[name]["data_size_str"] = data_size_str
+                    topic["measured_bandwidth"] = mbps
+                    topic["hz"] = hz
+                    topic["data_size_str"] = data_size_str
                 else:
-                    mbps = float(val)
-                    if mbps > 0.0:
-                        self._topics[name]["measured_bandwidth"] = mbps
-                        self._topics[name]["bandwidth"] = mbps
+                    topic["measured_bandwidth"] = float(val)
+            else:
+                topic["measured_bandwidth"] = 0.0
+                topic["hz"] = 0.0
+                topic["data_size_str"] = "0 B"
 
     def update_measured_metrics(self, metrics_map: dict):
         """
@@ -88,21 +86,8 @@ class TopicRegistry:
     def print_topics(self):
 
         print()
-
         print("============== Topic Registry ==============")
-
         for topic in self._topics.values():
-
-            bw = topic.get("measured_bandwidth", topic.get("bandwidth", 0))
-            hz = topic.get("hz", 0.0)
-            sz = topic.get("data_size_str", "0 B")
-
-            print(
-                f'{topic["id"]:2d}  '
-                f'{topic["name"]:12}  '
-                f'P{topic["priority"]}  '
-                f'{bw:5.1f} Mbps  '
-                f'({hz:4.1f} Hz, {sz})'
-            )
-
+            static_bw = topic.get("static_bandwidth", 0.0)
+            print(f"{topic['id']:<3} {topic['name']:<15} P{topic['priority']}   {static_bw:.1f} Mbps (Nominal Capacity)")
         print()

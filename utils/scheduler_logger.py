@@ -69,9 +69,14 @@ class SchedulerLogger:
                     status = "ALLOWED" if is_allowed else "BLOCKED"
                     verification = "FULL DATA 100%" if is_allowed else "SHEDDED"
 
-                    bw = topic.get("measured_bandwidth", topic.get("bandwidth", 0.0))
                     hz = topic.get("hz", 0.0)
-                    msg_size = topic.get("data_size_str", "0 B")
+                    msg_size = topic.get("data_size_str", "0 B") if hz > 0.0 else "0 B"
+
+                    # Live Mbps entering the mesh plane (0.0 Mbps if shedded or inactive)
+                    if is_allowed and hz > 0.0:
+                        bw = topic.get("measured_bandwidth", 0.0)
+                    else:
+                        bw = 0.0
 
                     csv_f.write(
                         f"{now_str},{topic['id']},{topic['name']},P{topic['priority']},"
@@ -91,9 +96,13 @@ class SchedulerLogger:
                     status = "ALLOWED" if is_allowed else "BLOCKED"
                     verification = "FULL DATA 100%" if is_allowed else "SHEDDED"
 
-                    bw = topic.get("measured_bandwidth", topic.get("bandwidth", 0.0))
                     hz = topic.get("hz", 0.0)
-                    msg_size = topic.get("data_size_str", "0 B")
+                    msg_size = topic.get("data_size_str", "0 B") if hz > 0.0 else "0 B"
+
+                    if is_allowed and hz > 0.0:
+                        bw = topic.get("measured_bandwidth", 0.0)
+                    else:
+                        bw = 0.0
 
                     txt_f.write(
                         f"{topic['id']:<4} {topic['name']:<14} P{topic['priority']:<9} "
