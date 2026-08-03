@@ -69,7 +69,7 @@ function renderSummary(summary) {
         title.style.color = 'var(--accent-emerald)';
         sub.textContent = `${summary.online_nodes} / ${summary.total_nodes} Devices Active`;
     } else {
-        led.className = 'status-indicator offline';
+        led.className = 'status-indicator degraded';
         title.textContent = 'SYSTEM DEGRADED';
         title.style.color = 'var(--accent-amber)';
         sub.textContent = `${summary.online_nodes} / ${summary.total_nodes} Devices Active`;
@@ -98,11 +98,22 @@ function renderTopology(topology) {
 
     let html = '';
 
-    // Draw Links
+    // Create lookup for online status
+    const nodeStatusMap = {};
+    topology.nodes.forEach(n => {
+        nodeStatusMap[n.id] = n.status;
+    });
+
+    // Draw Links ONLY for active online pairs
     topology.links.forEach(link => {
         const src = positions[link.source];
         const tgt = positions[link.target];
         if (!src || !tgt) return;
+
+        // Skip links to offline devices
+        if (nodeStatusMap[link.source] !== 'ONLINE' || nodeStatusMap[link.target] !== 'ONLINE') {
+            return;
+        }
 
         let strokeColor = '#10b981'; // Green
         if (link.quality === 'GOOD') strokeColor = '#f59e0b'; // Yellow
@@ -121,16 +132,19 @@ function renderTopology(topology) {
         const pos = positions[node.id];
         if (!pos) return;
 
+        const isOnline = node.status === 'ONLINE';
         const isGCS = node.type === 'GCS';
-        const color = isGCS ? '#a855f7' : '#00e5ff';
+        const color = !isOnline ? '#f43f5e' : (isGCS ? '#a855f7' : '#00e5ff');
         const radius = node.id === 'UGV-01' || node.id === 'GCS-01' ? 22 : 18;
+        const opacity = isOnline ? 1.0 : 0.45;
+        const statusText = isOnline ? node.ip : 'OFFLINE';
 
         html += `
-            <g transform="translate(${pos.x}, ${pos.y})">
+            <g transform="translate(${pos.x}, ${pos.y})" opacity="${opacity}">
                 <circle r="${radius}" fill="rgba(15, 23, 42, 0.9)" stroke="${color}" stroke-width="2.5" />
                 <circle r="6" fill="${color}" />
                 <text y="${radius + 14}" fill="#f1f5f9" font-size="11" font-weight="700" text-anchor="middle">${node.id}</text>
-                <text y="${radius + 26}" fill="#94a3b8" font-size="9" text-anchor="middle">${node.ip}</text>
+                <text y="${radius + 26}" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" font-weight="${isOnline ? 'normal' : 'bold'}" text-anchor="middle">${statusText}</text>
             </g>
         `;
     });
@@ -172,18 +186,31 @@ function renderDeviceCards(nodes) {
 
     const filtered = nodes.filter(node => {
         if (activeFilter === 'all') return true;
+        if (activeFilter === 'offline') return node.status === 'OFFLINE';
         return node.type === activeFilter;
     });
 
     filtered.forEach(dev => {
         const isUGV = dev.type === 'UGV';
+        const isOnline = dev.status === 'ONLINE';
         const typeClass = isUGV ? 'ugv' : 'gcs';
+        const cardClass = isOnline ? 'device-card' : 'device-card offline';
+
+        const statusBadge = isOnline 
+            ? `<span class="dev-status-badge online">ONLINE</span>`
+            : `<span class="dev-status-badge offline">OFFLINE</span>`;
+
+        const signalVal = isOnline ? `${dev.rssi} dBm` : 'N/A';
+        const latencyVal = isOnline ? `${dev.latency} ms` : 'Disconnected';
 
         html += `
-            <div class="device-card">
+            <div class="${cardClass}">
                 <div class="device-header">
                     <span class="device-id">${dev.id}</span>
-                    <span class="device-type ${typeClass}">${dev.type}</span>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        ${statusBadge}
+                        <span class="device-type ${typeClass}">${dev.type}</span>
+                    </div>
                 </div>
                 
                 <div class="device-info">
@@ -195,15 +222,15 @@ function renderDeviceCards(nodes) {
 
                 <div class="device-metrics">
                     <div class="metric-item">
-                        <span class="metric-val text-emerald">${dev.rssi} dBm</span>
+                        <span class="metric-val ${isOnline ? 'text-emerald' : 'text-dim'}">${signalVal}</span>
                         <span>Signal (RSSI)</span>
                     </div>
                     <div class="metric-item">
-                        <span class="metric-val text-cyan">${dev.latency} ms</span>
+                        <span class="metric-val ${isOnline ? 'text-cyan' : 'text-dim'}">${latencyVal}</span>
                         <span>Latency</span>
                     </div>
                     <div class="metric-item">
-                        <span class="metric-val text-amber">${dev.loss.toFixed(1)} %</span>
+                        <span class="metric-val ${isOnline ? 'text-amber' : 'text-dim'}">${dev.loss.toFixed(1)} %</span>
                         <span>Packet Loss</span>
                     </div>
                     <div class="metric-item">

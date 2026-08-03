@@ -105,7 +105,6 @@ body {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-
 }
 
 .status-indicator.online {
@@ -114,10 +113,22 @@ body {
     animation: pulse 2s infinite;
 }
 
+.status-indicator.degraded {
+    background-color: var(--accent-amber);
+    box-shadow: 0 0 12px var(--accent-amber);
+    animation: pulse-amber 2s infinite;
+}
+
 @keyframes pulse {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
     70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes pulse-amber {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
 }
 
 .status-title {
@@ -173,6 +184,7 @@ body {
 .text-emerald { color: var(--accent-emerald); }
 .text-amber { color: var(--accent-amber); }
 .text-purple { color: var(--accent-purple); }
+.text-dim { color: var(--text-dim); }
 
 .kpi-footer {
     font-size: 0.75rem;
@@ -368,6 +380,31 @@ body {
 .device-card:hover {
     transform: translateY(-2px);
     border-color: var(--accent-cyan);
+}
+
+.device-card.offline {
+    opacity: 0.55;
+    border-color: rgba(244, 63, 94, 0.25);
+    background: rgba(244, 63, 94, 0.04);
+}
+
+.dev-status-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+}
+
+.dev-status-badge.online {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-emerald);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.dev-status-badge.offline {
+    background: rgba(244, 63, 94, 0.2);
+    color: var(--accent-rose);
+    border: 1px solid rgba(244, 63, 94, 0.4);
 }
 
 .device-header {
