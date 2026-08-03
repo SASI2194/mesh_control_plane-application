@@ -60,21 +60,12 @@
         "key_exprs": [
           "mesh/**"
         ]
-      },
-      {
-        "id": "allow_ros_dds_topics",
-        "permission": "allow",
-        "messages": ["put", "declare_subscriber", "declare_queryable"],
-        "flows": ["egress", "ingress"],
-        "key_exprs": [
-          "**"
-        ]
       }
     ],
     "subjects": [{ "id": "all" }],
     "policies": [
       {
-        "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros_dds_topics"],
+        "rules": ["allow_filtered_topics", "allow_mesh_control"],
         "subjects": ["all"]
       }
     ]
