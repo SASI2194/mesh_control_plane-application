@@ -26,7 +26,7 @@ from threading import Lock
 
 class SchedulerLogger:
 
-    def __init__(self, log_dir="logs"):
+    def __init__(self, log_dir="logs", clear_on_start=True):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
@@ -34,10 +34,20 @@ class SchedulerLogger:
         self.csv_logfile = self.log_dir / "priority_scheduler.csv"
         self.lock = Lock()
 
-        # Initialize CSV header if file doesn't exist or is empty
-        if not self.csv_logfile.exists() or self.csv_logfile.stat().st_size == 0:
-            with open(self.csv_logfile, "w", encoding="utf-8") as f:
-                f.write("Timestamp,Topic_ID,Topic_Name,Priority,Rate_Hz,Msg_Size,Live_Mbps,Admission_Status,Lossless_Verification\n")
+        # Erase previous data whenever the script starts
+        if clear_on_start:
+            self._reset_log_files()
+
+    def _reset_log_files(self):
+        """Erases previous log contents and writes clean headers on script startup."""
+        with open(self.csv_logfile, "w", encoding="utf-8") as f:
+            f.write("Timestamp,Topic_ID,Topic_Name,Priority,Rate_Hz,Msg_Size,Live_Mbps,Admission_Status,Lossless_Verification\n")
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(self.text_logfile, "w", encoding="utf-8") as f:
+            f.write(f"===================================================================================\n")
+            f.write(f" Mesh Control Plane Priority Scheduler & Real-Time Admission Log (Session: {now_str})\n")
+            f.write(f"===================================================================================\n\n")
 
     def log_snapshot(self, registry, scheduler):
         """
