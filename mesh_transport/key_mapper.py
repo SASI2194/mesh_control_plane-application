@@ -7,7 +7,7 @@ Mesh Control Plane
 
 Zenoh Transport Key Mapper
 
-Maps ROS topics to Zenoh transport keys and vice versa.
+Maps ROS topics to Zenoh transport keys using robust wildcard matching.
 
 ===============================================================================
 """
@@ -21,19 +21,7 @@ class KeyMapper:
 
     def __init__(self):
 
-        #
-        # ROS Domain ID
-        #
-
         self.domain = os.getenv("ROS_DOMAIN_ID", "40")
-
-        #
-        # Current deployment uses CompressedImage
-        #
-
-        self.type_name = (
-            "sensor_msgs::msg::dds_::CompressedImage_/TypeHashNotSupported"
-        )
 
     #####################################################################
 
@@ -43,15 +31,17 @@ class KeyMapper:
 
             /topic_01
 
-        into
+        into wildcard Zenoh key matcher:
 
-            40/topic_01/sensor_msgs::msg::dds_::CompressedImage_/TypeHashNotSupported
+            **/topic_01/**
         """
 
         if ros_topic.startswith("/"):
-            ros_topic = ros_topic[1:]
+            clean_topic = ros_topic[1:]
+        else:
+            clean_topic = ros_topic
 
-        return f"{self.domain}/{ros_topic}/{self.type_name}"
+        return f"**/{clean_topic}/**"
 
     #####################################################################
 
@@ -59,7 +49,7 @@ class KeyMapper:
         """
         Convert
 
-            40/topic_01/sensor_msgs::...
+            55/topic_01/sensor_msgs::...  OR  filtered/topic_01
 
         into
 
@@ -67,11 +57,16 @@ class KeyMapper:
         """
 
         parts = zenoh_key.split("/")
+        for part in parts:
+            if part.startswith("topic_"):
+                return "/" + part
+            elif part in ["topic_01", "topic_02", "topic_03", "topic_04", "topic_05",
+                          "topic_06", "topic_07", "topic_08", "topic_09", "topic_10",
+                          "topic_11", "topic_12", "topic_13", "topic_14", "topic_15",
+                          "topic_16", "topic_17", "topic_18", "topic_19", "topic_20"]:
+                return "/" + part
 
-        if len(parts) < 2:
-            return ""
-
-        return "/" + parts[1]
+        return ""
 
     #####################################################################
 
