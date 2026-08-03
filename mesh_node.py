@@ -51,7 +51,7 @@ class MeshNode:
         # Real-time Bandwidth & Hz / Payload Monitor
         #
 
-        self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
+        self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=2.0)
         self.scheduler_logger = SchedulerLogger(log_dir="logs")
 
         #
@@ -162,6 +162,10 @@ class MeshNode:
         if key_str.startswith("filtered/"):
             # Incoming sample from another mesh node over physical interface
             seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
+            ros_topic = self.mapper.zenoh_to_ros(key_str)
+            if ros_topic:
+                self.bw_monitor.record_sample(ros_topic, len(raw_payload))
+
             print(f"[RECV MESH] {key_str} (Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
 

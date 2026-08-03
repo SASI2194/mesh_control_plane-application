@@ -7,8 +7,8 @@ Mesh Control Plane
 
 Real-Time Dynamic Bandwidth & Topic Metrics Monitor
 
-Measures incoming ROS topic bandwidth, packet rates (Hz), and message data sizes
-in real-time using a sliding time window.
+Measures incoming and outgoing ROS topic bandwidth, packet rates (Hz), and message data sizes
+in real-time using a 2.0-second sliding time window.
 
 ===============================================================================
 """
@@ -33,7 +33,7 @@ class TopicWindowStats:
     Tracks sliding window statistics for a single topic.
     """
 
-    def __init__(self, window_size_sec=1.0):
+    def __init__(self, window_size_sec=2.0):
         self.window_size_sec = window_size_sec
         self.samples = deque()  # (timestamp, byte_size, seq_num)
         self.sequence_number = 0
@@ -61,7 +61,16 @@ class TopicWindowStats:
         with self.lock:
             now = time.time()
             self._clean_old_samples(now)
+
+            # If no samples in window but updated within last 2.5 seconds, keep last known avg
             if not self.samples:
+                if now - self.last_update_time > 2.5:
+                    return {
+                        "mbps": 0.0,
+                        "hz": 0.0,
+                        "avg_bytes": 0.0,
+                        "data_size_str": "0 B"
+                    }
                 return {
                     "mbps": 0.0,
                     "hz": 0.0,
@@ -77,7 +86,7 @@ class TopicWindowStats:
             avg_bytes = total_bytes / count if count > 0 else 0.0
 
             return {
-                "mbps": round(mbps, 2),
+                "mbps": round(mbps, 1),
                 "hz": round(hz, 1),
                 "avg_bytes": round(avg_bytes, 1),
                 "data_size_str": format_bytes(avg_bytes)
@@ -89,15 +98,17 @@ class RealtimeBandwidthMonitor:
     Monitors real-time bandwidth, frequency (Hz), and payload data sizes across all active ROS topics.
     """
 
-    def __init__(self, window_size_sec=1.0):
+    def __init__(self, window_size_sec=2.0):
         self.window_size_sec = window_size_sec
         self.topic_stats = {}
         self.lock = Lock()
 
     def record_sample(self, topic_name, byte_size):
         """
-        Record a received message for a topic and return its sequence number.
+        Record a received/transmitted sample for a topic and return its sequence number.
         """
+        if not topic_name:
+            return 0
         with self.lock:
             if topic_name not in self.topic_stats:
                 self.topic_stats[topic_name] = TopicWindowStats(self.window_size_sec)
