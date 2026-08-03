@@ -6,7 +6,7 @@
 Mesh Control Plane
 
 Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Sequence Tracking,
-Packet Loss Tolerance Congestion Control, and Automatic Web Dashboard Telemetry.
+Packet Loss Tolerance Congestion Control, Automatic Web Dashboard Telemetry, and Loggers.
 
 ===============================================================================
 """
@@ -25,6 +25,7 @@ from scheduler.congestion_controller import CongestionController
 
 from ros.topic_database import TopicRegistry
 from utils.config_manager import ConfigManager
+from utils.scheduler_logger import SchedulerLogger
 from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
 from dashboard.server import start_dashboard_background, DATA_PROVIDER
 
@@ -51,6 +52,7 @@ class MeshNode:
         #
 
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
+        self.scheduler_logger = SchedulerLogger(log_dir="logs")
 
         #
         # Transport Sessions
@@ -226,6 +228,12 @@ class MeshNode:
             self.scheduler,
             self.registry
         )
+
+        #
+        # Log Priority Scheduler & Real-Time Topic Admission snapshot to log files
+        #
+
+        self.scheduler_logger.log_snapshot(self.registry, self.scheduler)
 
     #####################################################################
 
