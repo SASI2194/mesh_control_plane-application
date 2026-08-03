@@ -6,7 +6,7 @@
 Mesh Control Plane
 
 Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Sequence Tracking,
-and Packet Loss Tolerance Congestion Control.
+Packet Loss Tolerance Congestion Control, and Web Dashboard Telemetry.
 
 ===============================================================================
 """
@@ -26,6 +26,7 @@ from scheduler.congestion_controller import CongestionController
 from ros.topic_database import TopicRegistry
 from utils.config_manager import ConfigManager
 from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
+from dashboard.server import start_dashboard_background
 
 from core.network_models import MeshSample
 
@@ -41,7 +42,7 @@ class MeshNode:
 
         print()
         print("============================================================")
-        print("Mesh Control Plane (Real-Time Dynamic Rate & Congestion Control)")
+        print("Mesh Control Plane (Real-Time Dynamic Rate & Web Dashboard)")
         print("============================================================")
         print()
 
@@ -50,6 +51,16 @@ class MeshNode:
         #
 
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=1.0)
+
+        #
+        # Web Dashboard Background Telemetry Server
+        #
+
+        try:
+            start_dashboard_background(host="0.0.0.0", port=8080)
+            print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
+        except Exception as e:
+            print(f"[WARNING] Web Dashboard failed to start: {e}")
 
         #
         # Transport Sessions

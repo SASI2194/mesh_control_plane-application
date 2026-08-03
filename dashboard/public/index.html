@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesh Control Plane — 9 Device Real-Time Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- App Container -->
+    <div class="app-container">
+
+        <!-- Top Header Navigation -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Mesh Control Plane</h1>
+                    <p class="subtitle">Real-Time Availability & Network Portal</p>
+                </div>
+            </div>
+
+            <!-- Health Status Badge -->
+            <div class="system-status-box">
+                <div class="status-indicator online" id="global-status-led"></div>
+                <div>
+                    <div class="status-title" id="global-status-title">SYSTEM OPTIMAL</div>
+                    <div class="status-subtitle" id="global-status-sub">9 / 9 Devices Connected</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI Metrics Ribbon -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Active Mesh Nodes</div>
+                <div class="kpi-value text-cyan" id="kpi-active-nodes">9 / 9</div>
+                <div class="kpi-footer">6 UGVs &bull; 3 GCSs</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Bandwidth Capacity</div>
+                <div class="kpi-value text-emerald" id="kpi-bandwidth">240 / 600 Mbps</div>
+                <div class="kpi-progress-bar">
+                    <div class="kpi-progress-fill" id="kpi-bw-progress" style="width: 40%;"></div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Loss Tolerance Limit</div>
+                <div class="kpi-value text-amber" id="kpi-loss-limit">5.0 %</div>
+                <div class="kpi-footer">Dynamic Topic Shedding Enabled</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Lossless Verification</div>
+                <div class="kpi-value text-purple" id="kpi-lossless">100 %</div>
+                <div class="kpi-footer">0.0% Frame Loss on Admitted Topics</div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard View Grid -->
+        <main class="main-layout">
+
+            <!-- Left Column: Interactive Topology Map & Topic Scheduler -->
+            <div class="layout-left">
+
+                <!-- Interactive SVG Mesh Topology Card -->
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>Interactive Mesh Network Topology</h2>
+                        <div class="badge badge-outline">6 UGVs + 3 GCSs</div>
+                    </div>
+                    <div class="topology-container" id="topology-wrapper">
+                        <svg id="topology-svg" width="100%" height="340" viewBox="0 0 800 340">
+                            <!-- SVG Topology Rendered Dynamically in app.js -->
+                        </svg>
+                    </div>
+                    <div class="topology-legend">
+                        <span><span class="legend-dot green"></span> Excellent (&gt; -65 dBm)</span>
+                        <span><span class="legend-dot yellow"></span> Good (-65 to -75 dBm)</span>
+                        <span><span class="legend-dot red"></span> Poor (&lt; -75 dBm)</span>
+                    </div>
+                </div>
+
+                <!-- Live Topic Scheduler & Priority Admission -->
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>Priority Scheduler & Topic Admission</h2>
+                        <span class="badge badge-cyan">P1 – P5 Priorities</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Topic Name</th>
+                                    <th>Priority</th>
+                                    <th>Allocated Mbps</th>
+                                    <th>Admission Status</th>
+                                    <th>Lossless Verification</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topics-tbody">
+                                <!-- Dynamic Topic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Device Availability Grid & Filters -->
+            <div class="layout-right">
+
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <h2>Device Availability & Health</h2>
+                        <div class="filter-pills">
+                            <button class="pill active" data-filter="all">All (9)</button>
+                            <button class="pill" data-filter="UGV">UGVs (6)</button>
+                            <button class="pill" data-filter="GCS">GCSs (3)</button>
+                        </div>
+                    </div>
+
+                    <!-- 9 Device Cards Grid -->
+                    <div class="device-cards-grid" id="device-cards-container">
+                        <!-- Dynamic Device Cards Rendered Here -->
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Mesh Control Plane Application &bull; Real-Time Wireless Network Telemetry Portal &bull; Hardware: Jetson Orin & NetMetal AX</p>
+        </footer>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

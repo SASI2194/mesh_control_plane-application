@@ -44,7 +44,7 @@ heartbeat:
 
 scheduler:
 
-  maximum_bandwidth_mbps: 600
+  maximum_bandwidth_mbps: 400
 
   packet_loss_tolerance_percent: 5.0
 
