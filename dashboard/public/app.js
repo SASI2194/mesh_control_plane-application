@@ -4,7 +4,7 @@
  *
  * Architecture:
  *   • 7 Physical Wireless Radios (NetMetal AX): Form an explicit 7-Sided Polygon (Heptagon)
- *   • GCS NetMetal AX Radio Hub connects via Ethernet Switch OUTSIDE polygon to GCS-01, GCS-02, GCS-03
+ *   • Ethernet Switch and 3 GCS Stations (GCS-01, GCS-02, GCS-03) connect directly to UGV-01
  */
 
 let activeFilter = 'all';
@@ -85,7 +85,7 @@ function renderTopology(topology) {
     if (!topology || !topology.nodes) return;
     const svg = document.getElementById('topology-svg');
 
-    // 7 Vertices of the 7-Sided Polygon (6 UGV NetMetal AX Radios + 1 GCS NetMetal AX Radio)
+    // 7 Vertices of the 7-Sided Polygon (6 UGV NetMetal AX Radios + 1 NetMetal Hub Radio)
     const radioOrder = [
         'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06', 'GCS-RADIO'
     ];
@@ -99,7 +99,7 @@ function renderTopology(topology) {
 
     const polygonPoints = [];
     for (let i = 0; i < n; i++) {
-        // Position GCS-RADIO explicitly at angle 0 (rightmost edge of polygon)
+        // Position UGV-01 explicitly at angle 0 (rightmost edge of polygon)
         const angle = (2 * Math.PI * i / n);
         const ptX = Math.round(cx + rx * Math.cos(angle));
         const ptY = Math.round(cy + ry * Math.sin(angle));
@@ -107,12 +107,12 @@ function renderTopology(topology) {
         polygonPoints.push(`${ptX},${ptY}`);
     }
 
-    // Add 3 GCS Processing Stations strictly OUTSIDE polygon to the right
-    const gcsRadioPos = positions['GCS-RADIO']; // x = ~460, y = 170
-    const switchX = gcsRadioPos.x + 75; // x = ~535
-    positions['GCS-01'] = { x: gcsRadioPos.x + 180, y: 65 };
-    positions['GCS-02'] = { x: gcsRadioPos.x + 180, y: 170 };
-    positions['GCS-03'] = { x: gcsRadioPos.x + 180, y: 275 };
+    // Connect Ethernet Switch and 3 GCS Stations directly to UGV-01
+    const ugv1Pos = positions['UGV-01']; // UGV-01 point (rightmost vertex)
+    const switchX = ugv1Pos.x + 75; // x = ~535
+    positions['GCS-01'] = { x: ugv1Pos.x + 180, y: 65 };
+    positions['GCS-02'] = { x: ugv1Pos.x + 180, y: 170 };
+    positions['GCS-03'] = { x: ugv1Pos.x + 180, y: 275 };
 
     let html = '';
 
@@ -135,7 +135,6 @@ function renderTopology(topology) {
         nodeStatusMap[node.id] = node.status;
     });
 
-    // Check if GCS side has any active node
     const gcsAnyOnline = nodeStatusMap['GCS-01'] === 'ONLINE' || 
                          nodeStatusMap['GCS-02'] === 'ONLINE' || 
                          nodeStatusMap['GCS-03'] === 'ONLINE';
@@ -162,19 +161,20 @@ function renderTopology(topology) {
         `;
     });
 
-    // 3. Draw Ethernet Switch Hub & Connection Lines OUTSIDE Polygon
+    // 3. Draw Ethernet Switch Hub & Connection Lines DIRECTLY FROM UGV-01 TO GCS STATIONS
+    const isUgv1Online = nodeStatusMap['UGV-01'] === 'ONLINE';
     html += `
         <!-- Ethernet Switch Icon/Box -->
         <rect x="${switchX - 22}" y="152" width="44" height="36" rx="4" 
               fill="rgba(168, 85, 247, 0.2)" stroke="#a855f7" stroke-width="1.5" />
         <text x="${switchX}" y="174" fill="#a855f7" font-size="9" font-weight="800" text-anchor="middle">SWITCH</text>
         
-        <!-- Connection from GCS-RADIO to Switch -->
-        <line x1="${gcsRadioPos.x}" y1="${gcsRadioPos.y}" x2="${switchX - 22}" y2="170" 
+        <!-- Connection from UGV-01 to Ethernet Switch -->
+        <line x1="${ugv1Pos.x}" y1="${ugv1Pos.y}" x2="${switchX - 22}" y2="170" 
               stroke="#a855f7" stroke-width="2" stroke-dasharray="2 2" />
     `;
 
-    // Connect Ethernet Switch to 3 GCS Stations OUTSIDE polygon
+    // Connect Ethernet Switch to 3 GCS Stations
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
         const tgt = positions[gcsId];
         const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
@@ -186,13 +186,13 @@ function renderTopology(topology) {
         `;
     });
 
-    // 4. Draw 7-Sided Polygon Corner Nodes (UGV-01..06 + GCS-RADIO)
+    // 4. Draw 7-Sided Polygon Corner Nodes (UGV-01..06 + NetMetal Radio Hub)
     radioOrder.forEach(rId => {
         const pos = positions[rId];
         const isOnline = nodeStatusMap[rId] === 'ONLINE';
         const isGCSRadio = rId === 'GCS-RADIO';
         const color = !isOnline ? '#f43f5e' : (isGCSRadio ? '#a855f7' : '#00e5ff');
-        const label = isGCSRadio ? 'GCS Radio' : rId;
+        const label = isGCSRadio ? 'NetMetal Radio' : rId;
 
         html += `
             <g transform="translate(${pos.x}, ${pos.y})" opacity="${isOnline ? 1.0 : 0.45}">
@@ -203,7 +203,7 @@ function renderTopology(topology) {
         `;
     });
 
-    // 5. Draw 3 GCS Processing Stations OUTSIDE Polygon
+    // 5. Draw 3 GCS Processing Stations connected to UGV-01 via Ethernet Switch
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
         const pos = positions[gcsId];
         const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
