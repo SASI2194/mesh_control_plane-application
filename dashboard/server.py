@@ -11,7 +11,7 @@ Lightweight HTTP REST API & Web Server providing real-time telemetry for
 6 UGVs (Jetson Orin + NetMetal AX) and 3 GCSs (Processing System + Switch + NetMetal AX).
 
 Features:
-    • Full Mesh Network Topology Interconnection Generator (36 Mesh Links)
+    • 7-Sided Polygon (Heptagon) Wireless Mesh Topology Generator (7 NetMetal AX Radios)
     • Real-time Live ICMP Ping & Heartbeat Monitoring for all 9 devices
     • Dynamic Bandwidth Utilization & Latency Tracking
     • Priority Admission & Topic Lossless Verification Data
@@ -42,7 +42,7 @@ PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
 class TelemetryDataProvider:
     """
-    Generates real-time dynamic state data for all 9 mesh devices and full mesh topology.
+    Generates real-time dynamic state data for 7 wireless radios (7-sided heptagon polygon) and 9 nodes.
     """
 
     def __init__(self):
@@ -133,6 +133,7 @@ class TelemetryDataProvider:
                 "ugv_total": 6,
                 "gcs_online": gcs_count,
                 "gcs_total": 3,
+                "wireless_radios": 7,  # 7-Sided Polygon (Heptagon)
                 "max_bandwidth_mbps": self.max_bw,
                 "used_bandwidth_mbps": self.scheduler.used_bandwidth,
                 "loss_tolerance_percent": self.loss_tolerance,
@@ -144,29 +145,39 @@ class TelemetryDataProvider:
             return list(self.nodes)
 
     def get_topology(self):
-        """Generates Full Mesh Interconnection Links (36 Mesh Pairs)."""
+        """Generates 7-Sided Polygon (Heptagon) Wireless Interconnection Links."""
         with self.lock:
             links = []
-            n = len(self.nodes)
+            # 7 Wireless Radio Endpoints: UGV-01..06 + GCS-Radio
+            radio_endpoints = [
+                "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06", "GCS-RADIO"
+            ]
 
-            # Full Mesh Interconnection: Pair every node with every other node
+            n = len(radio_endpoints)
+            node_dict = {n["id"]: n for n in self.nodes}
+
+            # Generate 21 mesh links between the 7 wireless radios
             for i in range(n):
                 for j in range(i + 1, n):
-                    node1 = self.nodes[i]
-                    node2 = self.nodes[j]
+                    r1 = radio_endpoints[i]
+                    r2 = radio_endpoints[j]
 
-                    worst_rssi = min(node1["rssi"], node2["rssi"])
-                    worst_latency = round(max(node1["latency"], node2["latency"]), 1)
+                    n1 = node_dict.get(r1, {"rssi": -65, "latency": 5.0})
+                    n2 = node_dict.get(r2, {"rssi": -65, "latency": 5.0})
+
+                    worst_rssi = min(n1["rssi"], n2["rssi"])
+                    worst_lat = round(max(n1["latency"], n2["latency"]), 1)
 
                     links.append({
-                        "source": node1["id"],
-                        "target": node2["id"],
+                        "source": r1,
+                        "target": r2,
                         "rssi": worst_rssi,
-                        "latency": worst_latency,
+                        "latency": worst_lat,
                         "quality": "EXCELLENT" if worst_rssi > -65 else ("GOOD" if worst_rssi > -75 else "POOR")
                     })
 
             return {
+                "radios": 7,
                 "nodes": list(self.nodes),
                 "links": links
             }

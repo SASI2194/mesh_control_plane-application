@@ -1,6 +1,10 @@
 /**
  * Mesh Control Plane — Real-Time Web Dashboard Portal
  * Dynamic DOM Renderer & Network Topology Visualizer
+ *
+ * Architecture:
+ *   • 7 Physical Wireless Radios (NetMetal AX): Form a 7-Sided Polygon (Heptagon) Wireless Mesh
+ *   • GCS NetMetal AX Radio Hub connects via Ethernet Switch to GCS-01, GCS-02, GCS-03
  */
 
 let activeFilter = 'all';
@@ -76,31 +80,36 @@ function renderSummary(summary) {
     }
 }
 
-// Render SVG Full Mesh Topology Graph (6 UGVs + 3 GCSs)
+// Render SVG 7-Sided Polygon (Heptagon) Wireless Topology Graph
 function renderTopology(topology) {
     if (!topology || !topology.nodes) return;
     const svg = document.getElementById('topology-svg');
 
-    // Layout 9 nodes evenly in a full mesh ring/ellipse
-    const positions = {};
-    const nodeOrder = [
-        'GCS-01', 'GCS-02', 'GCS-03',
-        'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06'
+    // 7 Vertices of the Heptagon (6 UGV NetMetal AX Radios + 1 GCS NetMetal AX Radio)
+    const radioOrder = [
+        'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06', 'GCS-RADIO'
     ];
 
-    const cx = 400;
+    const positions = {};
+    const cx = 350;
     const cy = 170;
-    const rx = 310;
-    const ry = 115;
-    const n = nodeOrder.length;
+    const rx = 240;
+    const ry = 110;
+    const n = radioOrder.length; // 7
 
     for (let i = 0; i < n; i++) {
         const angle = (2 * Math.PI * i / n) - (Math.PI / 2);
-        positions[nodeOrder[i]] = {
+        positions[radioOrder[i]] = {
             x: Math.round(cx + rx * Math.cos(angle)),
             y: Math.round(cy + ry * Math.sin(angle))
         };
     }
+
+    // Add 3 GCS Processing System positions connected via Ethernet Switch
+    const gcsRadioPos = positions['GCS-RADIO'];
+    positions['GCS-01'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y - 65 };
+    positions['GCS-02'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y };
+    positions['GCS-03'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y + 65 };
 
     let html = '';
 
@@ -110,45 +119,75 @@ function renderTopology(topology) {
         nodeStatusMap[node.id] = node.status;
     });
 
-    // Draw Full Mesh Links ONLY for active online node pairs
+    // Check if GCS side has any active node
+    const gcsAnyOnline = nodeStatusMap['GCS-01'] === 'ONLINE' || 
+                         nodeStatusMap['GCS-02'] === 'ONLINE' || 
+                         nodeStatusMap['GCS-03'] === 'ONLINE';
+    nodeStatusMap['GCS-RADIO'] = gcsAnyOnline ? 'ONLINE' : 'OFFLINE';
+
+    // 1. Draw 7-Sided Polygon Wireless Mesh Interconnection Lines
     topology.links.forEach(link => {
         const src = positions[link.source];
         const tgt = positions[link.target];
         if (!src || !tgt) return;
 
-        // Skip mesh links to offline devices
+        // Skip mesh links to offline radio endpoints
         if (nodeStatusMap[link.source] !== 'ONLINE' || nodeStatusMap[link.target] !== 'ONLINE') {
             return;
         }
 
         let strokeColor = '#10b981'; // Green
-        if (link.quality === 'GOOD') strokeColor = '#f59e0b'; // Yellow
-        if (link.quality === 'POOR') strokeColor = '#f43f5e'; // Red
+        if (link.quality === 'GOOD') strokeColor = '#f59e0b';
+        if (link.quality === 'POOR') strokeColor = '#f43f5e';
 
         html += `
             <line x1="${src.x}" y1="${src.y}" x2="${tgt.x}" y2="${tgt.y}" 
-                  stroke="${strokeColor}" stroke-width="1.8" stroke-dasharray="4 2" opacity="0.7" />
+                  stroke="${strokeColor}" stroke-width="1.8" stroke-dasharray="4 2" opacity="0.65" />
         `;
     });
 
-    // Draw Nodes
-    topology.nodes.forEach(node => {
-        const pos = positions[node.id];
-        if (!pos) return;
-
-        const isOnline = node.status === 'ONLINE';
-        const isGCS = node.type === 'GCS';
-        const color = !isOnline ? '#f43f5e' : (isGCS ? '#a855f7' : '#00e5ff');
-        const radius = isGCS ? 20 : 18;
-        const opacity = isOnline ? 1.0 : 0.45;
-        const statusText = isOnline ? node.ip : 'OFFLINE';
+    // 2. Draw Ethernet Switch Lines connecting GCS-RADIO Hub to 3 GCS Stations
+    ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
+        const src = positions['GCS-RADIO'];
+        const tgt = positions[gcsId];
+        const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
+        const color = isOnline ? '#a855f7' : 'rgba(244, 63, 94, 0.4)';
 
         html += `
-            <g transform="translate(${pos.x}, ${pos.y})" opacity="${opacity}">
-                <circle r="${radius}" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2.5" />
-                <circle r="5" fill="${color}" />
-                <text y="${radius + 13}" fill="#f1f5f9" font-size="11" font-weight="700" text-anchor="middle">${node.id}</text>
-                <text y="${radius + 24}" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" font-weight="${isOnline ? 'normal' : 'bold'}" text-anchor="middle">${statusText}</text>
+            <line x1="${src.x}" y1="${src.y}" x2="${tgt.x}" y2="${tgt.y}" 
+                  stroke="${color}" stroke-width="2" opacity="${isOnline ? 0.9 : 0.4}" />
+        `;
+    });
+
+    // 3. Draw 7 Wireless Radio Nodes (UGV-01..06 + GCS-RADIO)
+    radioOrder.forEach(rId => {
+        const pos = positions[rId];
+        const isOnline = nodeStatusMap[rId] === 'ONLINE';
+        const isGCSRadio = rId === 'GCS-RADIO';
+        const color = !isOnline ? '#f43f5e' : (isGCSRadio ? '#a855f7' : '#00e5ff');
+        const label = isGCSRadio ? 'GCS NetMetal Radio' : rId;
+
+        html += `
+            <g transform="translate(${pos.x}, ${pos.y})" opacity="${isOnline ? 1.0 : 0.45}">
+                <polygon points="0,-18 16,-8 16,12 0,20 -16,12 -16,-8" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2.5" />
+                <circle r="4" fill="${color}" />
+                <text y="32" fill="#f1f5f9" font-size="10" font-weight="700" text-anchor="middle">${label}</text>
+            </g>
+        `;
+    });
+
+    // 4. Draw 3 GCS Processing Stations
+    ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
+        const pos = positions[gcsId];
+        const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
+        const color = isOnline ? '#a855f7' : '#f43f5e';
+        const statusText = isOnline ? '192.168.3.' + (gcsId === 'GCS-01' ? '71' : (gcsId === 'GCS-02' ? '72' : '73')) : 'OFFLINE';
+
+        html += `
+            <g transform="translate(${pos.x}, ${pos.y})" opacity="${isOnline ? 1.0 : 0.45}">
+                <rect x="-24" y="-14" width="48" height="28" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="${color}" stroke-width="2" />
+                <text y="4" fill="#f1f5f9" font-size="10" font-weight="700" text-anchor="middle">${gcsId}</text>
+                <text y="24" fill="${isOnline ? '#94a3b8' : '#f43f5e'}" font-size="9" text-anchor="middle">${statusText}</text>
             </g>
         `;
     });
