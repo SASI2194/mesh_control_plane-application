@@ -1,13 +1,14 @@
 # Mesh Control Plane
 
 ## Overview
-**Mesh Control Plane** is an application developed to ensure loss-less, full data transmission across all topics in multi-system mesh networks. To achieve complete data delivery without loss, real-time dynamic topic bandwidth measurement, priority scheduling, packet loss tolerance monitoring, dynamic low-priority topic shedding, and a real-time web telemetry portal are implemented within this control plane.
+**Mesh Control Plane** is an application developed to ensure loss-less, full data transmission across all topics in multi-system mesh networks. To achieve complete data delivery without loss, real-time dynamic topic bandwidth measurement, priority scheduling, packet loss tolerance monitoring, dynamic low-priority topic shedding, a real-time web telemetry portal, and password-protected development governance rules (`RULES.md`) are implemented within this control plane.
 
 > [!IMPORTANT]
-> **Exclusive Network Communication Policy**:
-> Network communication among systems can be established **only** through this Mesh Control Plane application. All raw inter-system topics are subjected to access control rules, and only admitted topics forwarded by the Mesh Control Plane (`filtered/**`) are permitted to transmit across physical network interfaces.
+> **Exclusive Network Communication Policy (Rule 1)**:
+> Data traveling from ROS 2 to Zenoh **MUST travel ONLY through this Mesh Control Plane application**. All raw inter-system topics are subjected to access control rules, and only admitted topics forwarded by the Mesh Control Plane (`filtered/**`) are permitted to transmit across physical network interfaces.
 
 ## Key Features
+- **Mandatory Password-Protected RULES.md**: Enforces immutable architectural rules, Rule 1 exclusive control plane transport policy, P1–P5 priority scheduling, loss tolerance shedding, and testing governance. Managed via password-authenticated security script (`scripts/manage_rules.py`).
 - **Real-Time Web Dashboard Portal**: Live web dashboard (`http://<node-ip>:8080`) monitoring the availability and health of all **9 mesh devices** (6 UGVs with Jetson Orin + NetMetal AX and 3 GCSs with Processing System + Switch + NetMetal AX). Features interactive SVG mesh topology visualizer, device filtering, and live bandwidth charts.
 - **Configurable Packet Loss Tolerance & Topic Shedding**: Configurable `packet_loss_tolerance_percent` in `config/mesh.yaml` (e.g. 5.0%). If network congestion causes loss to exceed this limit, the `CongestionController` automatically sheds (drops) low-priority topics (P5, P4, P3, P2) to protect High-Priority topics (P1) from loss.
 - **Real-Time Dynamic Topic Bandwidth Measurement**: Measures incoming ROS topic bit-rates (Mbps) and packet rates in real-time using a sliding window monitor (`monitoring/bandwidth_monitor.py`). Non-stationary topic bandwidths (e.g. camera streams, lidar, point clouds) are dynamically measured as they change.
@@ -16,6 +17,20 @@
 - **Exclusive Mesh Routing**: Enforces system-to-system communication exclusively through the Mesh Control Plane.
 - **Real-Time Low Latency**: Configured with 1ms TCP batch flushing and custom queue management for real-time inter-device streaming.
 - **ROS2 & Zenoh Middleware Integration**: Synchronized directly with ROS2 Humble `rmw_zenoh_cpp` router and peer configurations.
+
+## Governance & Rules Protection (`RULES.md`)
+To unlock `RULES.md` for updates, authenticate with your master password:
+```bash
+python3 scripts/manage_rules.py unlock --password <pwd>
+```
+To lock and generate cryptographic SHA-256 signature:
+```bash
+python3 scripts/manage_rules.py lock
+```
+To verify file integrity:
+```bash
+python3 scripts/manage_rules.py verify
+```
 
 ## Web Dashboard Access
 Launch the web dashboard server:
@@ -49,4 +64,4 @@ Synchronization helper script:
 ```
 
 ## Release Information
-- **Version**: `v2.1.0`
+- **Version**: `v2.2.0`
