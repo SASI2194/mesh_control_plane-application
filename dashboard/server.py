@@ -15,6 +15,7 @@ Lightweight HTTP REST API & Web Server providing real-time telemetry for
 
 import json
 import os
+import socket
 import sys
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -131,6 +132,11 @@ class TelemetryDataProvider:
 DATA_PROVIDER = TelemetryDataProvider()
 
 
+class ReusableHTTPServer(HTTPServer):
+    """HTTPServer with socket reuse address enabled to prevent port bind failures."""
+    allow_reuse_address = True
+
+
 class DashboardRequestHandler(SimpleHTTPRequestHandler):
     """
     HTTP Request Handler serving web assets and REST JSON endpoints.
@@ -177,9 +183,12 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
 
 
 def start_dashboard_server(host="0.0.0.0", port=8080):
-    server = HTTPServer((host, port), DashboardRequestHandler)
-    print(f"[INFO] Mesh Control Plane Web Dashboard Server running at http://{host}:{port}")
-    server.serve_forever()
+    try:
+        server = ReusableHTTPServer((host, port), DashboardRequestHandler)
+        print(f"[INFO] Mesh Control Plane Web Dashboard Server running at http://{host}:{port}")
+        server.serve_forever()
+    except Exception as e:
+        print(f"[ERROR] Failed to start Web Dashboard on {host}:{port} -> {e}")
 
 
 def start_dashboard_background(host="0.0.0.0", port=8080):
