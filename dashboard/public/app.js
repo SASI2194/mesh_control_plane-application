@@ -3,7 +3,7 @@
  * Dynamic DOM Renderer & Network Topology Visualizer
  *
  * Architecture:
- *   • 7 Physical Wireless Radios (NetMetal AX): Form a 7-Sided Polygon (Heptagon) Wireless Mesh
+ *   • 7 Physical Wireless Radios (NetMetal AX): Form an explicit 7-Sided Polygon (Heptagon)
  *   • GCS NetMetal AX Radio Hub connects via Ethernet Switch to GCS-01, GCS-02, GCS-03
  */
 
@@ -85,24 +85,25 @@ function renderTopology(topology) {
     if (!topology || !topology.nodes) return;
     const svg = document.getElementById('topology-svg');
 
-    // 7 Vertices of the Heptagon (6 UGV NetMetal AX Radios + 1 GCS NetMetal AX Radio)
+    // 7 Vertices of the 7-Sided Polygon (6 UGV NetMetal AX Radios + 1 GCS NetMetal AX Radio)
     const radioOrder = [
         'UGV-01', 'UGV-02', 'UGV-03', 'UGV-04', 'UGV-05', 'UGV-06', 'GCS-RADIO'
     ];
 
     const positions = {};
     const cx = 350;
-    const cy = 170;
+    const cy = 175;
     const rx = 240;
     const ry = 110;
     const n = radioOrder.length; // 7
 
+    const polygonPoints = [];
     for (let i = 0; i < n; i++) {
         const angle = (2 * Math.PI * i / n) - (Math.PI / 2);
-        positions[radioOrder[i]] = {
-            x: Math.round(cx + rx * Math.cos(angle)),
-            y: Math.round(cy + ry * Math.sin(angle))
-        };
+        const ptX = Math.round(cx + rx * Math.cos(angle));
+        const ptY = Math.round(cy + ry * Math.sin(angle));
+        positions[radioOrder[i]] = { x: ptX, y: ptY };
+        polygonPoints.push(`${ptX},${ptY}`);
     }
 
     // Add 3 GCS Processing System positions connected via Ethernet Switch
@@ -112,6 +113,19 @@ function renderTopology(topology) {
     positions['GCS-03'] = { x: gcsRadioPos.x + 130, y: gcsRadioPos.y + 65 };
 
     let html = '';
+
+    // 1. Explicit 7-Sided Polygon (Heptagon) Perimeter Outline
+    html += `
+        <!-- 7-Sided Polygon Perimeter -->
+        <polygon points="${polygonPoints.join(' ')}" 
+                 fill="rgba(0, 229, 255, 0.03)" 
+                 stroke="rgba(0, 229, 255, 0.4)" 
+                 stroke-width="2" 
+                 stroke-dasharray="6 3" />
+        <text x="${cx}" y="24" fill="var(--accent-cyan)" font-size="11" font-weight="700" text-anchor="middle">
+            7-SIDED POLYGON WIRELESS MESH (7 NETMETAL AX RADIOS)
+        </text>
+    `;
 
     // Create lookup for online status
     const nodeStatusMap = {};
@@ -125,7 +139,7 @@ function renderTopology(topology) {
                          nodeStatusMap['GCS-03'] === 'ONLINE';
     nodeStatusMap['GCS-RADIO'] = gcsAnyOnline ? 'ONLINE' : 'OFFLINE';
 
-    // 1. Draw 7-Sided Polygon Wireless Mesh Interconnection Lines
+    // 2. Draw 7-Sided Polygon Wireless Mesh Interconnection Lines
     topology.links.forEach(link => {
         const src = positions[link.source];
         const tgt = positions[link.target];
@@ -146,7 +160,7 @@ function renderTopology(topology) {
         `;
     });
 
-    // 2. Draw Ethernet Switch Lines connecting GCS-RADIO Hub to 3 GCS Stations
+    // 3. Draw Ethernet Switch Lines connecting GCS-RADIO Hub to 3 GCS Stations
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
         const src = positions['GCS-RADIO'];
         const tgt = positions[gcsId];
@@ -159,13 +173,13 @@ function renderTopology(topology) {
         `;
     });
 
-    // 3. Draw 7 Wireless Radio Nodes (UGV-01..06 + GCS-RADIO)
+    // 4. Draw 7-Sided Polygon Corner Nodes (UGV-01..06 + GCS-RADIO)
     radioOrder.forEach(rId => {
         const pos = positions[rId];
         const isOnline = nodeStatusMap[rId] === 'ONLINE';
         const isGCSRadio = rId === 'GCS-RADIO';
         const color = !isOnline ? '#f43f5e' : (isGCSRadio ? '#a855f7' : '#00e5ff');
-        const label = isGCSRadio ? 'GCS NetMetal Radio' : rId;
+        const label = isGCSRadio ? 'GCS Radio' : rId;
 
         html += `
             <g transform="translate(${pos.x}, ${pos.y})" opacity="${isOnline ? 1.0 : 0.45}">
@@ -176,7 +190,7 @@ function renderTopology(topology) {
         `;
     });
 
-    // 4. Draw 3 GCS Processing Stations
+    // 5. Draw 3 GCS Processing Stations
     ['GCS-01', 'GCS-02', 'GCS-03'].forEach(gcsId => {
         const pos = positions[gcsId];
         const isOnline = nodeStatusMap[gcsId] === 'ONLINE';
