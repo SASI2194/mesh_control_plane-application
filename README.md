@@ -75,5 +75,18 @@ Synchronization helper script:
 ./scripts/sync_zenoh_configs.sh {import|export|symlink}
 ```
 
+## Version Control & Detailed Release History
+
+| Version | Release Status | Feature Additions, Governance Updates & Architectural Fixes |
+| :--- | :--- | :--- |
+| **`v2.3.0`** | **Current Release** | **RULE 2 Publisher/Subscriber Role Indications & End-to-End Throughput Differential Calculation**: <br/>• **Publisher (Tx) vs. Subscriber (Rx) Role Indications**: Tracks Tx rates (generated locally by ROS 2) and Rx rates (received over physical transport `filtered/**`). Displays `Tx PUBLISHER` (cyan), `Rx SUBSCRIBER` (purple), and `Tx/Rx DUAL` (green) badges.<br/>• **End-to-End Throughput Differential ($\Delta$)**: Computes $\Delta \text{Bandwidth} = \text{Tx Mbps} - \text{Rx Mbps}$ and Delivery Ratio ($\text{Rx Mbps} / \text{Tx Mbps} \times 100$) for every topic.<br/>• **Active Zenoh Transport Peer Audit**: Audits established Zenoh TCP transport sockets (`:7447`/`:7446`) to verify `mesh_node.py` is actively running on remote devices before marking them `ONLINE`. Default initial remote device status set to `OFFLINE`. |
+| **`v2.2.0`** | Prior Release | **25 Hz Real-Time Dynamic Frequency & Msg Size Tracker & Parallel Telemetry Engine**: <br/>• **25 Hz Dynamic Rate Tracker**: Dynamically computes live publication frequency (Hz), message size (B, KB, MB), and measured Mbps for every topic in real-time.<br/>• **KeyMapper Overcounting Fix**: Updated prefix matcher to `*/<topic>/**`, matching exact 25 Hz ROS topic generation and Linux kernel `sar -n DEV 1` interface rates (~200–560 Mbps).<br/>• **Ultra-Fast Parallel Telemetry Server**: ThreadPoolExecutor ICMP pinging (<2ms API response, 500ms 2 Hz portal updates).<br/>• **Scheduler Log Reset**: Automatic log file clearing on startup and strict `0.0 Mbps` reporting for shedded topics. |
+| **`v2.1.0`** | Prior Release | **Real-Time Web Telemetry Portal for 9 Mesh Devices**: <br/>• **Interactive 7-Sided Polygon (Heptagon) Wireless Topology Visualizer**: Renders wireless links across 6 UGVs and 3 GCSs with dynamic signal strength (RSSI) color coding.<br/>• **Device Health Grid & Filter Pills**: Displays device cards for 9 hardware nodes with real-time status and filter controls. |
+| **`v2.0.0`** | Prior Release | **Configurable Packet Loss Tolerance & Dynamic Low-Priority Topic Shedding**: <br/>• **Congestion Controller**: Implements configurable `packet_loss_tolerance_percent` (e.g. 5.0%) and recovery hysteresis (2.0%).<br/>• **Dynamic Shedding**: Automatically drops low-priority topics (P5, P4, P3, P2) during network congestion to protect High-Priority topics (P1). |
+| **`v1.3.0`** | Prior Release | **Lossless Payload Binary Sequence Packaging & Frame Gap Verification**: <br/>• **Binary Sequence Header**: Embeds 16-byte uint64 sequence number + double timestamp (`!Qd`) into forwarded payloads.<br/>• **Verification Engine**: Receiver tracks sequence gaps to confirm 100% data delivery (0% packet loss) on admitted topics. |
+| **`v1.2.0`** | Prior Release | **Real-Time Bandwidth Measurement & Password-Protected RULES.md**: <br/>• **Sliding Window Monitor**: Real-time bandwidth tracking window.<br/>• **RULES.md Security Governance**: Password-authenticated locking/unlocking with SHA-256 cryptographic hash signatures (`scripts/manage_rules.py`). |
+| **`v1.1.0`** | Prior Release | **P1–P5 Priority Bandwidth Scheduler & Admission Controller**: <br/>• **Priority Spectrum**: P1 (Critical) through P5 (Background) bandwidth allocation.<br/>• **Admission Controller**: Enforces strict capacity limits against configured network capacity (600 Mbps). |
+| **`v1.0.0`** | Base Release | **Initial Mesh Control Plane Application**: <br/>• Base transport integration with ROS 2 Humble and Zenoh `rmw_zenoh_cpp` middleware.<br/>• Rule 1 Exclusive Transport Policy (`filtered/**`). |
+
 ## Release Information
-- **Version**: `v2.3.0`
+- **Current Active Release Tag**: `v2.3.0`
