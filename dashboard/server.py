@@ -91,12 +91,36 @@ class TelemetryDataProvider:
             self.registry = registry
             self.scheduler = scheduler
 
+    def _get_active_zenoh_peers(self):
+        """Returns a set of remote IP addresses with active established Zenoh TCP connections."""
+        active_ips = set()
+        try:
+            res = subprocess.run(
+                ["ss", "-tn"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    if "ESTAB" in line and (":7447" in line or ":7446" in line or ":8080" in line):
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            for addr in [parts[3], parts[4]]:
+                                peer_ip = addr.rsplit(":", 1)[0].replace("[", "").replace("]", "")
+                                if peer_ip and peer_ip not in ["127.0.0.1", "0.0.0.0", "192.168.3.65"]:
+                                    active_ips.add(peer_ip)
+        except Exception:
+            pass
+        return active_ips
+
     def _live_ping_loop(self):
-        """Continuously pings all 9 devices in parallel (non-blocking 200ms timeout)."""
+        """Continuously pings and audits application status of all 9 devices in parallel."""
         while True:
+            active_peers = self._get_active_zenoh_peers()
             futures = []
             for node in self.nodes:
-                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"])))
+                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"], active_peers)))
 
             for node, future in futures:
                 try:
@@ -122,14 +146,14 @@ class TelemetryDataProvider:
 
             time.sleep(1.0)
 
-    def _ping_device(self, ip):
+    def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
-        by probing both ICMP network reachability and Application Port 8080.
+        by auditing ICMP reachability, active Zenoh peer TCP sessions, or active ports.
         """
         try:
             start = time.time()
-            # 1. ICMP Ping check for network interface reachability
+            # 1. ICMP Ping check for physical network reachability
             res = subprocess.run(
                 ["ping", "-c", "1", "-W", "1", ip],
                 stdout=subprocess.PIPE,
@@ -138,16 +162,21 @@ class TelemetryDataProvider:
             if res.returncode != 0:
                 return "OFFLINE", 0.0
 
-            # 2. Check if local node or loopback
+            # 2. Local Node check
             if ip in ["127.0.0.1", "localhost", "192.168.3.65"]:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Application Active Probe: Check Zenoh Transport (Port 7447) OR Web Telemetry (Port 8080)
+            # 3. Active Zenoh Peer Session Audit (ESTABLISHED TCP Session on Port 7447/7446)
+            if active_peers and ip in active_peers:
+                elapsed = (time.time() - start) * 1000.0
+                return "ONLINE", max(0.5, round(elapsed, 1))
+
+            # 4. Inbound Port Audit (Check if remote node listens on 7447 or 8080)
             is_app_running = False
             for port in [7447, 8080]:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(0.2)
+                sock.settimeout(0.15)
                 res_code = sock.connect_ex((ip, port))
                 sock.close()
                 if res_code == 0:
@@ -158,7 +187,6 @@ class TelemetryDataProvider:
             if is_app_running:
                 return "ONLINE", max(0.5, round(elapsed, 1))
             else:
-                # IP is pingable, but mesh_node.py Application is NOT running on that device
                 return "OFFLINE", 0.0
         except Exception:
             return "OFFLINE", 0.0
