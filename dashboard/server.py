@@ -168,22 +168,14 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Active Zenoh Peer Session Audit (ESTABLISHED TCP Session on Zenoh Transport Ports 7447/7446)
+            # 3. Active Zenoh Control Plane Peer Session Audit
+            # A remote device is ONLINE ONLY IF an established Zenoh TCP transport session exists from mesh_node.py
             if active_peers and ip in active_peers:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 4. Inbound Port Audit (Check if remote node listens on Zenoh Transport Port 7447)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.15)
-            res_code = sock.connect_ex((ip, 7447))
-            sock.close()
-
-            elapsed = (time.time() - start) * 1000.0
-            if res_code == 0:
-                return "ONLINE", max(0.5, round(elapsed, 1))
-            else:
-                return "OFFLINE", 0.0
+            # Remote IP is reachable on physical network, but mesh_node.py Application is NOT running on that device
+            return "OFFLINE", 0.0
         except Exception:
             return "OFFLINE", 0.0
 
