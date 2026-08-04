@@ -21,6 +21,15 @@
 - **Real-Time Low Latency**: Configured with 1ms TCP batch flushing and custom queue management for real-time inter-device streaming.
 - **ROS2 & Zenoh Middleware Integration**: Synchronized directly with ROS2 Humble `rmw_zenoh_cpp` router and peer configurations.
 
+## Network Ports & Communication Reference
+The Mesh Control Plane utilizes specific network ports for data transport, telemetry, and application health monitoring:
+
+| Port | Protocol | Purpose / Description |
+| :--- | :--- | :--- |
+| **Port 8080** | HTTP | **Web Telemetry Dashboard & Application Active Probe**: Serves the live Web Portal (`http://<node-ip>:8080`), REST API endpoints (`/api/all`), and responds to node active application health checks. |
+| **Port 7447** | TCP | **Zenoh Inter-Device Data Transport**: High-performance TCP transport for ROS 2 inter-system control plane data (`filtered/**`) across physical network interfaces (`enP5p1s0f1`). |
+| **Port 7446** | TCP | **Zenoh Router / Peer Discovery**: Internal discovery, router peering, and access control policy management (`zenoh_router_tcp.json5`). |
+
 ## Governance & Rules Protection (`RULES.md`)
 To unlock `RULES.md` for updates, authenticate with your master password:
 ```bash
