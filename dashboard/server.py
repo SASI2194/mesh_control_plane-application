@@ -66,18 +66,18 @@ class TelemetryDataProvider:
         self.scheduler.available_bandwidth = self.max_bw
         self.scheduler.schedule()
 
-        # Define 9 mesh nodes: 6 UGVs + 3 GCSs
+        # Define 9 mesh nodes: 6 UGVs + 3 GCSs (Remote nodes default to OFFLINE until dynamically verified)
         self.nodes = [
-            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "ONLINE", "rssi": -62, "latency": 5.2, "loss": 0.0, "uptime": "1h 42m"},
-            {"id": "UGV-02", "name": "UGV Unit 02", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.66", "role": "Field Unit", "status": "ONLINE", "rssi": -68, "latency": 6.8, "loss": 1.2, "uptime": "1h 38m"},
-            {"id": "UGV-03", "name": "UGV Unit 03", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.67", "role": "Field Unit", "status": "ONLINE", "rssi": -65, "latency": 5.8, "loss": 0.5, "uptime": "1h 40m"},
-            {"id": "UGV-04", "name": "UGV Unit 04", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.68", "role": "Field Unit", "status": "ONLINE", "rssi": -74, "latency": 9.1, "loss": 2.8, "uptime": "1h 15m"},
-            {"id": "UGV-05", "name": "UGV Unit 05", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.69", "role": "Field Unit", "status": "ONLINE", "rssi": -71, "latency": 8.0, "loss": 2.1, "uptime": "1h 22m"},
-            {"id": "UGV-06", "name": "UGV Unit 06", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.70", "role": "Field Unit", "status": "ONLINE", "rssi": -76, "latency": 11.4, "loss": 4.1, "uptime": "0h 58m"},
+            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "ONLINE", "rssi": -62, "latency": 1.0, "loss": 0.0, "uptime": "Live"},
+            {"id": "UGV-02", "name": "UGV Unit 02", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.66", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "UGV-03", "name": "UGV Unit 03", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.67", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "UGV-04", "name": "UGV Unit 04", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.68", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "UGV-05", "name": "UGV Unit 05", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.69", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "UGV-06", "name": "UGV Unit 06", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.70", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
 
-            {"id": "GCS-01", "name": "GCS Primary Command", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.71", "role": "Primary Coordinator", "status": "ONLINE", "rssi": -58, "latency": 4.1, "loss": 0.0, "uptime": "2h 10m"},
-            {"id": "GCS-02", "name": "GCS Tactical Station 1", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.72", "role": "Tactical Monitor", "status": "ONLINE", "rssi": -64, "latency": 5.0, "loss": 0.0, "uptime": "2h 05m"},
-            {"id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "ONLINE", "rssi": -69, "latency": 6.5, "loss": 0.8, "uptime": "1h 50m"},
+            {"id": "GCS-01", "name": "GCS Primary Command", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.71", "role": "Primary Coordinator", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "GCS-02", "name": "GCS Tactical Station 1", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.72", "role": "Tactical Monitor", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
+            {"id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
         ]
 
         self.ping_executor = ThreadPoolExecutor(max_workers=9)
