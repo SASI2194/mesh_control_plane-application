@@ -204,6 +204,7 @@ class TelemetryDataProvider:
             result = []
             allowed = self.scheduler.allowed_topics
             for name, topic in self.registry.all_topics().items():
+                is_allowed = name in allowed
                 tx_hz = topic.get("tx_hz", 0.0)
                 tx_mbps = topic.get("tx_mbps", 0.0) if is_allowed else 0.0
                 tx_data_size_str = topic.get("tx_data_size_str", "0 B") if tx_hz > 0.0 else "0 B"
