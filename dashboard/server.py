@@ -143,14 +143,19 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Application Active Probe: Verify mesh_node.py Application on port 8080
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.3)
-            conn_res = sock.connect_ex((ip, 8080))
-            sock.close()
+            # 3. Application Active Probe: Check Zenoh Transport (Port 7447) OR Web Telemetry (Port 8080)
+            is_app_running = False
+            for port in [7447, 8080]:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.2)
+                res_code = sock.connect_ex((ip, port))
+                sock.close()
+                if res_code == 0:
+                    is_app_running = True
+                    break
 
             elapsed = (time.time() - start) * 1000.0
-            if conn_res == 0:
+            if is_app_running:
                 return "ONLINE", max(0.5, round(elapsed, 1))
             else:
                 # IP is pingable, but mesh_node.py Application is NOT running on that device
