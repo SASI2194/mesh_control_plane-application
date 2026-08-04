@@ -92,7 +92,7 @@ class TelemetryDataProvider:
             self.scheduler = scheduler
 
     def _get_active_zenoh_peers(self):
-        """Returns a set of remote IP addresses with active established Zenoh TCP connections."""
+        """Returns a set of remote IP addresses with active established Zenoh TCP transport connections (Ports 7447/7446)."""
         active_ips = set()
         try:
             res = subprocess.run(
@@ -103,7 +103,8 @@ class TelemetryDataProvider:
             )
             if res.returncode == 0:
                 for line in res.stdout.splitlines():
-                    if "ESTAB" in line and (":7447" in line or ":7446" in line or ":8080" in line):
+                    # Audit established Zenoh Control Plane Transport Sockets ONLY (7447 & 7446)
+                    if "ESTAB" in line and (":7447" in line or ":7446" in line):
                         parts = line.split()
                         if len(parts) >= 5:
                             for addr in [parts[3], parts[4]]:
@@ -149,7 +150,7 @@ class TelemetryDataProvider:
     def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
-        by auditing ICMP reachability, active Zenoh peer TCP sessions, or active ports.
+        by auditing ICMP reachability and active Zenoh TCP transport sessions.
         """
         try:
             start = time.time()
@@ -167,24 +168,19 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Active Zenoh Peer Session Audit (ESTABLISHED TCP Session on Port 7447/7446)
+            # 3. Active Zenoh Peer Session Audit (ESTABLISHED TCP Session on Zenoh Transport Ports 7447/7446)
             if active_peers and ip in active_peers:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 4. Inbound Port Audit (Check if remote node listens on 7447 or 8080)
-            is_app_running = False
-            for port in [7447, 8080]:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(0.15)
-                res_code = sock.connect_ex((ip, port))
-                sock.close()
-                if res_code == 0:
-                    is_app_running = True
-                    break
+            # 4. Inbound Port Audit (Check if remote node listens on Zenoh Transport Port 7447)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.15)
+            res_code = sock.connect_ex((ip, 7447))
+            sock.close()
 
             elapsed = (time.time() - start) * 1000.0
-            if is_app_running:
+            if res_code == 0:
                 return "ONLINE", max(0.5, round(elapsed, 1))
             else:
                 return "OFFLINE", 0.0
