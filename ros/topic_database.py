@@ -50,12 +50,34 @@ class TopicRegistry:
                     topic["measured_bandwidth"] = mbps
                     topic["hz"] = hz
                     topic["data_size_str"] = data_size_str
+
+                    # Dual Tx/Rx Role metrics
+                    topic["tx_hz"] = val.get("tx_hz", 0.0)
+                    topic["tx_mbps"] = val.get("tx_mbps", 0.0)
+                    topic["tx_data_size_str"] = val.get("tx_data_size_str", "0 B")
+
+                    topic["rx_hz"] = val.get("rx_hz", 0.0)
+                    topic["rx_mbps"] = val.get("rx_mbps", 0.0)
+                    topic["rx_data_size_str"] = val.get("rx_data_size_str", "0 B")
+
+                    topic["diff_mbps"] = val.get("diff_mbps", 0.0)
+                    topic["delivery_pct"] = val.get("delivery_pct", 100.0)
+                    topic["role"] = val.get("role", "IDLE")
                 else:
                     topic["measured_bandwidth"] = float(val)
             else:
                 topic["measured_bandwidth"] = 0.0
                 topic["hz"] = 0.0
                 topic["data_size_str"] = "0 B"
+                topic["tx_hz"] = 0.0
+                topic["tx_mbps"] = 0.0
+                topic["tx_data_size_str"] = "0 B"
+                topic["rx_hz"] = 0.0
+                topic["rx_mbps"] = 0.0
+                topic["rx_data_size_str"] = "0 B"
+                topic["diff_mbps"] = 0.0
+                topic["delivery_pct"] = 100.0
+                topic["role"] = "IDLE"
 
     def update_measured_metrics(self, metrics_map: dict):
         """

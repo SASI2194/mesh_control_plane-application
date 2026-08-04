@@ -243,18 +243,40 @@ function renderTopics(topics) {
         const statusClass = isAllowed ? 'allowed' : 'blocked';
         const verifClass = isAllowed ? 'text-emerald' : 'text-amber';
 
-        const hzStr = (t.hz !== undefined && t.hz !== null) ? `${t.hz.toFixed(1)} Hz` : '0.0 Hz';
-        const msgSizeStr = t.data_size_str || '0 B';
-        const liveBwStr = `${t.bandwidth_mbps.toFixed(1)} Mbps`;
+        // Role badge styling
+        const role = t.role || 'IDLE';
+        let roleBadge = `<span class="role-badge idle">IDLE</span>`;
+        if (role === 'PUBLISHER') roleBadge = `<span class="role-badge publisher">Tx PUBLISHER</span>`;
+        else if (role === 'SUBSCRIBER') roleBadge = `<span class="role-badge subscriber">Rx SUBSCRIBER</span>`;
+        else if (role === 'BOTH') roleBadge = `<span class="role-badge both">Tx/Rx DUAL</span>`;
+
+        // Tx (Publisher) metrics
+        const txHz = t.tx_hz !== undefined ? t.tx_hz.toFixed(1) : '0.0';
+        const txMbps = t.tx_mbps !== undefined ? t.tx_mbps.toFixed(1) : '0.0';
+        const txSize = t.tx_data_size_str || '0 B';
+        const txStr = isAllowed && t.tx_hz > 0 ? `${txHz} Hz • ${txMbps} Mbps <br/><small class="text-dim">${txSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+
+        // Rx (Subscriber) metrics
+        const rxHz = t.rx_hz !== undefined ? t.rx_hz.toFixed(1) : '0.0';
+        const rxMbps = t.rx_mbps !== undefined ? t.rx_mbps.toFixed(1) : '0.0';
+        const rxSize = t.rx_data_size_str || '0 B';
+        const rxStr = isAllowed && t.rx_hz > 0 ? `${rxHz} Hz • ${rxMbps} Mbps <br/><small class="text-dim">${rxSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+
+        // Throughput Differential
+        const diffMbps = t.diff_mbps !== undefined ? t.diff_mbps.toFixed(1) : '0.0';
+        const delPct = t.delivery_pct !== undefined ? t.delivery_pct.toFixed(1) : '100.0';
+        const diffColor = Math.abs(t.diff_mbps || 0) < 1.0 ? 'text-emerald' : 'text-amber';
+        const diffStr = isAllowed ? `<span class="${diffColor} font-bold">${diffMbps} Mbps Δ</span> <br/><small class="text-cyan">${delPct}% Recv</small>` : '<span class="text-dim">0.0 Mbps Δ</span>';
 
         html += `
             <tr>
                 <td><strong>P${t.priority}</strong></td>
                 <td>${t.name}</td>
                 <td>Priority ${t.priority}</td>
-                <td><span class="text-cyan font-bold">${hzStr}</span></td>
-                <td><span class="text-purple font-bold">${msgSizeStr}</span></td>
-                <td><span class="text-emerald font-bold">${liveBwStr}</span></td>
+                <td>${roleBadge}</td>
+                <td><span class="text-cyan font-bold">${txStr}</span></td>
+                <td><span class="text-purple font-bold">${rxStr}</span></td>
+                <td>${diffStr}</td>
                 <td><span class="status-badge ${statusClass}">${t.status}</span></td>
                 <td class="${verifClass}">${t.verification}</td>
             </tr>

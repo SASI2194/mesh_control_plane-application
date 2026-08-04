@@ -5,8 +5,8 @@
 
 Mesh Control Plane
 
-Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Sequence Tracking,
-Packet Loss Tolerance Congestion Control, Automatic Web Dashboard Telemetry, and Loggers.
+Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Dual Tx/Rx Role Tracking,
+Sequence Tracking, Packet Loss Tolerance Congestion Control, Automatic Web Dashboard Telemetry, and Loggers.
 
 ===============================================================================
 """
@@ -43,12 +43,12 @@ class MeshNode:
 
         print()
         print("============================================================")
-        print("Mesh Control Plane (Real-Time Dynamic Rate & Automatic Dashboard)")
+        print("Mesh Control Plane (Real-Time Dynamic Rate & Dual Role Governance)")
         print("============================================================")
         print()
 
         #
-        # Real-time Bandwidth & Hz / Payload Monitor
+        # Real-time Bandwidth & Dual Tx/Rx Role Monitor
         #
 
         self.bw_monitor = RealtimeBandwidthMonitor(window_size_sec=2.0)
@@ -156,17 +156,20 @@ class MeshNode:
         payload_bytes = sample.payload.to_bytes()
 
         #
-        # Handle Inter-Device Control Plane Samples (filtered/**)
+        # Handle Inter-Device Control Plane Samples (filtered/**) - Subscriber (Rx) Role
         #
 
         if key_str.startswith("filtered/"):
-            # Incoming sample from another mesh node over physical interface
             seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
+            ros_topic = self.mapper.zenoh_to_ros(key_str)
+            if ros_topic:
+                self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload))
+
             print(f"[RECV MESH] {key_str} (Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
 
         #
-        # Handle Local ROS Deployment Topics
+        # Handle Local ROS Deployment Topics - Publisher (Tx) Role
         #
 
         ros_topic = self.mapper.zenoh_to_ros(key_str)
@@ -174,10 +177,10 @@ class MeshNode:
             return
 
         #
-        # Record real-time bandwidth, Hz, and msg size ONCE per local sample
+        # Record Publisher (Tx) sample before entering transport
         #
 
-        seq_num = self.bw_monitor.record_sample(ros_topic, len(payload_bytes))
+        seq_num = self.bw_monitor.record_tx_sample(ros_topic, len(payload_bytes))
 
         mesh_sample = MeshSample(
             key=ros_topic,
@@ -210,7 +213,7 @@ class MeshNode:
     def update_scheduler(self, current_loss_percent=0.0):
 
         #
-        # Update registry with live measured bandwidths, Hz, and data sizes
+        # Update registry with live measured bandwidths, Tx/Rx rates, and data sizes
         #
 
         self.registry.update_measured_metrics(

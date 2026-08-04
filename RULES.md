@@ -16,10 +16,17 @@
 
 ---
 
-## RULE 2: Dynamic Priority Scheduling & Bandwidth Governance
-- **Topic Priorities**: Topics must be strictly assigned to priority tiers P1 (highest) through P5 (lowest).
-- **Network Capacity Limit**: Available network bandwidth capacity (`maximum_bandwidth_mbps`) is configured dynamically in `config/mesh.yaml`.
-- **Admission Control**: `BandwidthScheduler` must continuously evaluate total bandwidth demand and admit topics from P1 downward until available network capacity is satisfied.
+## RULE 2: Dynamic Priority Scheduling, Role Indication & End-to-End Differential Rate Governance
+- **Publisher (Tx) vs. Subscriber (Rx) Role Indications**:
+  Each system running `mesh_node.py` must explicitly indicate its active operational role(s) per topic:
+  - **Publisher Role (Tx)**: Measures and displays the **Published Data Rate** (Tx Hz, Tx Msg Size, Tx Published Mbps) generated locally by ROS 2 before entering the transport.
+  - **Subscriber Role (Rx)**: Measures and displays the **Subscribed Data Rate** (Rx Hz, Rx Msg Size, Rx Subscribed Mbps) that actually entered and traveled through the physical network interface (`filtered/**`).
+- **End-to-End Throughput Differential Calculation**:
+  The system must calculate and log the throughput difference and delivery efficiency between the publisher's generated rate and the subscriber's received rate:
+  $$\Delta \text{Bandwidth} = \text{Tx Published Mbps} - \text{Rx Subscribed Mbps}$$
+  $$\text{Delivery Ratio (\%)} = \left(\frac{\text{Rx Subscribed Mbps}}{\text{Tx Published Mbps}}\right) \times 100$$
+  This differential determines exact end-to-end transport efficiency and verifies that admitted topics achieve 100% full delivery without packet loss across the mesh network.
+- **Topic Priorities & Dynamic Scheduling**: Topics must be strictly assigned to priority tiers P1 (highest) through P5 (lowest). The `BandwidthScheduler` continuously evaluates dynamic bandwidth demand and admits topics from P1 downward until available network capacity (`maximum_bandwidth_mbps` in `config/mesh.yaml`) is satisfied.
 
 ---
 

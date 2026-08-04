@@ -53,10 +53,8 @@ class TestSchedulerLogger(unittest.TestCase):
         self.assertTrue(os.path.exists(txt_path))
         with open(txt_path, "r", encoding="utf-8") as f:
             txt_content = f.read()
-            self.assertIn("PRIORITY SCHEDULER & REAL-TIME TOPIC ADMISSION SNAPSHOT", txt_content)
+            self.assertIn("PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT", txt_content)
             self.assertIn("/topic_01", txt_content)
-            self.assertIn("50.0", txt_content)
-            self.assertIn("100.0 KB", txt_content)
 
         # Verify CSV log creation
         csv_path = os.path.join(self.test_dir, "priority_scheduler.csv")

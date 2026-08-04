@@ -260,6 +260,40 @@ body {
     color: var(--text-muted);
 }
 
+/* Node Role Badges */
+.role-badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.role-badge.publisher {
+    background: rgba(0, 229, 255, 0.15);
+    color: var(--accent-cyan);
+    border: 1px solid var(--accent-cyan);
+}
+
+.role-badge.subscriber {
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid var(--accent-purple);
+}
+
+.role-badge.both {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-emerald);
+    border: 1px solid var(--accent-emerald);
+}
+
+.role-badge.idle {
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--text-muted);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
 .badge-cyan {
     background: rgba(0, 229, 255, 0.15);
     color: var(--accent-cyan);

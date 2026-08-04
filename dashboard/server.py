@@ -204,10 +204,21 @@ class TelemetryDataProvider:
             result = []
             allowed = self.scheduler.allowed_topics
             for name, topic in self.registry.all_topics().items():
-                is_allowed = name in allowed
-                hz = topic.get("hz", 0.0)
-                data_size_str = topic.get("data_size_str", "0 B") if hz > 0.0 else "0 B"
-                bw = topic.get("measured_bandwidth", 0.0) if (is_allowed and hz > 0.0) else 0.0
+                tx_hz = topic.get("tx_hz", 0.0)
+                tx_mbps = topic.get("tx_mbps", 0.0) if is_allowed else 0.0
+                tx_data_size_str = topic.get("tx_data_size_str", "0 B") if tx_hz > 0.0 else "0 B"
+
+                rx_hz = topic.get("rx_hz", 0.0)
+                rx_mbps = topic.get("rx_mbps", 0.0)
+                rx_data_size_str = topic.get("rx_data_size_str", "0 B") if rx_hz > 0.0 else "0 B"
+
+                diff_mbps = round(tx_mbps - rx_mbps, 1)
+                delivery_pct = topic.get("delivery_pct", 100.0) if is_allowed else 0.0
+                role = topic.get("role", "IDLE")
+
+                bw = tx_mbps if tx_mbps > 0.0 else rx_mbps
+                hz = tx_hz if tx_hz > 0.0 else rx_hz
+                data_size_str = tx_data_size_str if tx_hz > 0.0 else rx_data_size_str
 
                 result.append({
                     "id": topic["id"],
@@ -216,6 +227,15 @@ class TelemetryDataProvider:
                     "bandwidth_mbps": round(bw, 1),
                     "hz": round(hz, 1),
                     "data_size_str": data_size_str,
+                    "tx_hz": round(tx_hz, 1),
+                    "tx_mbps": round(tx_mbps, 1),
+                    "tx_data_size_str": tx_data_size_str,
+                    "rx_hz": round(rx_hz, 1),
+                    "rx_mbps": round(rx_mbps, 1),
+                    "rx_data_size_str": rx_data_size_str,
+                    "diff_mbps": diff_mbps,
+                    "delivery_pct": delivery_pct,
+                    "role": role,
                     "status": "ALLOWED" if is_allowed else "BLOCKED",
                     "loss_percent": 0.0 if is_allowed else 100.0,
                     "verification": "FULL DATA 100%" if is_allowed else "SHEDDED"

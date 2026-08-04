@@ -5,9 +5,10 @@
 
 Mesh Control Plane
 
-Real-Time Dynamic Bandwidth & Topic Metrics Monitor
+Real-Time Dynamic Bandwidth & Dual Publisher/Subscriber Role Metrics Monitor
 
-Measures incoming and outgoing ROS topic bandwidth, packet rates (Hz), and message data sizes
+Measures incoming (Rx - Subscriber) and outgoing (Tx - Publisher) ROS topic bandwidth,
+packet rates (Hz), message payload sizes, and calculates end-to-end differential throughput
 in real-time using a 2.0-second sliding time window.
 
 ===============================================================================
@@ -30,7 +31,7 @@ def format_bytes(num_bytes):
 
 class TopicWindowStats:
     """
-    Tracks sliding window statistics for a single topic.
+    Tracks sliding window statistics for a single topic (Publisher Tx or Subscriber Rx).
     """
 
     def __init__(self, window_size_sec=2.0):
@@ -62,15 +63,7 @@ class TopicWindowStats:
             now = time.time()
             self._clean_old_samples(now)
 
-            # If no samples in window but updated within last 2.5 seconds, keep last known avg
             if not self.samples:
-                if now - self.last_update_time > 2.5:
-                    return {
-                        "mbps": 0.0,
-                        "hz": 0.0,
-                        "avg_bytes": 0.0,
-                        "data_size_str": "0 B"
-                    }
                 return {
                     "mbps": 0.0,
                     "hz": 0.0,
@@ -95,63 +88,110 @@ class TopicWindowStats:
 
 class RealtimeBandwidthMonitor:
     """
-    Monitors real-time bandwidth, frequency (Hz), and payload data sizes across all active ROS topics.
+    Monitors real-time Tx (Publisher) and Rx (Subscriber) bandwidth, frequency (Hz),
+    payload data sizes, and differential throughput across all active ROS topics.
     """
 
     def __init__(self, window_size_sec=2.0):
         self.window_size_sec = window_size_sec
-        self.topic_stats = {}
+        self.tx_stats = {}  # topic_name -> TopicWindowStats (Publisher Tx)
+        self.rx_stats = {}  # topic_name -> TopicWindowStats (Subscriber Rx)
         self.lock = Lock()
 
     def record_sample(self, topic_name, byte_size):
-        """
-        Record a received/transmitted sample for a topic and return its sequence number.
-        """
+        """Backward compatible helper - records Tx sample."""
+        return self.record_tx_sample(topic_name, byte_size)
+
+    def record_tx_sample(self, topic_name, byte_size):
+        """Record Publisher (Tx) generated ROS sample before entering transport."""
         if not topic_name:
             return 0
         with self.lock:
-            if topic_name not in self.topic_stats:
-                self.topic_stats[topic_name] = TopicWindowStats(self.window_size_sec)
-            stats = self.topic_stats[topic_name]
+            if topic_name not in self.tx_stats:
+                self.tx_stats[topic_name] = TopicWindowStats(self.window_size_sec)
+            stats = self.tx_stats[topic_name]
+        return stats.add_sample(byte_size)
 
+    def record_rx_sample(self, topic_name, byte_size):
+        """Record Subscriber (Rx) received mesh sample that entered through transport."""
+        if not topic_name:
+            return 0
+        with self.lock:
+            if topic_name not in self.rx_stats:
+                self.rx_stats[topic_name] = TopicWindowStats(self.window_size_sec)
+            stats = self.rx_stats[topic_name]
         return stats.add_sample(byte_size)
 
     def get_topic_metrics(self, topic_name):
         """
-        Get the current measured metrics for a topic.
+        Get the current Publisher (Tx), Subscriber (Rx), and Differential metrics for a topic.
         """
         with self.lock:
-            stats = self.topic_stats.get(topic_name)
-            if stats:
-                return stats.get_metrics()
-            return {
-                "mbps": 0.0,
-                "hz": 0.0,
-                "avg_bytes": 0.0,
-                "data_size_str": "0 B"
-            }
+            tx_obj = self.tx_stats.get(topic_name)
+            rx_obj = self.rx_stats.get(topic_name)
+
+        tx_m = tx_obj.get_metrics() if tx_obj else {"mbps": 0.0, "hz": 0.0, "avg_bytes": 0.0, "data_size_str": "0 B"}
+        rx_m = rx_obj.get_metrics() if rx_obj else {"mbps": 0.0, "hz": 0.0, "avg_bytes": 0.0, "data_size_str": "0 B"}
+
+        tx_mbps = tx_m["mbps"]
+        rx_mbps = rx_m["mbps"]
+        diff_mbps = round(tx_mbps - rx_mbps, 1)
+
+        # Role determination
+        if tx_m["hz"] > 0.0 and rx_m["hz"] > 0.0:
+            role = "BOTH"
+        elif tx_m["hz"] > 0.0:
+            role = "PUBLISHER"
+        elif rx_m["hz"] > 0.0:
+            role = "SUBSCRIBER"
+        else:
+            role = "IDLE"
+
+        # Delivery percentage
+        if tx_mbps > 0.0:
+            delivery_pct = round(min(100.0, (rx_mbps / tx_mbps) * 100.0), 1)
+        else:
+            delivery_pct = 100.0 if rx_mbps > 0.0 else 100.0
+
+        # General fallbacks
+        primary_mbps = tx_mbps if tx_mbps > 0.0 else rx_mbps
+        primary_hz = tx_m["hz"] if tx_m["hz"] > 0.0 else rx_m["hz"]
+        primary_data_str = tx_m["data_size_str"] if tx_m["hz"] > 0.0 else rx_m["data_size_str"]
+
+        return {
+            "mbps": primary_mbps,
+            "hz": primary_hz,
+            "avg_bytes": tx_m["avg_bytes"] if tx_m["hz"] > 0.0 else rx_m["avg_bytes"],
+            "data_size_str": primary_data_str,
+            # Publisher Tx metrics
+            "tx_mbps": tx_mbps,
+            "tx_hz": tx_m["hz"],
+            "tx_data_size_str": tx_m["data_size_str"],
+            # Subscriber Rx metrics
+            "rx_mbps": rx_mbps,
+            "rx_hz": rx_m["hz"],
+            "rx_data_size_str": rx_m["data_size_str"],
+            # Differential & Role metrics
+            "diff_mbps": diff_mbps,
+            "delivery_pct": delivery_pct,
+            "role": role
+        }
 
     def get_all_bandwidths(self):
-        """
-        Get a dict mapping topic_name -> measured Mbps.
-        """
         with self.lock:
-            topics = list(self.topic_stats.keys())
+            all_keys = set(self.tx_stats.keys()).union(set(self.rx_stats.keys()))
 
         result = {}
-        for topic in topics:
+        for topic in all_keys:
             metrics = self.get_topic_metrics(topic)
             result[topic] = metrics["mbps"]
         return result
 
     def get_all_metrics(self):
-        """
-        Get a dict mapping topic_name -> full metrics dict (mbps, hz, avg_bytes, data_size_str).
-        """
         with self.lock:
-            topics = list(self.topic_stats.keys())
+            all_keys = set(self.tx_stats.keys()).union(set(self.rx_stats.keys()))
 
         result = {}
-        for topic in topics:
+        for topic in all_keys:
             result[topic] = self.get_topic_metrics(topic)
         return result
