@@ -123,20 +123,40 @@ class TelemetryDataProvider:
             time.sleep(1.0)
 
     def _ping_device(self, ip):
+        """
+        Verifies that mesh_node.py Application is actively running on target IP
+        by probing both ICMP network reachability and Application Port 8080.
+        """
         try:
             start = time.time()
+            # 1. ICMP Ping check for network interface reachability
             res = subprocess.run(
                 ["ping", "-c", "1", "-W", "1", ip],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
+            if res.returncode != 0:
+                return "OFFLINE", 0.0
+
+            # 2. Check if local node or loopback
+            if ip in ["127.0.0.1", "localhost", "192.168.3.65"]:
+                elapsed = (time.time() - start) * 1000.0
+                return "ONLINE", max(0.5, round(elapsed, 1))
+
+            # 3. Application Active Probe: Verify mesh_node.py Application on port 8080
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.3)
+            conn_res = sock.connect_ex((ip, 8080))
+            sock.close()
+
             elapsed = (time.time() - start) * 1000.0
-            if res.returncode == 0:
-                return "ONLINE", round(elapsed, 1)
+            if conn_res == 0:
+                return "ONLINE", max(0.5, round(elapsed, 1))
             else:
+                # IP is pingable, but mesh_node.py Application is NOT running on that device
                 return "OFFLINE", 0.0
         except Exception:
-            return "ONLINE", 5.0  # Fallback
+            return "OFFLINE", 0.0
 
     def get_system_summary(self):
         with self.lock:
