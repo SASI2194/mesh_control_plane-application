@@ -91,6 +91,13 @@ class TelemetryDataProvider:
             self.registry = registry
             self.scheduler = scheduler
 
+    def _clean_ip(self, raw_addr):
+        """Extracts clean IPv4 string from socket address strings like [::ffff:192.168.3.67]:7447."""
+        if not raw_addr:
+            return ""
+        ip_part = raw_addr.rsplit(":", 1)[0]
+        return ip_part.replace("[", "").replace("]", "").replace("::ffff:", "").strip()
+
     def _get_active_zenoh_peers(self):
         """Returns a set of remote IP addresses with active established Zenoh TCP transport connections (Ports 7447/7446)."""
         active_ips = set()
@@ -108,9 +115,9 @@ class TelemetryDataProvider:
                         parts = line.split()
                         if len(parts) >= 5:
                             for addr in [parts[3], parts[4]]:
-                                peer_ip = addr.rsplit(":", 1)[0].replace("[", "").replace("]", "")
-                                if peer_ip and peer_ip not in ["127.0.0.1", "0.0.0.0", "192.168.3.65"]:
-                                    active_ips.add(peer_ip)
+                                clean_ip = self._clean_ip(addr)
+                                if clean_ip and clean_ip not in ["127.0.0.1", "0.0.0.0", "192.168.3.65"]:
+                                    active_ips.add(clean_ip)
         except Exception:
             pass
         return active_ips
