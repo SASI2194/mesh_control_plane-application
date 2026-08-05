@@ -164,6 +164,20 @@ class MeshNode:
     #####################################################################
 
     def _detect_local_ip(self):
+        """Dynamically detects local physical network interface IP without any hardcoded fallback."""
+        # 1. Try ip route get to 192.168.3.1 gateway
+        try:
+            res = subprocess.run(["ip", "route", "get", "192.168.3.1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode == 0:
+                tokens = res.stdout.split()
+                if "src" in tokens:
+                    idx = tokens.index("src")
+                    if idx + 1 < len(tokens):
+                        return tokens[idx + 1]
+        except Exception:
+            pass
+
+        # 2. Try hostname -I interface list
         try:
             res = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode == 0:
@@ -171,11 +185,23 @@ class MeshNode:
                     if ip.startswith("192.168.3."):
                         return ip
                 for ip in res.stdout.strip().split():
-                    if ip and not ip.startswith("127.") and not ip.startswith("172.17."):
+                    if ip and not ip.startswith("127.") and not ip.startswith("172."):
                         return ip
         except Exception:
             pass
-        return "192.168.3.65"
+
+        # 3. Try UDP socket connection probe
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("192.168.3.1", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            if ip and not ip.startswith("127."):
+                return ip
+        except Exception:
+            pass
+
+        return "127.0.0.1"
 
     #####################################################################
 
