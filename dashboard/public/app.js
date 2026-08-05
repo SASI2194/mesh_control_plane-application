@@ -66,6 +66,12 @@ function renderSummary(summary) {
     const pct = Math.min(100, (summary.used_bandwidth_mbps / summary.max_bandwidth_mbps) * 100);
     document.getElementById('kpi-bw-progress').style.width = `${pct}%`;
 
+    // Local Device Identity Header Info
+    const localInfo = document.getElementById('local-device-info');
+    if (localInfo && summary.local_node_id) {
+        localInfo.textContent = `${summary.local_node_id} • ${summary.local_node_ip}`;
+    }
+
     // Status Badge
     const led = document.getElementById('global-status-led');
     const title = document.getElementById('global-status-title');
@@ -301,12 +307,18 @@ function renderDeviceCards(nodes) {
     filtered.forEach(dev => {
         const isUGV = dev.type === 'UGV';
         const isOnline = dev.status === 'ONLINE';
+        const isLocal = dev.is_local;
         const typeClass = isUGV ? 'ugv' : 'gcs';
-        const cardClass = isOnline ? 'device-card' : 'device-card offline';
+        let cardClass = isOnline ? 'device-card' : 'device-card offline';
+        if (isLocal) cardClass += ' local-host-card';
 
         const statusBadge = isOnline 
             ? `<span class="dev-status-badge online">ONLINE</span>`
             : `<span class="dev-status-badge offline">OFFLINE</span>`;
+
+        const localBadge = isLocal 
+            ? `<span class="dev-status-badge local-host">THIS DEVICE</span>`
+            : '';
 
         const signalVal = isOnline ? `${dev.rssi} dBm` : 'N/A';
         const latencyVal = isOnline ? `${dev.latency} ms` : 'Disconnected';
@@ -316,6 +328,7 @@ function renderDeviceCards(nodes) {
                 <div class="device-header">
                     <span class="device-id">${dev.id}</span>
                     <div style="display: flex; gap: 6px; align-items: center;">
+                        ${localBadge}
                         ${statusBadge}
                         <span class="device-type ${typeClass}">${dev.type}</span>
                     </div>

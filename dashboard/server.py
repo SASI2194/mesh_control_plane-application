@@ -177,9 +177,15 @@ class TelemetryDataProvider:
 
     def get_system_summary(self):
         with self.lock:
+            local_ips = self._get_local_ips()
             online_count = sum(1 for n in self.nodes if n["status"] == "ONLINE")
             ugv_count = sum(1 for n in self.nodes if n["type"] == "UGV" and n["status"] == "ONLINE")
             gcs_count = sum(1 for n in self.nodes if n["type"] == "GCS" and n["status"] == "ONLINE")
+
+            local_node = next((n for n in self.nodes if n["ip"] in local_ips), None)
+            local_id = local_node["id"] if local_node else "LOCAL"
+            local_name = local_node["name"] if local_node else "Local Node Host"
+            local_ip = local_node["ip"] if local_node else next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1")
 
             return {
                 "timestamp": time.time(),
@@ -193,12 +199,21 @@ class TelemetryDataProvider:
                 "max_bandwidth_mbps": self.max_bw,
                 "used_bandwidth_mbps": self.scheduler.used_bandwidth,
                 "loss_tolerance_percent": self.loss_tolerance,
-                "system_health": "OPTIMAL" if online_count >= 8 else "DEGRADED"
+                "system_health": "OPTIMAL" if online_count >= 8 else "DEGRADED",
+                "local_node_id": local_id,
+                "local_node_name": local_name,
+                "local_node_ip": local_ip
             }
 
     def get_nodes(self):
         with self.lock:
-            return list(self.nodes)
+            local_ips = self._get_local_ips()
+            nodes_copy = []
+            for n in self.nodes:
+                c = dict(n)
+                c["is_local"] = n["ip"] in local_ips
+                nodes_copy.append(c)
+            return nodes_copy
 
     def get_topology(self):
         """Generates 7-Sided Polygon (Heptagon) Wireless Interconnection Links."""

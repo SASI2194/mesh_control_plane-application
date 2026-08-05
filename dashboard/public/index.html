@@ -30,12 +30,22 @@
                 </div>
             </div>
 
-            <!-- Health Status Badge -->
-            <div class="system-status-box">
-                <div class="status-indicator online" id="global-status-led"></div>
-                <div>
-                    <div class="status-title" id="global-status-title">SYSTEM OPTIMAL</div>
-                    <div class="status-subtitle" id="global-status-sub">9 / 9 Devices Connected</div>
+            <!-- Local Device Identity & Health Status Badges -->
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="local-device-box" id="local-device-box">
+                    <div class="local-device-icon">📍</div>
+                    <div>
+                        <div class="local-device-title">THIS DEVICE (LOCAL HOST)</div>
+                        <div class="local-device-sub" id="local-device-info">DETECTING NODE...</div>
+                    </div>
+                </div>
+
+                <div class="system-status-box">
+                    <div class="status-indicator online" id="global-status-led"></div>
+                    <div>
+                        <div class="status-title" id="global-status-title">SYSTEM OPTIMAL</div>
+                        <div class="status-subtitle" id="global-status-sub">9 / 9 Devices Connected</div>
+                    </div>
                 </div>
             </div>
         </header>
