@@ -81,10 +81,18 @@ class TelemetryDataProvider:
         ]
 
         self.node_activity = {}
+        self.mesh_node_running = False
         self.ping_executor = ThreadPoolExecutor(max_workers=9)
         # Start live parallel ping monitor daemon thread
         self.monitor_thread = Thread(target=self._live_ping_loop, daemon=True)
         self.monitor_thread.start()
+
+    def set_mesh_node_running(self, running=True):
+        """Sets active mesh_node.py application running status flag."""
+        with self.lock:
+            self.mesh_node_running = running
+            if not running:
+                self.node_activity.clear()
 
     def record_node_activity(self, node_ip):
         """Records real-time application heartbeat activity timestamp for a node IP."""
@@ -96,6 +104,7 @@ class TelemetryDataProvider:
         with self.lock:
             self.registry = registry
             self.scheduler = scheduler
+            self.mesh_node_running = True
 
     def _clean_ip(self, raw_addr):
         """Extracts clean IPv4 string from socket address strings like [::ffff:192.168.3.67]:7447."""
@@ -176,10 +185,15 @@ class TelemetryDataProvider:
     def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
-        by auditing ICMP reachability, active Zenoh peer TCP sessions, and recent 1 Hz application heartbeats (<3.5s).
+        by auditing local app state, ICMP reachability, and recent 1 Hz application heartbeats (<=1.8s).
         """
         try:
             start = time.time()
+
+            # If local mesh_node.py application is NOT running, ALL nodes are marked OFFLINE
+            if not getattr(self, "mesh_node_running", False):
+                return "OFFLINE", 0.0
+
             # 1. ICMP Ping check for physical network reachability
             res = subprocess.run(
                 ["ping", "-c", "1", "-W", "1", ip],
@@ -189,7 +203,7 @@ class TelemetryDataProvider:
             if res.returncode != 0:
                 return "OFFLINE", 0.0
 
-            # 2. Local Node check (Dynamically matches any local interface IP on this device)
+            # 2. Local Node check (Dynamically matches local interface IP when mesh_node.py is running)
             local_ips = self._get_local_ips()
             if ip in local_ips:
                 elapsed = (time.time() - start) * 1000.0
@@ -201,12 +215,6 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 4. Fallback Active Zenoh TCP Session check (verified recent activity)
-            if active_peers and ip in active_peers and (time.time() - last_active) < 5.0:
-                elapsed = (time.time() - start) * 1000.0
-                return "ONLINE", max(0.5, round(elapsed, 1))
-
-            # Remote IP is reachable on physical network, but mesh_node.py application heartbeat has stopped
             return "OFFLINE", 0.0
         except Exception:
             return "OFFLINE", 0.0

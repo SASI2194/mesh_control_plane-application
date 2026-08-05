@@ -313,6 +313,7 @@ class MeshNode:
         print()
 
         self.running = False
+        DATA_PROVIDER.set_mesh_node_running(False)
         self.forwarding.statistics()
         self.receiver.stop()
         self.peer.close()
