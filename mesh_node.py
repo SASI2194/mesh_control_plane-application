@@ -164,13 +164,17 @@ class MeshNode:
 
     def _detect_local_ip(self):
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("192.168.3.255", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
+            res = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode == 0:
+                for ip in res.stdout.strip().split():
+                    if ip.startswith("192.168.3."):
+                        return ip
+                for ip in res.stdout.strip().split():
+                    if ip and not ip.startswith("127.") and not ip.startswith("172.17."):
+                        return ip
         except Exception:
-            return "192.168.3.65"
+            pass
+        return "192.168.3.65"
 
     #####################################################################
 

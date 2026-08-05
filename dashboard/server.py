@@ -160,6 +160,19 @@ class TelemetryDataProvider:
 
             time.sleep(1.0)
 
+    def _get_local_ips(self):
+        """Returns set of all local IPv4 interface addresses for this machine."""
+        local_ips = {"127.0.0.1", "localhost"}
+        try:
+            res = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode == 0:
+                for ip in res.stdout.strip().split():
+                    if ip:
+                        local_ips.add(ip)
+        except Exception:
+            pass
+        return local_ips
+
     def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
@@ -176,8 +189,9 @@ class TelemetryDataProvider:
             if res.returncode != 0:
                 return "OFFLINE", 0.0
 
-            # 2. Local Node check
-            if ip in ["127.0.0.1", "localhost", "192.168.3.65"]:
+            # 2. Local Node check (Dynamically matches any local interface IP on this device)
+            local_ips = self._get_local_ips()
+            if ip in local_ips:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
