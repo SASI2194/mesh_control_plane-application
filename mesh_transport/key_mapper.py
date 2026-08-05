@@ -42,9 +42,9 @@ class KeyMapper:
         else:
             clean_topic = ros_topic
 
-        # Use single wildcard */ to match ROS domain ID prefix (e.g. 40/topic_01/...)
-        # and prevent matching filtered/topic_01
-        return f"*/{clean_topic}/**"
+        # Use explicit ROS domain ID prefix (e.g. 40/topic_01/** or 0/topic_01/**)
+        # to subscribe strictly to local ROS topics without double-matching filtered/**
+        return f"{self.domain}/{clean_topic}/**"
 
     #####################################################################
 
