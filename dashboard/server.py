@@ -80,10 +80,16 @@ class TelemetryDataProvider:
             {"id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
         ]
 
+        self.node_activity = {}
         self.ping_executor = ThreadPoolExecutor(max_workers=9)
         # Start live parallel ping monitor daemon thread
         self.monitor_thread = Thread(target=self._live_ping_loop, daemon=True)
         self.monitor_thread.start()
+
+    def record_node_activity(self, node_ip):
+        """Records real-time application heartbeat activity timestamp for a node IP."""
+        with self.lock:
+            self.node_activity[node_ip] = time.time()
 
     def attach_components(self, registry, scheduler):
         """Attaches live MeshNode registry & scheduler instances for real-time telemetry updates."""
@@ -157,7 +163,7 @@ class TelemetryDataProvider:
     def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
-        by auditing ICMP reachability and active Zenoh TCP transport sessions.
+        by auditing ICMP reachability, active Zenoh peer TCP sessions, and recent 1 Hz application heartbeats (<3.5s).
         """
         try:
             start = time.time()
@@ -175,13 +181,18 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Active Zenoh Control Plane Peer Session Audit
-            # A remote device is ONLINE ONLY IF an established Zenoh TCP transport session exists from mesh_node.py
-            if active_peers and ip in active_peers:
+            # 3. Application Heartbeat Audit (Requires heartbeat/topic activity within last 3.5 seconds)
+            last_active = self.node_activity.get(ip, 0.0)
+            if (time.time() - last_active) < 3.5:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # Remote IP is reachable on physical network, but mesh_node.py Application is NOT running on that device
+            # 4. Fallback Active Zenoh TCP Session check (verified recent activity)
+            if active_peers and ip in active_peers and (time.time() - last_active) < 5.0:
+                elapsed = (time.time() - start) * 1000.0
+                return "ONLINE", max(0.5, round(elapsed, 1))
+
+            # Remote IP is reachable on physical network, but mesh_node.py application heartbeat has stopped
             return "OFFLINE", 0.0
         except Exception:
             return "OFFLINE", 0.0

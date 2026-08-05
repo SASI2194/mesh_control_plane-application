@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
 """
-===============================================================================
+==============================================================================
 
 Mesh Control Plane
 
 Main Application with Real-Time Dynamic Topic Bandwidth Measurement, Dual Tx/Rx Role Tracking,
-Sequence Tracking, Packet Loss Tolerance Congestion Control, Automatic Web Dashboard Telemetry, and Loggers.
+Application Heartbeat Protocol, Sequence Tracking, Congestion Control, Telemetry Server, and Loggers.
 
-===============================================================================
+==============================================================================
 """
 
+import socket
 import time
+from threading import Thread
 
 from mesh_transport.zenoh_session import ZenohSession
 from mesh_transport.topic_receiver import TopicReceiver
@@ -47,6 +49,9 @@ class MeshNode:
         print("============================================================")
         print()
 
+        self.running = True
+        self.my_ip = self._detect_local_ip()
+
         #
         # Real-time Bandwidth & Dual Tx/Rx Role Monitor
         #
@@ -75,7 +80,6 @@ class MeshNode:
         #
 
         self.registry = TopicRegistry()
-
         self.registry.print_topics()
 
         #
@@ -116,6 +120,7 @@ class MeshNode:
         try:
             start_dashboard_background(host="0.0.0.0", port=8080)
             DATA_PROVIDER.attach_components(self.registry, self.scheduler)
+            DATA_PROVIDER.record_node_activity(self.my_ip)
             print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
         except Exception as e:
             print(f"[WARNING] Web Dashboard failed to start: {e}")
@@ -148,6 +153,38 @@ class MeshNode:
 
         self.receiver.start()
 
+        #
+        # Start 1 Hz Control Plane Application Heartbeat Thread
+        #
+
+        self.heartbeat_thread = Thread(target=self._heartbeat_loop, daemon=True)
+        self.heartbeat_thread.start()
+
+    #####################################################################
+
+    def _detect_local_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("192.168.3.255", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "192.168.3.65"
+
+    #####################################################################
+
+    def _heartbeat_loop(self):
+        """Sends a periodic 1 Hz control plane application heartbeat to peer nodes over Zenoh."""
+        heartbeat_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
+        while self.running:
+            try:
+                payload = f"{time.time()}:{self.my_ip}".encode("utf-8")
+                self.forward_session.session.put(heartbeat_key, payload)
+            except Exception:
+                pass
+            time.sleep(1.0)
+
     #####################################################################
 
     def callback(self, sample):
@@ -160,6 +197,14 @@ class MeshNode:
         #
 
         if key_str.startswith("filtered/"):
+            # Check for Application Control Plane Heartbeat
+            if "_mesh_heartbeat/" in key_str:
+                parts = key_str.split("_mesh_heartbeat/")
+                if len(parts) > 1:
+                    sender_ip = parts[1]
+                    DATA_PROVIDER.record_node_activity(sender_ip)
+                return
+
             seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
@@ -212,6 +257,9 @@ class MeshNode:
 
     def update_scheduler(self, current_loss_percent=0.0):
 
+        # Record local node heartbeat activity
+        DATA_PROVIDER.record_node_activity(self.my_ip)
+
         #
         # Update registry with live measured bandwidths, Tx/Rx rates, and data sizes
         #
@@ -245,7 +293,7 @@ class MeshNode:
     def run(self):
 
         try:
-            while True:
+            while self.running:
                 self.update_scheduler()
                 time.sleep(1)
 
@@ -260,6 +308,7 @@ class MeshNode:
         print("Stopping Mesh Control Plane")
         print()
 
+        self.running = False
         self.forwarding.statistics()
         self.receiver.stop()
         self.peer.close()
