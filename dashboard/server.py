@@ -28,7 +28,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from threading import Thread, Lock
+from threading import Thread, RLock
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
@@ -48,7 +48,7 @@ class TelemetryDataProvider:
     """
 
     def __init__(self):
-        self.lock = Lock()
+        self.lock = RLock()
         self.config_mgr = ConfigManager()
         try:
             self.config_mgr.load()
@@ -68,13 +68,12 @@ class TelemetryDataProvider:
 
         # Define 9 mesh nodes: 6 UGVs + 3 GCSs (Remote nodes default to OFFLINE until dynamically verified)
         self.nodes = [
-            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "ONLINE", "rssi": -62, "latency": 1.0, "loss": 0.0, "uptime": "Live"},
+            {"id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "UGV-02", "name": "UGV Unit 02", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.66", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "UGV-03", "name": "UGV Unit 03", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.67", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "UGV-04", "name": "UGV Unit 04", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.68", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "UGV-05", "name": "UGV Unit 05", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.69", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "UGV-06", "name": "UGV Unit 06", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.70", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
-
             {"id": "GCS-01", "name": "GCS Primary Command", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.71", "role": "Primary Coordinator", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "GCS-02", "name": "GCS Tactical Station 1", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.72", "role": "Tactical Monitor", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
             {"id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m"},
@@ -188,8 +187,14 @@ class TelemetryDataProvider:
             local_ip = local_node["ip"] if local_node else next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1")
 
             # Calculate real-time dynamic measured bandwidth sum across allowed active topics (0.0 Mbps when idle)
-            live_topics = self.get_topics()
-            live_used_bw = sum(t["bandwidth_mbps"] for t in live_topics if t["status"] == "ALLOWED")
+            allowed = self.scheduler.allowed_topics
+            live_used_bw = 0.0
+            for name, topic in self.registry.all_topics().items():
+                if name in allowed:
+                    tx_mbps = topic.get("tx_mbps", 0.0)
+                    rx_mbps = topic.get("rx_mbps", 0.0)
+                    bw = tx_mbps if tx_mbps > 0.0 else rx_mbps
+                    live_used_bw += bw
 
             return {
                 "timestamp": time.time(),
