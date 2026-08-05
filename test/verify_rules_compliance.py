@@ -156,8 +156,8 @@ def audit_rule_5():
     payload = b"Sample Sensor Frame Payload Data"
     packed = MeshSample.pack_payload(seq_num=1001, timestamp=1700000000.0, raw_payload=payload)
 
-    assert len(packed) == len(payload) + 16, f"Header byte length error: {len(packed)}"
-    seq, ts, raw = MeshSample.unpack_payload(packed)
+    assert len(packed) == len(payload) + 20, f"Header byte length error: {len(packed)}"
+    seq, ts, origin_ip, raw = MeshSample.unpack_payload(packed)
 
     assert seq == 1001, "Sequence number unpack error!"
     assert raw == payload, "Raw payload unpack mismatch!"

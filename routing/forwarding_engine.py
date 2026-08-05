@@ -25,13 +25,14 @@ class ForwardingEngine:
 
     #####################################################################
 
-    def __init__(self, session):
+    def __init__(self, session, my_ip: str = "127.0.0.1"):
 
         #
         # Zenoh publishing session
         #
 
         self.session = session
+        self.my_ip = my_ip
 
         #
         # Statistics
@@ -48,27 +49,17 @@ class ForwardingEngine:
     def forward(self, sample: MeshSample):
 
         """
-        Forward one message if admitted by the scheduler.
-        Attaches sequence metadata for receiver-side loss tracking.
+        Forwards admitted ROS 2 topic payload onto Zenoh Control Plane transport (filtered/<topic>).
         """
-
-        #################################################################
-        # Scheduler rejected the topic
-        #################################################################
 
         if not sample.allowed:
 
             self.dropped_packets += 1
             self.dropped_bytes += len(sample.payload)
-
-            print(f"[DROP] {sample.key}")
-
             return
 
         #################################################################
-        # Remove ROS leading slash
-        #
-        # /topic_01 -> topic_01
+        # Format Zenoh Key
         #################################################################
 
         topic_name = sample.key.lstrip("/")
@@ -80,13 +71,15 @@ class ForwardingEngine:
         output_key = f"filtered/{topic_name}"
 
         #################################################################
-        # Pack payload with sequence metadata header
+        # Pack payload with sequence metadata header & origin IP
         #################################################################
 
+        origin = sample.origin_ip if sample.origin_ip and sample.origin_ip != "127.0.0.1" else self.my_ip
         packed_payload = MeshSample.pack_payload(
             sample.sequence_number,
             sample.timestamp,
-            sample.payload
+            sample.payload,
+            origin_ip=origin
         )
 
         #################################################################

@@ -10,11 +10,12 @@ Purpose : Common data models used throughout the Mesh Control Plane.
 
 from dataclasses import dataclass, field
 from typing import Dict, List
+import socket
 import struct
 import time
 
-HEADER_FORMAT = "!Qd"  # 8-byte uint64 seq_num, 8-byte float64 timestamp
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 16 bytes
+HEADER_FORMAT = "!Qd4s"  # 8-byte uint64 seq_num, 8-byte float64 timestamp, 4-byte origin_ip_bytes
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 20 bytes
 
 
 # =============================================================================
@@ -186,17 +187,24 @@ class MeshSample:
 
     sequence_number: int = 0
 
+    origin_ip: str = "127.0.0.1"
+
     @staticmethod
-    def pack_payload(seq_num: int, timestamp: float, raw_payload: bytes) -> bytes:
-        header = struct.pack(HEADER_FORMAT, seq_num, timestamp)
+    def pack_payload(seq_num: int, timestamp: float, raw_payload: bytes, origin_ip: str = "127.0.0.1") -> bytes:
+        try:
+            ip_bytes = socket.inet_aton(origin_ip)
+        except Exception:
+            ip_bytes = socket.inet_aton("127.0.0.1")
+        header = struct.pack(HEADER_FORMAT, seq_num, timestamp, ip_bytes)
         return header + raw_payload
 
     @staticmethod
     def unpack_payload(payload: bytes):
         if len(payload) >= HEADER_SIZE:
             try:
-                seq_num, timestamp = struct.unpack(HEADER_FORMAT, payload[:HEADER_SIZE])
-                return seq_num, timestamp, payload[HEADER_SIZE:]
+                seq_num, timestamp, ip_bytes = struct.unpack(HEADER_FORMAT, payload[:HEADER_SIZE])
+                origin_ip = socket.inet_ntoa(ip_bytes)
+                return seq_num, timestamp, origin_ip, payload[HEADER_SIZE:]
             except Exception:
                 pass
-        return 0, 0.0, payload
+        return 0, 0.0, "127.0.0.1", payload

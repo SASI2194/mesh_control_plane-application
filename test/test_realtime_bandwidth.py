@@ -44,7 +44,7 @@ def main():
     # 2. Verify sequence header encoding and decoding
     raw_data = b"ROS2 Image Frame Payload Data"
     packed = MeshSample.pack_payload(seq_num=42, timestamp=time.time(), raw_payload=raw_data)
-    unpacked_seq, unpacked_ts, unpacked_raw = MeshSample.unpack_payload(packed)
+    unpacked_seq, unpacked_ts, unpacked_origin, unpacked_raw = MeshSample.unpack_payload(packed)
 
     print("\n[Testing Payload Sequence Header Packing/Unpacking]")
     print(f"Original Payload Size : {len(raw_data)} bytes")

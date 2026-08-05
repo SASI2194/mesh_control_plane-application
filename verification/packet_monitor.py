@@ -75,8 +75,8 @@ class PacketMonitor:
 
         payload = sample.payload.to_bytes()
 
-        # Unpack sequence number and timestamp
-        seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload)
+        # Unpack sequence number, timestamp, and origin IP
+        seq_num, timestamp, origin_ip, raw_payload = MeshSample.unpack_payload(payload)
 
         self.statistics.update(
 

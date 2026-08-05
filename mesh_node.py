@@ -138,7 +138,8 @@ class MeshNode:
         #
 
         self.forwarding = ForwardingEngine(
-            self.forward_session
+            self.forward_session,
+            my_ip=self.my_ip
         )
 
         #
@@ -209,12 +210,19 @@ class MeshNode:
                     DATA_PROVIDER.record_node_activity(sender_ip)
                 return
 
-            seq_num, timestamp, raw_payload = MeshSample.unpack_payload(payload_bytes)
+            seq_num, timestamp, origin_ip, raw_payload = MeshSample.unpack_payload(payload_bytes)
+
+            # Ignore local loopback (samples published by self) for Subscriber Rx rate calculation
+            if origin_ip == self.my_ip or origin_ip in ["127.0.0.1", "localhost"]:
+                return
+
+            # Record remote node activity and Rx subscriber metrics for peer sample
+            DATA_PROVIDER.record_node_activity(origin_ip)
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
                 self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload))
 
-            print(f"[RECV MESH] {key_str} (Seq #{seq_num}, Bytes: {len(raw_payload)})")
+            print(f"[RECV MESH] {key_str} (From: {origin_ip}, Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
 
         #
@@ -234,7 +242,8 @@ class MeshNode:
         mesh_sample = MeshSample(
             key=ros_topic,
             payload=payload_bytes,
-            sequence_number=seq_num
+            sequence_number=seq_num,
+            origin_ip=self.my_ip
         )
 
         #
