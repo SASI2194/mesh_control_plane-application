@@ -187,6 +187,10 @@ class TelemetryDataProvider:
             local_name = local_node["name"] if local_node else "Local Node Host"
             local_ip = local_node["ip"] if local_node else next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1")
 
+            # Calculate real-time dynamic measured bandwidth sum across allowed active topics (0.0 Mbps when idle)
+            live_topics = self.get_topics()
+            live_used_bw = sum(t["bandwidth_mbps"] for t in live_topics if t["status"] == "ALLOWED")
+
             return {
                 "timestamp": time.time(),
                 "total_nodes": len(self.nodes),
@@ -197,7 +201,7 @@ class TelemetryDataProvider:
                 "gcs_total": 3,
                 "wireless_radios": 7,  # 7-Sided Polygon (Heptagon)
                 "max_bandwidth_mbps": self.max_bw,
-                "used_bandwidth_mbps": self.scheduler.used_bandwidth,
+                "used_bandwidth_mbps": round(live_used_bw, 1),
                 "loss_tolerance_percent": self.loss_tolerance,
                 "system_health": "OPTIMAL" if online_count >= 8 else "DEGRADED",
                 "local_node_id": local_id,
