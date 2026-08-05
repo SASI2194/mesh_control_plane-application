@@ -82,9 +82,8 @@ class TelemetryDataProvider:
 
         self.node_activity = {}
         self.mesh_node_running = False
-        self.ping_executor = ThreadPoolExecutor(max_workers=9)
-        # Start live parallel ping monitor daemon thread
-        self.monitor_thread = Thread(target=self._live_ping_loop, daemon=True)
+        # Start live parallel Application Layer Heartbeat Audit daemon thread
+        self.monitor_thread = Thread(target=self._live_heartbeat_audit_loop, daemon=True)
         self.monitor_thread.start()
 
     def set_mesh_node_running(self, running=True):
@@ -106,68 +105,6 @@ class TelemetryDataProvider:
             self.scheduler = scheduler
             self.mesh_node_running = True
 
-    def _clean_ip(self, raw_addr):
-        """Extracts clean IPv4 string from socket address strings like [::ffff:192.168.3.67]:7447."""
-        if not raw_addr:
-            return ""
-        ip_part = raw_addr.rsplit(":", 1)[0]
-        return ip_part.replace("[", "").replace("]", "").replace("::ffff:", "").strip()
-
-    def _get_active_zenoh_peers(self):
-        """Returns a set of remote IP addresses with active established Zenoh TCP transport connections (Ports 7447/7446)."""
-        active_ips = set()
-        try:
-            res = subprocess.run(
-                ["ss", "-tn"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            if res.returncode == 0:
-                for line in res.stdout.splitlines():
-                    # Audit established Zenoh Control Plane Transport Sockets ONLY (7447 & 7446)
-                    if "ESTAB" in line and (":7447" in line or ":7446" in line):
-                        parts = line.split()
-                        if len(parts) >= 5:
-                            for addr in [parts[3], parts[4]]:
-                                clean_ip = self._clean_ip(addr)
-                                if clean_ip and clean_ip not in ["127.0.0.1", "0.0.0.0", "192.168.3.65"]:
-                                    active_ips.add(clean_ip)
-        except Exception:
-            pass
-        return active_ips
-
-    def _live_ping_loop(self):
-        """Continuously pings and audits application status of all 9 devices in parallel."""
-        while True:
-            futures = []
-            for node in self.nodes:
-                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"])))
-
-            for node, future in futures:
-                try:
-                    status, latency = future.result(timeout=0.5)
-                    with self.lock:
-                        node["status"] = status
-                        if status == "ONLINE":
-                            node["latency"] = latency
-                            if latency < 5.0:
-                                node["rssi"] = -60
-                            elif latency < 10.0:
-                                node["rssi"] = -68
-                            else:
-                                node["rssi"] = -75
-                        else:
-                            node["latency"] = 0.0
-                            node["rssi"] = -95
-                except Exception:
-                    with self.lock:
-                        node["status"] = "OFFLINE"
-                        node["latency"] = 0.0
-                        node["rssi"] = -95
-
-            time.sleep(1.0)
-
     def _get_local_ips(self):
         """Returns set of all local IPv4 interface addresses for this machine."""
         local_ips = {"127.0.0.1", "localhost"}
@@ -181,44 +118,62 @@ class TelemetryDataProvider:
             pass
         return local_ips
 
-    def _ping_device(self, ip, active_peers=None):
+    def _live_heartbeat_audit_loop(self):
         """
-        Verifies that mesh_node.py Application is actively running on target IP
-        by auditing local app state, live traffic/heartbeat reception, and ICMP reachability.
+        Continuously audits active mesh node status based 100% on Application Layer
+        1 Hz Control Plane Heartbeats & Live Topic Activity (Zero ICMP Ping Dependency).
         """
-        try:
-            start = time.time()
-
-            # If local mesh_node.py application is NOT running, ALL nodes are marked OFFLINE
-            if not getattr(self, "mesh_node_running", False):
-                return "OFFLINE", 0.0
-
-            # 1. Local Node check (Dynamically matches local interface IP when mesh_node.py is running)
+        while True:
             local_ips = self._get_local_ips()
-            if ip in local_ips:
-                elapsed = (time.time() - start) * 1000.0
-                return "ONLINE", max(0.5, round(elapsed, 1))
+            now = time.time()
 
-            # 2. Control Plane Traffic / Application Heartbeat Audit
-            # IF live topic data or heartbeat was received from target IP in the last 2.5s -> Node is ONLINE!
-            last_active = self.node_activity.get(ip, 0.0)
-            if (time.time() - last_active) <= 2.5:
-                elapsed = (time.time() - start) * 1000.0
-                return "ONLINE", max(0.5, round(elapsed, 1))
+            with self.lock:
+                for node in self.nodes:
+                    ip = node["ip"]
 
-            # 3. ICMP Ping check for physical network reachability
-            res = subprocess.run(
-                ["ping", "-c", "1", "-W", "1", ip],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            if res.returncode == 0 and (time.time() - last_active) <= 5.0:
-                elapsed = (time.time() - start) * 1000.0
-                return "ONLINE", max(0.5, round(elapsed, 1))
+                    # If local mesh_node.py application is NOT running, ALL nodes are OFFLINE
+                    if not self.mesh_node_running:
+                        node["status"] = "OFFLINE"
+                        node["latency"] = 0.0
+                        node["rssi"] = -95
+                        continue
 
+                    # 1. Local Node Audit
+                    if ip in local_ips:
+                        node["status"] = "ONLINE"
+                        node["latency"] = 1.0
+                        node["rssi"] = -62
+                        continue
+
+                    # 2. Remote Node Application Heartbeat & Topic Activity Audit
+                    last_active = self.node_activity.get(ip, 0.0)
+                    if (now - last_active) <= 2.5:
+                        node["status"] = "ONLINE"
+                        node["latency"] = 8.5
+                        node["rssi"] = -68
+                    else:
+                        node["status"] = "OFFLINE"
+                        node["latency"] = 0.0
+                        node["rssi"] = -95
+
+            time.sleep(1.0)
+
+    def _ping_device(self, ip):
+        """
+        Application-Layer Node Audit interface (100% Heartbeat Driven).
+        """
+        if not getattr(self, "mesh_node_running", False):
             return "OFFLINE", 0.0
-        except Exception:
-            return "OFFLINE", 0.0
+
+        local_ips = self._get_local_ips()
+        if ip in local_ips:
+            return "ONLINE", 1.0
+
+        last_active = self.node_activity.get(ip, 0.0)
+        if (time.time() - last_active) <= 2.5:
+            return "ONLINE", 8.5
+
+        return "OFFLINE", 0.0
 
     def get_system_summary(self):
         with self.lock:
