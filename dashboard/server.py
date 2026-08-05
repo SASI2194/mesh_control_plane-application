@@ -140,10 +140,9 @@ class TelemetryDataProvider:
     def _live_ping_loop(self):
         """Continuously pings and audits application status of all 9 devices in parallel."""
         while True:
-            active_peers = self._get_active_zenoh_peers()
             futures = []
             for node in self.nodes:
-                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"], active_peers)))
+                futures.append((node, self.ping_executor.submit(self._ping_device, node["ip"])))
 
             for node, future in futures:
                 try:
@@ -185,7 +184,7 @@ class TelemetryDataProvider:
     def _ping_device(self, ip, active_peers=None):
         """
         Verifies that mesh_node.py Application is actively running on target IP
-        by auditing local app state, ICMP reachability, and recent 1 Hz application heartbeats (<=1.8s).
+        by auditing local app state, live traffic/heartbeat reception, and ICMP reachability.
         """
         try:
             start = time.time()
@@ -194,24 +193,26 @@ class TelemetryDataProvider:
             if not getattr(self, "mesh_node_running", False):
                 return "OFFLINE", 0.0
 
-            # 1. ICMP Ping check for physical network reachability
-            res = subprocess.run(
-                ["ping", "-c", "1", "-W", "1", ip],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            if res.returncode != 0:
-                return "OFFLINE", 0.0
-
-            # 2. Local Node check (Dynamically matches local interface IP when mesh_node.py is running)
+            # 1. Local Node check (Dynamically matches local interface IP when mesh_node.py is running)
             local_ips = self._get_local_ips()
             if ip in local_ips:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Application Heartbeat Audit (Requires heartbeat/topic activity within last 1.8 seconds)
+            # 2. Control Plane Traffic / Application Heartbeat Audit
+            # IF live topic data or heartbeat was received from target IP in the last 2.5s -> Node is ONLINE!
             last_active = self.node_activity.get(ip, 0.0)
-            if (time.time() - last_active) <= 1.8:
+            if (time.time() - last_active) <= 2.5:
+                elapsed = (time.time() - start) * 1000.0
+                return "ONLINE", max(0.5, round(elapsed, 1))
+
+            # 3. ICMP Ping check for physical network reachability
+            res = subprocess.run(
+                ["ping", "-c", "1", "-W", "1", ip],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            if res.returncode == 0 and (time.time() - last_active) <= 5.0:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
