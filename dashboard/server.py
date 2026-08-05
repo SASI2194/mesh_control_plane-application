@@ -195,9 +195,9 @@ class TelemetryDataProvider:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
-            # 3. Application Heartbeat Audit (Requires heartbeat/topic activity within last 3.5 seconds)
+            # 3. Application Heartbeat Audit (Requires heartbeat/topic activity within last 1.8 seconds)
             last_active = self.node_activity.get(ip, 0.0)
-            if (time.time() - last_active) < 3.5:
+            if (time.time() - last_active) <= 1.8:
                 elapsed = (time.time() - start) * 1000.0
                 return "ONLINE", max(0.5, round(elapsed, 1))
 
@@ -343,6 +343,9 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
 
         if self.path == "/api/summary":
