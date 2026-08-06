@@ -189,8 +189,12 @@ class MeshSample:
 
     origin_ip: str = "127.0.0.1"
 
-    @staticmethod
-    def pack_payload(seq_num: int, timestamp: float, raw_payload: bytes, origin_ip: str = "127.0.0.1") -> bytes:
+    @classmethod
+    def pack_payload(cls, seq_num: int = 0, timestamp: float = None, raw_payload: bytes = None, origin_ip: str = "127.0.0.1") -> bytes:
+        if timestamp is None:
+            timestamp = time.time()
+        if raw_payload is None:
+            raw_payload = b""
         try:
             ip_bytes = socket.inet_aton(origin_ip)
         except Exception:

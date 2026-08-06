@@ -273,14 +273,14 @@ class MeshNode:
 
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
         mesh_sample = MeshSample(
-            ros_topic=ros_topic,
+            key=ros_topic,
             payload=payload_bytes,
             allowed=(ros_topic in self.scheduler.allowed_topics),
             priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5
         )
 
         # Prepend 20-byte binary header with origin IP
-        mesh_sample.pack_payload(seq_num, origin_ip=self.my_ip)
+        mesh_sample.payload = MeshSample.pack_payload(seq_num=seq_num, timestamp=mesh_sample.timestamp, raw_payload=payload_bytes, origin_ip=self.my_ip)
 
         #
         # Debug & Forwarding
