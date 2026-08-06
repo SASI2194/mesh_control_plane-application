@@ -246,11 +246,17 @@ function renderTopics(topics) {
 
     topics.forEach(t => {
         const isAllowed = t.status === 'ALLOWED';
-        const statusClass = isAllowed ? 'allowed' : 'blocked';
+        const isShedded = t.status === 'SHEDDED';
+        let statusClass = 'allowed';
+        if (isShedded) statusClass = 'shedded';
+        else if (!isAllowed) statusClass = 'blocked';
+
         let verifClass = 'text-emerald';
-        if (!isAllowed) {
+        if (t.verification === 'UNINITIATED') {
+            verifClass = 'text-dim';
+        } else if (t.verification === 'CAPACITY EXCEEDED') {
             verifClass = 'text-amber';
-        } else if (t.verification && t.verification.includes('LOSS DETECTED')) {
+        } else if (t.verification && (t.verification.includes('LOSS') || t.verification.includes('SHEDDED'))) {
             verifClass = 'text-rose';
         }
 

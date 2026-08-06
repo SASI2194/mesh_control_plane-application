@@ -389,6 +389,11 @@ body {
 }
 
 .status-badge.blocked {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+}
+
+.status-badge.shedded {
     background: rgba(244, 63, 94, 0.15);
     color: var(--accent-rose);
 }
