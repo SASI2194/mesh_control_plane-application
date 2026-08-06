@@ -72,27 +72,35 @@ class CongestionController:
         if self.shedding_level <= 0 or not scheduler.allowed_topics:
             return
 
-        # Find the highest priority number (lowest importance) currently admitted
-        admitted_priorities = [
-            registry.get(t)["priority"] for t in scheduler.allowed_topics
-            if registry.get(t) and registry.get(t)["priority"] > 1
-        ]
+        # Collect non-P1 admitted topics
+        candidates = []
+        for t in list(scheduler.allowed_topics):
+            info = registry.get(t)
+            if info and info.get("priority", 5) > 1:
+                # Get measured Tx bandwidth if available, otherwise nominal bandwidth
+                tx_mbps = info.get("tx_mbps", 0.0)
+                nom_bw = float(info.get("bandwidth", 0.0))
+                effective_bw = tx_mbps if tx_mbps > 0.0 else nom_bw
+                candidates.append({
+                    "name": t,
+                    "priority": info.get("priority", 5),
+                    "bandwidth": effective_bw
+                })
 
-        if not admitted_priorities:
+        if not candidates:
             return
 
-        # Determine cutoff priority based on shedding level
-        max_pri = max(admitted_priorities)
-        cutoff_priority = max(2, max_pri - self.shedding_level + 1)
+        # Sort candidates: Lowest priority tier first (P5 > P4 > P3 > P2),
+        # then by highest measured bandwidth descending within that priority tier
+        candidates.sort(key=lambda x: (-x["priority"], -x["bandwidth"]))
 
-        to_remove = set()
-        for topic_name in list(scheduler.allowed_topics):
-            info = registry.get(topic_name)
-            if info and info["priority"] >= cutoff_priority and info["priority"] > 1:
-                to_remove.add(topic_name)
+        # Select target candidates to shed based on shedding_level (heaviest bandwidth first)
+        num_to_shed = min(len(candidates), self.shedding_level * 2)
+        to_remove = {c["name"] for c in candidates[:num_to_shed]}
 
         scheduler.allowed_topics -= to_remove
         self.shed_topics = to_remove
 
         if to_remove:
-            print(f"[CONGESTION SHEDDING] Dropped Low-Priority Topics (Priority >= {cutoff_priority}): {sorted(to_remove)}")
+            details = [f"{c['name']} (P{c['priority']}, {c['bandwidth']:.1f} Mbps)" for c in candidates[:num_to_shed]]
+            print(f"[CONGESTION SHEDDING] Target-dropped heavy topics: {details}")
