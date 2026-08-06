@@ -285,9 +285,11 @@ function renderTopics(topics) {
         const diffColor = Math.abs(t.diff_mbps || 0) < 1.0 ? 'text-emerald' : 'text-amber';
         const diffStr = isAllowed ? `<span class="${diffColor} font-bold">${diffMbps} Mbps Δ</span> <br/><small class="text-cyan">${delPct}% Recv</small>` : '<span class="text-dim">0.0 Mbps Δ</span>';
 
+        const formattedId = typeof t.id === 'number' ? `T${String(t.id).padStart(2, '0')}` : (String(t.id).startsWith('T') ? String(t.id) : `T${String(t.id).padStart(2, '0')}`);
+
         html += `
             <tr>
-                <td><strong>P${t.priority}</strong></td>
+                <td><strong>${formattedId}</strong></td>
                 <td>${t.name}</td>
                 <td>Priority ${t.priority}</td>
                 <td>${roleBadge}</td>

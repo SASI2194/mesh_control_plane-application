@@ -220,25 +220,28 @@ class RealtimeBandwidthMonitor:
             self.peer_losses[peer_ip] = (time.time(), float(loss_pct))
 
     def get_max_loss_percent(self):
-        """Calculates maximum loss percentage across local topics and peer feedback."""
+        """Calculates maximum loss percentage across active local topics and fresh peer feedback."""
         with self.lock:
             all_keys = set(self.tx_stats.keys()).union(set(self.rx_stats.keys()))
 
         max_local_loss = 0.0
         for topic in all_keys:
             m = self.get_topic_metrics(topic)
-            del_pct = m.get("delivery_pct", 100.0)
-            if del_pct < 100.0:
-                loss = 100.0 - del_pct
-                if loss > max_local_loss:
-                    max_local_loss = loss
+            # Only evaluate packet loss for topics with active traffic
+            if m.get("tx_hz", 0.0) > 0.0 or m.get("rx_hz", 0.0) > 0.0:
+                del_pct = m.get("delivery_pct", 100.0)
+                if del_pct < 100.0:
+                    loss = 100.0 - del_pct
+                    if loss > max_local_loss:
+                        max_local_loss = loss
 
         max_peer_loss = 0.0
         now = time.time()
         with self.lock:
             if hasattr(self, "peer_losses"):
                 for ip, (ts, loss) in list(self.peer_losses.items()):
-                    if (now - ts) <= 3.5:
+                    # Ignore stale peer loss older than 2.5 seconds
+                    if (now - ts) <= 2.5:
                         if loss > max_peer_loss:
                             max_peer_loss = loss
 
