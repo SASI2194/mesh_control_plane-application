@@ -97,11 +97,13 @@ class TelemetryDataProvider:
         with self.lock:
             self.node_activity[node_ip] = time.time()
 
-    def attach_components(self, registry, scheduler, local_ip=None):
-        """Attaches live MeshNode registry & scheduler instances for real-time telemetry updates."""
+    def attach_components(self, registry, scheduler, congestion=None, local_ip=None):
+        """Attaches live MeshNode registry, scheduler & congestion instances for real-time telemetry updates."""
         with self.lock:
             self.registry = registry
             self.scheduler = scheduler
+            if congestion:
+                self.congestion = congestion
             self.mesh_node_running = True
             if local_ip:
                 self.local_ip = local_ip
@@ -296,7 +298,7 @@ class TelemetryDataProvider:
                 hz = tx_hz if tx_hz > 0.0 else rx_hz
                 data_size_str = tx_data_size_str if tx_hz > 0.0 else rx_data_size_str
 
-                congestion_obj = getattr(self.scheduler, "congestion", None) if hasattr(self, "scheduler") else None
+                congestion_obj = getattr(self, "congestion", getattr(self.scheduler, "congestion", None) if hasattr(self, "scheduler") else None)
                 shedding_level = getattr(congestion_obj, "shedding_level", 0) if congestion_obj else 0
                 last_loss = getattr(congestion_obj, "last_loss_percent", 0.0) if congestion_obj else 0.0
 
