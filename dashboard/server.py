@@ -97,12 +97,14 @@ class TelemetryDataProvider:
         with self.lock:
             self.node_activity[node_ip] = time.time()
 
-    def attach_components(self, registry, scheduler):
+    def attach_components(self, registry, scheduler, local_ip=None):
         """Attaches live MeshNode registry & scheduler instances for real-time telemetry updates."""
         with self.lock:
             self.registry = registry
             self.scheduler = scheduler
             self.mesh_node_running = True
+            if local_ip:
+                self.local_ip = local_ip
 
     def _get_local_ips(self):
         """Returns set of all local IPv4 interface addresses for this machine."""
@@ -124,6 +126,7 @@ class TelemetryDataProvider:
         """
         while True:
             local_ips = self._get_local_ips()
+            target_ip = getattr(self, "local_ip", None)
             now = time.time()
 
             with self.lock:
@@ -138,7 +141,8 @@ class TelemetryDataProvider:
                         continue
 
                     # 1. Local Node Audit
-                    if ip in local_ips:
+                    is_this_local = (ip == target_ip) if target_ip else (ip in local_ips)
+                    if is_this_local:
                         node["status"] = "ONLINE"
                         node["latency"] = 1.0
                         node["rssi"] = -62
@@ -164,8 +168,9 @@ class TelemetryDataProvider:
         if not getattr(self, "mesh_node_running", False):
             return "OFFLINE", 0.0
 
-        local_ips = self._get_local_ips()
-        if ip in local_ips:
+        target_ip = getattr(self, "local_ip", None)
+        is_this_local = (ip == target_ip) if target_ip else (ip in self._get_local_ips())
+        if is_this_local:
             return "ONLINE", 1.0
 
         last_active = self.node_activity.get(ip, 0.0)
@@ -177,14 +182,19 @@ class TelemetryDataProvider:
     def get_system_summary(self):
         with self.lock:
             local_ips = self._get_local_ips()
+            target_ip = getattr(self, "local_ip", None)
             online_count = sum(1 for n in self.nodes if n["status"] == "ONLINE")
             ugv_count = sum(1 for n in self.nodes if n["type"] == "UGV" and n["status"] == "ONLINE")
             gcs_count = sum(1 for n in self.nodes if n["type"] == "GCS" and n["status"] == "ONLINE")
 
-            local_node = next((n for n in self.nodes if n["ip"] in local_ips), None)
+            if target_ip:
+                local_node = next((n for n in self.nodes if n["ip"] == target_ip), None)
+            else:
+                local_node = next((n for n in self.nodes if n["ip"] in local_ips), None)
+
             local_id = local_node["id"] if local_node else "LOCAL"
             local_name = local_node["name"] if local_node else "Local Node Host"
-            local_ip = local_node["ip"] if local_node else next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1")
+            local_ip = local_node["ip"] if local_node else (target_ip or next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1"))
 
             # Calculate real-time dynamic measured bandwidth sum across allowed active topics (0.0 Mbps when idle)
             allowed = self.scheduler.allowed_topics
@@ -217,10 +227,14 @@ class TelemetryDataProvider:
     def get_nodes(self):
         with self.lock:
             local_ips = self._get_local_ips()
+            target_ip = getattr(self, "local_ip", None)
             nodes_copy = []
             for n in self.nodes:
                 c = dict(n)
-                c["is_local"] = n["ip"] in local_ips
+                if target_ip:
+                    c["is_local"] = n["ip"] == target_ip
+                else:
+                    c["is_local"] = n["ip"] in local_ips
                 nodes_copy.append(c)
             return nodes_copy
 

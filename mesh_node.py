@@ -119,7 +119,7 @@ class MeshNode:
 
         try:
             start_dashboard_background(host="0.0.0.0", port=8080)
-            DATA_PROVIDER.attach_components(self.registry, self.scheduler)
+            DATA_PROVIDER.attach_components(self.registry, self.scheduler, self.my_ip)
             DATA_PROVIDER.record_node_activity(self.my_ip)
             print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
         except Exception as e:
