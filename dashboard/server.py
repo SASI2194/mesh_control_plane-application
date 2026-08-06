@@ -282,6 +282,14 @@ class TelemetryDataProvider:
                 hz = tx_hz if tx_hz > 0.0 else rx_hz
                 data_size_str = tx_data_size_str if tx_hz > 0.0 else rx_data_size_str
 
+                loss_pct = round(100.0 - delivery_pct, 1) if is_allowed else 100.0
+                if not is_allowed:
+                    verif_str = "SHEDDED"
+                elif delivery_pct >= 99.9:
+                    verif_str = "FULL DATA 100%"
+                else:
+                    verif_str = f"{loss_pct:.1f}% LOSS DETECTED"
+
                 result.append({
                     "id": topic["id"],
                     "name": topic["name"],
@@ -299,8 +307,8 @@ class TelemetryDataProvider:
                     "delivery_pct": delivery_pct,
                     "role": role,
                     "status": "ALLOWED" if is_allowed else "BLOCKED",
-                    "loss_percent": 0.0 if is_allowed else 100.0,
-                    "verification": "FULL DATA 100%" if is_allowed else "SHEDDED"
+                    "loss_percent": loss_pct,
+                    "verification": verif_str
                 })
             return sorted(result, key=lambda x: (x["priority"], x["id"]))
 

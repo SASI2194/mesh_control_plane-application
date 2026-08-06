@@ -247,7 +247,12 @@ function renderTopics(topics) {
     topics.forEach(t => {
         const isAllowed = t.status === 'ALLOWED';
         const statusClass = isAllowed ? 'allowed' : 'blocked';
-        const verifClass = isAllowed ? 'text-emerald' : 'text-amber';
+        let verifClass = 'text-emerald';
+        if (!isAllowed) {
+            verifClass = 'text-amber';
+        } else if (t.verification && t.verification.includes('LOSS DETECTED')) {
+            verifClass = 'text-rose';
+        }
 
         // Role badge styling
         const role = t.role || 'IDLE';
