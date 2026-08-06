@@ -50,7 +50,7 @@ scheduler:
 
   hysteresis_percent: 2.0
 
-  shedding_dwell_seconds: 10.0
+  shedding_dwell_seconds: 60.0
 
 neighbors:
 
