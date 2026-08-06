@@ -296,8 +296,9 @@ class TelemetryDataProvider:
                 hz = tx_hz if tx_hz > 0.0 else rx_hz
                 data_size_str = tx_data_size_str if tx_hz > 0.0 else rx_data_size_str
 
-                shedding_level = getattr(self.congestion, "shedding_level", 0)
-                last_loss = getattr(self.congestion, "last_loss_percent", 0.0)
+                congestion_obj = getattr(self.scheduler, "congestion", None) if hasattr(self, "scheduler") else None
+                shedding_level = getattr(congestion_obj, "shedding_level", 0) if congestion_obj else 0
+                last_loss = getattr(congestion_obj, "last_loss_percent", 0.0) if congestion_obj else 0.0
 
                 loss_pct = round(100.0 - delivery_pct, 1) if is_allowed else last_loss
 
@@ -312,7 +313,7 @@ class TelemetryDataProvider:
                         status_str = "ALLOWED"
                         verif_str = f"{loss_pct:.1f}% LOSS DETECTED"
                 else:
-                    if getattr(self.congestion, "shedding_level", 0) > 0:
+                    if shedding_level > 0:
                         status_str = "SHEDDED"
                         verif_str = f"SHEDDED ({last_loss:.1f}% LOSS)"
                     else:
@@ -371,29 +372,33 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             super().do_GET()
 
     def _send_api_response(self):
+        try:
+            if self.path == "/api/summary":
+                data = DATA_PROVIDER.get_system_summary()
+            elif self.path == "/api/nodes":
+                data = DATA_PROVIDER.get_nodes()
+            elif self.path == "/api/topology":
+                data = DATA_PROVIDER.get_topology()
+            elif self.path == "/api/topics":
+                data = DATA_PROVIDER.get_topics()
+            elif self.path == "/api/all":
+                data = {
+                    "summary": DATA_PROVIDER.get_system_summary(),
+                    "nodes": DATA_PROVIDER.get_nodes(),
+                    "topology": DATA_PROVIDER.get_topology(),
+                    "topics": DATA_PROVIDER.get_topics()
+                }
+            else:
+                data = {"error": "Endpoint not found"}
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            data = {"error": str(e)}
+
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-
-        if self.path == "/api/summary":
-            data = DATA_PROVIDER.get_system_summary()
-        elif self.path == "/api/nodes":
-            data = DATA_PROVIDER.get_nodes()
-        elif self.path == "/api/topology":
-            data = DATA_PROVIDER.get_topology()
-        elif self.path == "/api/topics":
-            data = DATA_PROVIDER.get_topics()
-        elif self.path == "/api/all":
-            data = {
-                "summary": DATA_PROVIDER.get_system_summary(),
-                "nodes": DATA_PROVIDER.get_nodes(),
-                "topology": DATA_PROVIDER.get_topology(),
-                "topics": DATA_PROVIDER.get_topics()
-            }
-        else:
-            data = {"error": "Endpoint not found"}
-
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
     def log_message(self, format, *args):
