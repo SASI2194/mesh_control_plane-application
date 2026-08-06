@@ -159,10 +159,10 @@ class RealtimeBandwidthMonitor:
         else:
             role = "IDLE"
 
-        # Delivery percentage
+        # Delivery percentage (evaluated only during active traffic)
         if tx_mbps > 0.0:
             delivery_pct = round(min(100.0, (rx_mbps / tx_mbps) * 100.0), 1)
-        elif rx_obj and getattr(rx_obj, "total_expected", 0) > 0:
+        elif rx_m["hz"] > 0.0 and rx_obj and getattr(rx_obj, "total_expected", 0) > 0:
             gaps = getattr(rx_obj, "total_gaps", 0)
             exp = rx_obj.total_expected
             delivery_pct = round(max(0.0, min(100.0, ((exp - gaps) / float(exp)) * 100.0)), 1)
