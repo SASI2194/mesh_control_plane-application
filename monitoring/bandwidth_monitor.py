@@ -211,3 +211,35 @@ class RealtimeBandwidthMonitor:
         for topic in all_keys:
             result[topic] = self.get_topic_metrics(topic)
         return result
+
+    def record_peer_loss(self, peer_ip, loss_pct):
+        """Records peer loss feedback received over control plane heartbeat."""
+        with self.lock:
+            if not hasattr(self, "peer_losses"):
+                self.peer_losses = {}
+            self.peer_losses[peer_ip] = (time.time(), float(loss_pct))
+
+    def get_max_loss_percent(self):
+        """Calculates maximum loss percentage across local topics and peer feedback."""
+        with self.lock:
+            all_keys = set(self.tx_stats.keys()).union(set(self.rx_stats.keys()))
+
+        max_local_loss = 0.0
+        for topic in all_keys:
+            m = self.get_topic_metrics(topic)
+            del_pct = m.get("delivery_pct", 100.0)
+            if del_pct < 100.0:
+                loss = 100.0 - del_pct
+                if loss > max_local_loss:
+                    max_local_loss = loss
+
+        max_peer_loss = 0.0
+        now = time.time()
+        with self.lock:
+            if hasattr(self, "peer_losses"):
+                for ip, (ts, loss) in list(self.peer_losses.items()):
+                    if (now - ts) <= 3.5:
+                        if loss > max_peer_loss:
+                            max_peer_loss = loss
+
+        return round(max(max_local_loss, max_peer_loss), 1)

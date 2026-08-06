@@ -206,11 +206,13 @@ class MeshNode:
     #####################################################################
 
     def _heartbeat_loop(self):
-        """Sends a periodic 1 Hz control plane application heartbeat to peer nodes over Zenoh."""
+        """Sends a periodic 1 Hz control plane application heartbeat and loss feedback to peer nodes over Zenoh."""
         heartbeat_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
+        import struct
         while self.running:
             try:
-                payload = f"{time.time()}:{self.my_ip}".encode("utf-8")
+                max_loss = self.bw_monitor.get_max_loss_percent()
+                payload = struct.pack("!f", float(max_loss)) + f"{time.time()}:{self.my_ip}".encode("utf-8")
                 self.forward_session.session.put(heartbeat_key, payload)
             except Exception:
                 pass
@@ -228,12 +230,19 @@ class MeshNode:
         #
 
         if key_str.startswith("filtered/"):
-            # Check for Application Control Plane Heartbeat
+            # Check for Application Control Plane Heartbeat & Peer Loss Feedback
             if "_mesh_heartbeat/" in key_str:
                 parts = key_str.split("_mesh_heartbeat/")
                 if len(parts) > 1:
                     sender_ip = parts[1]
                     DATA_PROVIDER.record_node_activity(sender_ip)
+                    if len(payload_bytes) >= 4:
+                        import struct
+                        try:
+                            peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
+                            self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
+                        except Exception:
+                            pass
                 return
 
             seq_num, timestamp, origin_ip, raw_payload = MeshSample.unpack_payload(payload_bytes)
@@ -259,26 +268,19 @@ class MeshNode:
         if not ros_topic:
             return
 
-        #
-        # Record Publisher (Tx) sample before entering transport
-        #
-
+        # Record Publisher (Tx) metrics for local ROS topic sample
         seq_num = self.bw_monitor.record_tx_sample(ros_topic, len(payload_bytes))
 
+        # Perform Rule 2 Admission Control verification against live scheduler allowed set
         mesh_sample = MeshSample(
-            key=ros_topic,
+            ros_topic=ros_topic,
             payload=payload_bytes,
-            sequence_number=seq_num,
-            origin_ip=self.my_ip
+            allowed=(ros_topic in self.scheduler.allowed_topics),
+            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5
         )
 
-        #
-        # Admission
-        #
-
-        mesh_sample.allowed = self.admission.evaluate(
-            mesh_sample.key
-        )
+        # Prepend 20-byte binary header with origin IP
+        mesh_sample.pack_payload(seq_num, origin_ip=self.my_ip)
 
         #
         # Debug & Forwarding
@@ -294,7 +296,7 @@ class MeshNode:
 
     #####################################################################
 
-    def update_scheduler(self, current_loss_percent=0.0):
+    def update_scheduler(self, current_loss_percent=None):
 
         # Record local node heartbeat activity
         DATA_PROVIDER.record_node_activity(self.my_ip)
@@ -312,11 +314,13 @@ class MeshNode:
         self.scheduler.schedule()
 
         #
-        # Apply congestion controller feedback and shedding rules
+        # Apply congestion controller feedback (local + peer receiver feedback loss)
         #
 
+        effective_loss = current_loss_percent if current_loss_percent is not None else self.bw_monitor.get_max_loss_percent()
+
         self.congestion.update_feedback(
-            current_loss_percent,
+            effective_loss,
             self.scheduler,
             self.registry
         )
