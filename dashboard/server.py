@@ -282,7 +282,7 @@ class TelemetryDataProvider:
                 hz = tx_hz if tx_hz > 0.0 else rx_hz
                 data_size_str = tx_data_size_str if tx_hz > 0.0 else rx_data_size_str
 
-                shedding_level = getattr(self.scheduler.registry if hasattr(self.scheduler, "registry") else self, "shedding_level", getattr(self.congestion, "shedding_level", 0))
+                shedding_level = getattr(self.congestion, "shedding_level", 0)
                 last_loss = getattr(self.congestion, "last_loss_percent", 0.0)
 
                 loss_pct = round(100.0 - delivery_pct, 1) if is_allowed else last_loss
