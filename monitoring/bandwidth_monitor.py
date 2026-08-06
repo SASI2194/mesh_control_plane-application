@@ -41,14 +41,26 @@ class TopicWindowStats:
         self.last_update_time = time.time()
         self.lock = Lock()
 
-    def add_sample(self, byte_size):
+    def add_sample(self, byte_size, seq_num=None):
         with self.lock:
             now = time.time()
-            self.sequence_number += 1
-            self.samples.append((now, byte_size, self.sequence_number))
+            if seq_num is not None:
+                if getattr(self, "last_seq", None) is not None:
+                    if seq_num > self.last_seq + 1:
+                        gap = seq_num - (self.last_seq + 1)
+                        self.total_gaps = getattr(self, "total_gaps", 0) + gap
+                    self.total_expected = getattr(self, "total_expected", 0) + max(1, seq_num - self.last_seq)
+                else:
+                    self.total_gaps = 0
+                    self.total_expected = 1
+                self.last_seq = seq_num
+            else:
+                self.sequence_number += 1
+
+            self.samples.append((now, byte_size, seq_num if seq_num is not None else self.sequence_number))
             self.last_update_time = now
             self._clean_old_samples(now)
-            return self.sequence_number
+            return seq_num if seq_num is not None else self.sequence_number
 
     def _clean_old_samples(self, current_time):
         cutoff = current_time - self.window_size_sec
@@ -112,7 +124,7 @@ class RealtimeBandwidthMonitor:
             stats = self.tx_stats[topic_name]
         return stats.add_sample(byte_size)
 
-    def record_rx_sample(self, topic_name, byte_size):
+    def record_rx_sample(self, topic_name, byte_size, seq_num=None):
         """Record Subscriber (Rx) received mesh sample that entered through transport."""
         if not topic_name:
             return 0
@@ -120,7 +132,7 @@ class RealtimeBandwidthMonitor:
             if topic_name not in self.rx_stats:
                 self.rx_stats[topic_name] = TopicWindowStats(self.window_size_sec)
             stats = self.rx_stats[topic_name]
-        return stats.add_sample(byte_size)
+        return stats.add_sample(byte_size, seq_num)
 
     def get_topic_metrics(self, topic_name):
         """
@@ -150,8 +162,12 @@ class RealtimeBandwidthMonitor:
         # Delivery percentage
         if tx_mbps > 0.0:
             delivery_pct = round(min(100.0, (rx_mbps / tx_mbps) * 100.0), 1)
+        elif rx_obj and getattr(rx_obj, "total_expected", 0) > 0:
+            gaps = getattr(rx_obj, "total_gaps", 0)
+            exp = rx_obj.total_expected
+            delivery_pct = round(max(0.0, min(100.0, ((exp - gaps) / float(exp)) * 100.0)), 1)
         else:
-            delivery_pct = 100.0 if rx_mbps > 0.0 else 100.0
+            delivery_pct = 100.0
 
         # General fallbacks
         primary_mbps = tx_mbps if tx_mbps > 0.0 else rx_mbps

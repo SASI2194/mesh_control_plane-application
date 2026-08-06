@@ -246,7 +246,7 @@ class MeshNode:
             DATA_PROVIDER.record_node_activity(origin_ip)
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
-                self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload))
+                self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload), seq_num)
 
             print(f"[RECV MESH] {key_str} (From: {origin_ip}, Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
