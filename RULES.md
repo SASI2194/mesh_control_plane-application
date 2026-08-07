@@ -30,10 +30,16 @@
 
 ---
 
-## RULE 3: Configurable Packet Loss Tolerance & Dynamic Topic Shedding
+## RULE 3: Configurable Packet Loss Tolerance, Tx/Rx Rate Cross-Verification & Dynamic Topic Shedding
 - **Loss Tolerance Limit**: Maximum allowable packet loss limit is set to `5.0%` (`packet_loss_tolerance_percent` in `config/mesh.yaml`).
-- **Dynamic Shedding Mechanism**: If physical link quality degrades and overall packet loss exceeds 5.0%, the `CongestionController` must automatically drop low-priority topics (P5, P4, P3, P2) to protect Priority 1 topics (`/topic_01` to `/topic_04`).
-- **Hysteresis Recovery**: When packet loss settles below 3.0% (tolerance minus hysteresis), lower priority topics are gradually re-admitted.
+- **Transmitter (Tx) Rate Sharing & Receiver (Rx) Cross-Verification**: The receiver monitor must cross-verify received data rate (`Rx Hz`, `Rx Mbps`) against expected publisher transmission rate (`Tx Hz`, `Tx Mbps`). Throughput loss is calculated as:
+  $$\text{Throughput Loss (\%)} = \max\left(\text{Sequence Gap Loss (\%)},\; \frac{\text{Tx Rate (Hz)} - \text{Rx Rate (Hz)}}{\text{Tx Rate (Hz)}} \times 100\%\right)$$
+  A reduction in received Hz rate (e.g., 22.5 Hz received vs. 25.0 Hz transmitted) is cross-verified and flagged as active packet loss (10.0% loss).
+- **Publisher (Tx) vs. Subscriber (Rx) Verification Display**:
+  - **Publisher Role (Tx)**: Displays `TX LIVE 100%` or `ALLOWED` to reflect active data transmission without false receiver loss warnings on the publisher node.
+  - **Subscriber Role (Rx)**: Displays `FULL DATA 100%` when Rx rate equals Tx rate, or `X% LOSS DETECTED` / `SHEDDED (X% LOSS)` when throughput is reduced.
+- **Dynamic Shedding Mechanism**: If physical link quality degrades and cross-verified packet loss exceeds 5.0%, the `CongestionController` target-drops low-priority topics (P5, P4, P3, P2) one topic per step with a 60s shedding dwell timer to protect Priority 1 topics (`/topic_01` to `/topic_04`).
+- **Decoupled Fast Hysteresis Recovery**: When packet loss settles below 3.0% (tolerance minus hysteresis), topics are rapidly re-admitted using a 5s fast recovery dwell timer.
 
 ---
 

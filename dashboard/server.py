@@ -305,15 +305,21 @@ class TelemetryDataProvider:
                 loss_pct = round(100.0 - delivery_pct, 1) if is_allowed else last_loss
 
                 if is_allowed:
-                    if hz == 0.0:
+                    if tx_hz > 0.0 and rx_hz == 0.0:
+                        # Local Node is Publisher (Tx): Active Transmission
                         status_str = "ALLOWED"
-                        verif_str = "UNINITIATED"
-                    elif delivery_pct >= 99.9:
-                        status_str = "ALLOWED"
-                        verif_str = "FULL DATA 100%"
+                        verif_str = "TX LIVE 100%"
+                    elif rx_hz > 0.0 or hz > 0.0:
+                        # Local Node is Subscriber (Rx): Cross-verified delivery rate
+                        if delivery_pct >= 99.9:
+                            status_str = "ALLOWED"
+                            verif_str = "FULL DATA 100%"
+                        else:
+                            status_str = "ALLOWED"
+                            verif_str = f"{loss_pct:.1f}% LOSS DETECTED"
                     else:
                         status_str = "ALLOWED"
-                        verif_str = f"{loss_pct:.1f}% LOSS DETECTED"
+                        verif_str = "UNINITIATED"
                 else:
                     if shedding_level > 0:
                         status_str = "SHEDDED"

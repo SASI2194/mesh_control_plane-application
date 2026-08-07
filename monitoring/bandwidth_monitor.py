@@ -159,13 +159,23 @@ class RealtimeBandwidthMonitor:
         else:
             role = "IDLE"
 
-        # Delivery percentage (evaluated only during active traffic)
-        if tx_mbps > 0.0:
-            delivery_pct = round(min(100.0, (rx_mbps / tx_mbps) * 100.0), 1)
-        elif rx_m["hz"] > 0.0 and rx_obj and getattr(rx_obj, "total_expected", 0) > 0:
-            gaps = getattr(rx_obj, "total_gaps", 0)
-            exp = rx_obj.total_expected
-            delivery_pct = round(max(0.0, min(100.0, ((exp - gaps) / float(exp)) * 100.0)), 1)
+        # Delivery percentage & Cross-verified throughput loss determination
+        if tx_m["hz"] > 0.0 and rx_m["hz"] == 0.0:
+            # Pure Publisher (Tx Role): 100.0% transmission delivery (No false receiver loss)
+            delivery_pct = 100.0
+        elif rx_m["hz"] > 0.0:
+            # Subscriber (Rx Role): Cross-verify Rx Hz rate against expected Tx Hz rate (25.0 Hz default)
+            expected_tx_hz = tx_m["hz"] if tx_m["hz"] > 0.0 else 25.0
+            rate_del_pct = round(min(100.0, (rx_m["hz"] / expected_tx_hz) * 100.0), 1)
+
+            # Combine with binary payload sequence gap delivery percentage if available
+            if rx_obj and getattr(rx_obj, "total_expected", 0) > 0:
+                gaps = getattr(rx_obj, "total_gaps", 0)
+                exp = rx_obj.total_expected
+                seq_del_pct = round(max(0.0, min(100.0, ((exp - gaps) / float(exp)) * 100.0)), 1)
+                delivery_pct = min(rate_del_pct, seq_del_pct)
+            else:
+                delivery_pct = rate_del_pct
         else:
             delivery_pct = 100.0
 
