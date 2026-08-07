@@ -11,9 +11,10 @@ Application Heartbeat Protocol, Sequence Tracking, Congestion Control, Telemetry
 ==============================================================================
 """
 
+import hashlib
 import socket
 import time
-from threading import Thread
+from threading import Thread, Lock
 
 from mesh_transport.zenoh_session import ZenohSession
 from mesh_transport.topic_receiver import TopicReceiver
@@ -51,6 +52,8 @@ class MeshNode:
 
         self.running = True
         self.my_ip = self._detect_local_ip()
+        self.republished_hashes = set()
+        self.republished_lock = Lock()
 
         #
         # Real-time Bandwidth & Dual Tx/Rx Role Monitor
@@ -261,12 +264,30 @@ class MeshNode:
             if ros_topic:
                 self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload), seq_num)
 
-            print(f"[RECV MESH] {key_str} (From: {origin_ip}, Seq #{seq_num}, Bytes: {len(raw_payload)})")
+            # Re-publish original raw ROS 2 payload back onto local Zenoh session for local ROS subscribers
+            local_key = key_str[len("filtered/"):]
+            payload_hash = hashlib.md5(raw_payload[:64]).digest()
+            with self.republished_lock:
+                self.republished_hashes.add(payload_hash)
+
+            try:
+                self.forward_session.session.put(local_key, raw_payload)
+            except Exception:
+                pass
+
+            print(f"[RECV MESH -> LOCAL ROS] {local_key} (From: {origin_ip}, Seq #{seq_num}, Bytes: {len(raw_payload)})")
             return
 
         #
         # Handle Local ROS Deployment Topics - Publisher (Tx) Role
         #
+
+        # Ignore local re-published samples received from mesh receiver
+        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
+        with self.republished_lock:
+            if payload_hash in self.republished_hashes:
+                self.republished_hashes.remove(payload_hash)
+                return
 
         ros_topic = self.mapper.zenoh_to_ros(key_str)
         if not ros_topic:
