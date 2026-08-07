@@ -96,18 +96,11 @@ class BandwidthScheduler:
         print("================ Allowed Topics ================")
 
         for topic in sorted(self.allowed_topics):
-
             info = self.registry.get(topic)
-
-            print(
-
-                f"{topic:14}"
-
-                f" P{info['priority']}"
-
-                f" {float(info['bandwidth']):6.1f} Mbps"
-
-            )
+            prio = info.get("priority", 5) if info else 5
+            mbps = info.get("measured_bandwidth", info.get("tx_mbps", info.get("rx_mbps", 0.0))) if info else 0.0
+            st = info.get("status", "ALLOW").upper() if info else "ALLOW"
+            print(f"{topic:15} P{prio}   Status: {st} ({mbps:.1f} Measured Mbps)")
 
         print()
 
