@@ -38,7 +38,7 @@
 - **Publisher (Tx) vs. Subscriber (Rx) Verification Display**:
   - **Publisher Role (Tx)**: Displays `TX LIVE 100%` or `ALLOWED` to reflect active data transmission without false receiver loss warnings on the publisher node.
   - **Subscriber Role (Rx)**: Displays `FULL DATA 100%` when Rx rate equals Tx rate, or `X% LOSS DETECTED` / `SHEDDED (X% LOSS)` when throughput is reduced.
-- **Dynamic Shedding Mechanism**: If physical link quality degrades and cross-verified packet loss exceeds 5.0%, the `CongestionController` target-drops low-priority topics (P5, P4, P3, P2) one topic per step with a 60s shedding dwell timer to protect Priority 1 topics (`/topic_01` to `/topic_04`).
+- **Dynamic Shedding Mechanism**: If physical link quality degrades and cross-verified packet loss exceeds 5.0%, the `CongestionController` target-drops low-priority topics (P5, P4, P3, P2) one topic per step with a 20s shedding dwell timer to protect Priority 1 topics (`/topic_01` to `/topic_04`).
 - **Decoupled Fast Hysteresis Recovery**: When packet loss settles below 3.0% (tolerance minus hysteresis), topics are rapidly re-admitted using a 5s fast recovery dwell timer.
 
 ---

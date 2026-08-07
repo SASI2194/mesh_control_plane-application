@@ -94,7 +94,7 @@ class MeshNode:
         self.max_bandwidth = float(sched_cfg.get("maximum_bandwidth_mbps", 600.0))
         self.loss_tolerance = float(sched_cfg.get("packet_loss_tolerance_percent", 5.0))
         self.hysteresis = float(sched_cfg.get("hysteresis_percent", 2.0))
-        self.dwell_seconds = float(sched_cfg.get("shedding_dwell_seconds", 60.0))
+        self.dwell_seconds = float(sched_cfg.get("shedding_dwell_seconds", 20.0))
         self.recovery_dwell_seconds = float(sched_cfg.get("recovery_dwell_seconds", 5.0))
 
         #

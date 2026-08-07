@@ -22,7 +22,7 @@ class CongestionController:
     Dynamic Packet Loss Tolerance & Congestion Feedback Shedder.
     """
 
-    def __init__(self, tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=60.0, recovery_dwell_seconds=5.0):
+    def __init__(self, tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=20.0, recovery_dwell_seconds=5.0):
         self.tolerance_percent = float(tolerance_percent)
         self.hysteresis_percent = float(hysteresis_percent)
         self.dwell_seconds = float(dwell_seconds)
@@ -40,7 +40,7 @@ class CongestionController:
     def update_feedback(self, current_loss_percent, scheduler, registry):
         """
         Evaluates real-time packet loss against tolerance limit and adjusts allowed topics.
-        Enforces 60s shedding stabilization dwell time and 5s fast recovery dwell time.
+        Enforces 20s shedding stabilization dwell time and 5s fast recovery dwell time.
         """
         with self.lock:
             self.last_loss_percent = float(current_loss_percent)
@@ -49,13 +49,13 @@ class CongestionController:
             # Check if loss exceeds tolerance
             if self.last_loss_percent > self.tolerance_percent:
                 if self.shedding_level < self.max_shedding_level:
-                    # Enforce 60s wireless link stabilization dwell timer before shedding another topic
+                    # Enforce 20s wireless link stabilization dwell timer before shedding another topic
                     if (now - self.last_shed_change_time) >= self.dwell_seconds:
                         self.shedding_level += 1
                         self.last_shed_change_time = now
                         print(
                             f"[CONGESTION DETECTED] Packet Loss ({self.last_loss_percent:.1f}%) > "
-                            f"Limit ({self.tolerance_percent:.1f}%). Increasing Shedding Level to {self.shedding_level} (60s Dwell Active)."
+                            f"Limit ({self.tolerance_percent:.1f}%). Increasing Shedding Level to {self.shedding_level} (20s Dwell Active)."
                         )
             # Recovery condition: Loss drops below (tolerance - hysteresis)
             elif self.last_loss_percent < (self.tolerance_percent - self.hysteresis_percent):
