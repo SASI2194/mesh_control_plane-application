@@ -38,6 +38,56 @@ from core.network_models import MeshSample
 PEER_CONFIG = "/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5"
 
 
+class ROSPublisherBridge:
+    """
+    Native ROS 2 Publisher Bridge.
+    Declares native ROS 2 publishers for all admitted topics so they are registered in the ROS 2 node graph,
+    visible in 'ros2 topic list', and receivable by any local ROS 2 subscriber node.
+    """
+
+    def __init__(self, registry):
+        self.publishers = {}
+        self.node = None
+        try:
+            import rclpy
+            from std_msgs.msg import String
+            if not rclpy.ok():
+                rclpy.init()
+            self.node = rclpy.create_node("mesh_control_plane_receiver")
+            for topic_name in registry.all_topics().keys():
+                pub = self.node.create_publisher(String, topic_name, 10)
+                self.publishers[topic_name] = pub
+
+            self.thread = Thread(target=self._spin_loop, daemon=True)
+            self.thread.start()
+            print("[INFO] ROS 2 Native Publisher Bridge active (/mesh_control_plane_receiver)")
+        except Exception as e:
+            print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
+
+    def _spin_loop(self):
+        import rclpy
+        try:
+            if self.node:
+                rclpy.spin(self.node)
+        except Exception:
+            pass
+
+    def publish_message(self, ros_topic, raw_payload):
+        if not self.node or ros_topic not in self.publishers:
+            return
+        try:
+            from std_msgs.msg import String
+            from rclpy.serialization import deserialize_message
+            try:
+                msg = deserialize_message(raw_payload, String)
+            except Exception:
+                msg = String()
+                msg.data = raw_payload.decode("utf-8", errors="ignore")
+            self.publishers[ros_topic].publish(msg)
+        except Exception:
+            pass
+
+
 class MeshNode:
 
     #####################################################################
@@ -84,6 +134,7 @@ class MeshNode:
 
         self.registry = TopicRegistry()
         self.registry.print_topics()
+        self.ros_bridge = ROSPublisherBridge(self.registry)
 
         #
         # Configuration
@@ -272,6 +323,8 @@ class MeshNode:
 
             try:
                 self.forward_session.session.put(local_key, raw_payload)
+                if self.ros_bridge and ros_topic:
+                    self.ros_bridge.publish_message(ros_topic, raw_payload)
             except Exception:
                 pass
 
