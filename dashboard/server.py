@@ -304,7 +304,11 @@ class TelemetryDataProvider:
 
                 loss_pct = round(100.0 - delivery_pct, 1) if is_allowed else last_loss
 
-                if is_allowed:
+                cfg_st = str(topic.get("status", "ALLOW")).upper()
+                if cfg_st == "DENY":
+                    status_str = "DENIED"
+                    verif_str = "BLOCKED BY CONFIG (DENY)"
+                elif is_allowed:
                     if tx_hz > 0.0 and rx_hz == 0.0:
                         # Local Node is Publisher (Tx): Active Transmission
                         status_str = "ALLOWED"

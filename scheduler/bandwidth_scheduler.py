@@ -59,58 +59,17 @@ class BandwidthScheduler:
         #
 
         for priority in range(1, 6):
-
-            #
-            # Topics belonging to this priority
-            #
-
             topics = []
-
             for topic in self.registry.all_topics().values():
-
                 if topic["priority"] == priority:
-
+                    st = str(topic.get("status", "ALLOW")).upper()
+                    # Exclude topics marked as DENY from entering admission/bandwidth list
+                    if st == "DENY":
+                        continue
                     topics.append(topic)
 
-            #
-            # Small bandwidth first
-            #
-
-            topics.sort(
-
-                key=lambda x: x["bandwidth"]
-
-            )
-
-            admitted = 0
-
             for topic in topics:
-
-                required = float(topic["bandwidth"])
-
-                if required <= remaining:
-
-                    self.allowed_topics.add(
-
-                        topic["name"]
-
-                    )
-
-                    remaining -= required
-
-                    self.used_bandwidth += required
-
-                    admitted += 1
-
-            #
-            # Partial priority → STOP
-            #
-
-            if admitted != len(topics):
-
-                break
-
-        self.remaining_bandwidth = remaining
+                self.allowed_topics.add(topic["name"])
 
         return self.allowed_topics
 

@@ -60,6 +60,13 @@ def main():
     print(f"Shedding Level: {res4['shedding_level']}")
     assert res4["shedding_level"] == 1
 
+    # 5. Test DENY Status filtering
+    registry._topics["/topic_08"]["status"] = "DENY"
+    scheduler.schedule()
+    assert "/topic_08" not in scheduler.allowed_topics, "Topic marked as DENY was not blocked!"
+    print(f"\n[Test 5: DENY Status Filtering]")
+    print(f"Topic /topic_08 set to DENY -> Successfully excluded from allowed topics!")
+
     print("\n[SUCCESS] Congestion Controller & Topic Shedding Tests PASSED!")
 
 

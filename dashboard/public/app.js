@@ -247,8 +247,10 @@ function renderTopics(topics) {
     topics.forEach(t => {
         const isAllowed = t.status === 'ALLOWED';
         const isShedded = t.status === 'SHEDDED';
+        const isDenied = t.status === 'DENIED';
         let statusClass = 'allowed';
         if (isShedded) statusClass = 'shedded';
+        else if (isDenied) statusClass = 'blocked';
         else if (!isAllowed) statusClass = 'blocked';
 
         let verifClass = 'text-emerald';
@@ -256,7 +258,7 @@ function renderTopics(topics) {
             verifClass = 'text-dim';
         } else if (t.verification === 'CAPACITY EXCEEDED') {
             verifClass = 'text-amber';
-        } else if (t.verification && (t.verification.includes('LOSS') || t.verification.includes('SHEDDED'))) {
+        } else if (t.verification && (t.verification.includes('LOSS') || t.verification.includes('SHEDDED') || t.verification.includes('DENY'))) {
             verifClass = 'text-rose';
         }
 

@@ -24,9 +24,10 @@ class TopicRegistry:
             cfg = yaml.safe_load(f)
 
         for topic in cfg["topics"]:
-            # Store both static baseline requirement and live measured dynamic metrics
+            # Store status (ALLOW/DENY) and live measured dynamic metrics
             t_copy = dict(topic)
-            t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0))
+            t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
+            t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))
             t_copy["measured_bandwidth"] = 0.0  # 0.0 Mbps until samples enter mesh
             t_copy["hz"] = 0.0
             t_copy["data_size_bytes"] = 0.0
@@ -110,6 +111,7 @@ class TopicRegistry:
         print()
         print("============== Topic Registry ==============")
         for topic in self._topics.values():
-            static_bw = topic.get("static_bandwidth", 0.0)
-            print(f"{topic['id']:<3} {topic['name']:<15} P{topic['priority']}   {static_bw:.1f} Mbps (Nominal Capacity)")
+            st = topic.get("status", "ALLOW").upper()
+            st_str = "ALLOW" if st == "ALLOW" else "DENY (BLOCKED)"
+            print(f"{topic['id']:<3} {topic['name']:<15} P{topic['priority']}   Status: {st_str}")
         print()
