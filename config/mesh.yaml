@@ -52,6 +52,8 @@ scheduler:
 
   shedding_dwell_seconds: 60.0
 
+  recovery_dwell_seconds: 5.0
+
 neighbors:
 
   preferred_count: 2

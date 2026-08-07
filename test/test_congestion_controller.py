@@ -32,7 +32,7 @@ def main():
 
     print(f"Initial Allowed Topics ({len(scheduler.allowed_topics)}): {sorted(scheduler.allowed_topics)}")
 
-    controller = CongestionController(tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=0.0)
+    controller = CongestionController(tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=0.0, recovery_dwell_seconds=0.0)
 
     # 1. Normal link condition: Loss 3.0% (<= 5.0%) -> No Shedding
     res1 = controller.update_feedback(current_loss_percent=3.0, scheduler=scheduler, registry=registry)

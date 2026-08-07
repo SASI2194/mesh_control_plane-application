@@ -94,7 +94,8 @@ class MeshNode:
         self.max_bandwidth = float(sched_cfg.get("maximum_bandwidth_mbps", 600.0))
         self.loss_tolerance = float(sched_cfg.get("packet_loss_tolerance_percent", 5.0))
         self.hysteresis = float(sched_cfg.get("hysteresis_percent", 2.0))
-        self.dwell_seconds = float(sched_cfg.get("shedding_dwell_seconds", 10.0))
+        self.dwell_seconds = float(sched_cfg.get("shedding_dwell_seconds", 60.0))
+        self.recovery_dwell_seconds = float(sched_cfg.get("recovery_dwell_seconds", 5.0))
 
         #
         # Scheduler & Congestion Controller
@@ -106,7 +107,8 @@ class MeshNode:
         self.congestion = CongestionController(
             tolerance_percent=self.loss_tolerance,
             hysteresis_percent=self.hysteresis,
-            dwell_seconds=self.dwell_seconds
+            dwell_seconds=self.dwell_seconds,
+            recovery_dwell_seconds=self.recovery_dwell_seconds
         )
 
         self.scheduler.schedule()

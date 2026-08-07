@@ -22,10 +22,11 @@ class CongestionController:
     Dynamic Packet Loss Tolerance & Congestion Feedback Shedder.
     """
 
-    def __init__(self, tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=60.0):
+    def __init__(self, tolerance_percent=5.0, hysteresis_percent=2.0, dwell_seconds=60.0, recovery_dwell_seconds=5.0):
         self.tolerance_percent = float(tolerance_percent)
         self.hysteresis_percent = float(hysteresis_percent)
         self.dwell_seconds = float(dwell_seconds)
+        self.recovery_dwell_seconds = float(recovery_dwell_seconds)
 
         # Shedding level: 0 = No shedding, 1..4 = Levels of priority shedding
         self.shedding_level = 0
@@ -39,7 +40,7 @@ class CongestionController:
     def update_feedback(self, current_loss_percent, scheduler, registry):
         """
         Evaluates real-time packet loss against tolerance limit and adjusts allowed topics.
-        Enforces 60s wireless stabilization dwell time before each shedding step.
+        Enforces 60s shedding stabilization dwell time and 5s fast recovery dwell time.
         """
         with self.lock:
             self.last_loss_percent = float(current_loss_percent)
@@ -48,7 +49,7 @@ class CongestionController:
             # Check if loss exceeds tolerance
             if self.last_loss_percent > self.tolerance_percent:
                 if self.shedding_level < self.max_shedding_level:
-                    # Enforce 60s wireless link stabilization dwell timer
+                    # Enforce 60s wireless link stabilization dwell timer before shedding another topic
                     if (now - self.last_shed_change_time) >= self.dwell_seconds:
                         self.shedding_level += 1
                         self.last_shed_change_time = now
@@ -59,13 +60,13 @@ class CongestionController:
             # Recovery condition: Loss drops below (tolerance - hysteresis)
             elif self.last_loss_percent < (self.tolerance_percent - self.hysteresis_percent):
                 if self.shedding_level > 0:
-                    # Enforce 60s link recovery verification dwell timer
-                    if (now - self.last_shed_change_time) >= self.dwell_seconds:
+                    # Fast 5s link recovery dwell timer to restore topics quickly once link is healthy
+                    if (now - self.last_shed_change_time) >= self.recovery_dwell_seconds:
                         self.shedding_level -= 1
                         self.last_shed_change_time = now
                         print(
                             f"[LINK RECOVERED] Packet Loss ({self.last_loss_percent:.1f}%) < "
-                            f"Threshold ({self.tolerance_percent - self.hysteresis_percent:.1f}%). Decreasing Shedding Level to {self.shedding_level} (60s Dwell Active)."
+                            f"Threshold ({self.tolerance_percent - self.hysteresis_percent:.1f}%). Decreasing Shedding Level to {self.shedding_level} (5s Fast Recovery Active)."
                         )
 
             # Apply shedding rules to scheduler's allowed topics
