@@ -48,6 +48,8 @@ class ROSPublisherBridge:
     def __init__(self, registry):
         self.publishers = {}
         self.node = None
+        self.last_republished_time = {}
+        self.republished_lock = Lock()
         try:
             import rclpy
             from std_msgs.msg import String
@@ -76,6 +78,8 @@ class ROSPublisherBridge:
         if not self.node or ros_topic not in self.publishers:
             return
         try:
+            with self.republished_lock:
+                self.last_republished_time[ros_topic] = time.time()
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
             try:
@@ -86,6 +90,11 @@ class ROSPublisherBridge:
             self.publishers[ros_topic].publish(msg)
         except Exception:
             pass
+
+    def is_recently_republished(self, ros_topic, window_sec=0.2):
+        with self.republished_lock:
+            last_t = self.last_republished_time.get(ros_topic, 0.0)
+            return (time.time() - last_t) < window_sec
 
 
 class MeshNode:
@@ -335,15 +344,18 @@ class MeshNode:
         # Handle Local ROS Deployment Topics - Publisher (Tx) Role
         #
 
-        # Ignore local re-published samples received from mesh receiver
+        ros_topic = self.mapper.zenoh_to_ros(key_str)
+        if not ros_topic:
+            return
+
+        # Ignore local re-published samples received from mesh receiver or ROSPublisherBridge
         payload_hash = hashlib.md5(payload_bytes[:64]).digest()
         with self.republished_lock:
             if payload_hash in self.republished_hashes:
                 self.republished_hashes.remove(payload_hash)
                 return
 
-        ros_topic = self.mapper.zenoh_to_ros(key_str)
-        if not ros_topic:
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
             return
 
         # Record Publisher (Tx) metrics for local ROS topic sample
