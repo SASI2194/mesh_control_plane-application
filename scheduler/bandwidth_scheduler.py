@@ -63,14 +63,35 @@ class BandwidthScheduler:
             for topic in self.registry.all_topics().values():
                 if topic["priority"] == priority:
                     st = str(topic.get("status", "ALLOW")).upper()
-                    # Exclude topics marked as DENY from entering admission/bandwidth list
                     if st == "DENY":
                         continue
                     topics.append(topic)
 
-            for topic in topics:
-                self.allowed_topics.add(topic["name"])
+            # Sort topics within priority tier by measured bandwidth ascending (small first)
+            topics.sort(key=lambda x: x.get("tx_mbps", x.get("measured_bandwidth", x.get("static_bandwidth", 0.0))))
 
+            admitted_in_tier = 0
+            for topic in topics:
+                bw = topic.get("tx_mbps", 0.0)
+                if bw == 0.0:
+                    bw = topic.get("measured_bandwidth", 0.0)
+                if bw == 0.0:
+                    bw = topic.get("static_bandwidth", 0.0)
+
+                # Check if admitting this topic fits within remaining capacity
+                if bw <= remaining or priority == 1:
+                    self.allowed_topics.add(topic["name"])
+                    remaining -= bw
+                    self.used_bandwidth += bw
+                    admitted_in_tier += 1
+                else:
+                    # Capacity limit reached -> Stop admitting lower priority streams
+                    break
+
+            if admitted_in_tier < len(topics) and remaining <= 0 and priority > 1:
+                break
+
+        self.remaining_bandwidth = max(0.0, remaining)
         return self.allowed_topics
 
     #####################################################################
