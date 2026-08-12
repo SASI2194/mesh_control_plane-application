@@ -462,17 +462,19 @@ class TelemetryDataProvider:
                                     "elected_node_ip": cand["ip"],
                                     "reason": "Previous Master AP Went OFFLINE / Lost Link"
                                 }
-                                # If this machine is the elected node, trigger local hardware promotion
+                                # Trigger local hardware promotion or demotion depending on elected host identity
                                 my_ip = self._get_this_machine_ip()
                                 if cand["ip"] == my_ip:
                                     self._promote_local_radio_hardware()
+                                else:
+                                    self._demote_local_radio_hardware()
                                 break
             except Exception:
                 pass
             time.sleep(2)
 
     def _promote_local_radio_hardware(self):
-        """Invokes RouterOS API client to promote local radio interface to active Access Point mode."""
+        """Invokes RouterOS API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
@@ -489,6 +491,28 @@ class TelemetryDataProvider:
             client = RouterOSClient(host=local_radio_ip)
             if client.connect():
                 client.promote_to_master_ap()
+                client.disconnect()
+        except Exception:
+            pass
+
+    def _demote_local_radio_hardware(self):
+        """Invokes RouterOS API client to set local radio to client mode (wifi2 -> STATION-BRIDGE, wifi2_vap -> AP)."""
+        try:
+            from hardware.routeros_client import RouterOSClient
+            my_ip = self._get_this_machine_ip()
+            radio_ip_map = {
+                "192.168.3.65": "192.168.3.3",
+                "192.168.3.67": "192.168.3.2",
+                "192.168.3.66": "192.168.3.4",
+                "192.168.3.68": "192.168.3.5",
+                "192.168.3.69": "192.168.3.6",
+                "192.168.3.70": "192.168.3.7",
+                "192.168.3.71": "192.168.3.8",
+            }
+            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
+            client = RouterOSClient(host=local_radio_ip)
+            if client.connect():
+                client.demote_to_station_bridge()
                 client.disconnect()
         except Exception:
             pass

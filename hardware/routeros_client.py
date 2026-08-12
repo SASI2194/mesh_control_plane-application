@@ -249,10 +249,11 @@ class RouterOSClient:
                 continue
         return []
 
-    def promote_to_master_ap(self, interface_name="wifi2_vap", ssid="test_device"):
+    def promote_to_master_ap(self, ssid="test_device"):
         """
-        Reconfigures local NetMetal AX WiFi radio interface to AP mode (Access Point)
-        during automatic Master AP failover election.
+        Reconfigures local NetMetal AX WiFi radio interfaces when this node is elected Master AP:
+        - wifi2 (Physical 5GHz radio) -> Mode: AP, Disabled: false
+        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: STATION-BRIDGE, Disabled: false
         """
         paths = ["/interface/wifi", "/interface/wireless"]
         for path in paths:
@@ -263,14 +264,53 @@ class RouterOSClient:
                     for item in res:
                         item_id = item.get(".id")
                         name = item.get("name") or item.get("default-name", "")
-                        if name in [interface_name, "wifi2"]:
-                            resource.set(
-                                id=item_id,
-                                disabled="false"
-                            )
-                            self.logger.info(f"Promoted interface {name} to active AP mode on RouterOS ({self.host})")
-                            return True
+                        if name == "wifi2":
+                            try:
+                                resource.set(id=item_id, disabled="false", mode="ap")
+                            except Exception:
+                                resource.set(id=item_id, disabled="false")
+                            self.logger.info(f"Promoted wifi2 to AP mode on RouterOS ({self.host})")
+                        elif name in ["wifi2_vap", "wifi2_vsb"]:
+                            try:
+                                resource.set(id=item_id, disabled="false", mode="station-bridge")
+                            except Exception:
+                                resource.set(id=item_id, disabled="false")
+                            self.logger.info(f"Switched {name} to STATION-BRIDGE mode on RouterOS ({self.host})")
+                    return True
             except Exception as e:
-                self.logger.error(f"Failed to promote RouterOS interface to AP mode: {e}")
+                self.logger.error(f"Failed to promote RouterOS interfaces to Master AP: {e}")
+                continue
+        return False
+
+    def demote_to_station_bridge(self, ssid="test_device"):
+        """
+        Reconfigures local NetMetal AX WiFi radio interfaces when this node is a client/slave:
+        - wifi2 (Physical 5GHz radio) -> Mode: STATION-BRIDGE, Disabled: false
+        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: AP, Disabled: false
+        """
+        paths = ["/interface/wifi", "/interface/wireless"]
+        for path in paths:
+            try:
+                resource = self.api.get_resource(path)
+                res = resource.get()
+                if res:
+                    for item in res:
+                        item_id = item.get(".id")
+                        name = item.get("name") or item.get("default-name", "")
+                        if name == "wifi2":
+                            try:
+                                resource.set(id=item_id, disabled="false", mode="station-bridge")
+                            except Exception:
+                                resource.set(id=item_id, disabled="false")
+                            self.logger.info(f"Set wifi2 to STATION-BRIDGE mode on RouterOS ({self.host})")
+                        elif name in ["wifi2_vap", "wifi2_vsb"]:
+                            try:
+                                resource.set(id=item_id, disabled="false", mode="ap")
+                            except Exception:
+                                resource.set(id=item_id, disabled="false")
+                            self.logger.info(f"Set {name} to AP mode on RouterOS ({self.host})")
+                    return True
+            except Exception as e:
+                self.logger.error(f"Failed to set RouterOS interfaces to station-bridge mode: {e}")
                 continue
         return False
