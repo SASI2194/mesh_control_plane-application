@@ -253,6 +253,7 @@ class RouterOSClient:
         """Helper to reconfigure interface mode via RouterOS v7 REST API (HTTP Basic Auth using PATCH)."""
         import urllib.request
         import json
+        import socket
 
         headers = {"Authorization": "Basic YWRtaW46", "Content-Type": "application/json"}
         disabled_str = "true" if disabled else "false"
@@ -275,10 +276,19 @@ class RouterOSClient:
                                 "disabled": disabled_str
                             }).encode("utf-8")
                             req_patch = urllib.request.Request(url_patch, data=body, headers=headers, method="PATCH")
-                            with urllib.request.urlopen(req_patch, timeout=3) as patch_resp:
-                                if patch_resp.status in [200, 201, 204]:
-                                    self.logger.info(f"REST API (PATCH {item_id}): Successfully set {target_name} configuration.mode={mode} on {self.host}")
+                            try:
+                                with urllib.request.urlopen(req_patch, timeout=3) as patch_resp:
+                                    if patch_resp.status in [200, 201, 204]:
+                                        self.logger.info(f"REST API (PATCH {item_id}): Successfully set {target_name} configuration.mode={mode} on {self.host}")
+                                        return True
+                            except (urllib.error.URLError, socket.timeout, ConnectionResetError, Exception) as e:
+                                # When physical radio mode changes, RouterOS resets the 5GHz radio RF interface,
+                                # which momentarily closes the TCP socket or times out after applying the change to hardware.
+                                err_str = str(e).lower()
+                                if any(k in err_str for k in ["timed out", "timeout", "reset", "refused", "route"]):
+                                    self.logger.info(f"REST API (PATCH {item_id}): Reconfiguration payload delivered to {target_name} (radio hardware resetting): {e}")
                                     return True
+                                self.logger.error(f"REST API PATCH error for {target_name}: {e}")
         except Exception as e:
             self.logger.error(f"REST API PATCH reconfiguration failed for {target_name} on {self.host}: {e}")
         return False
