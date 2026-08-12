@@ -204,6 +204,7 @@ class RouterOSClient:
                     return result
 
             except Exception:
+                pass
 
         return []
 
