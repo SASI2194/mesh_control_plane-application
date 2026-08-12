@@ -250,33 +250,17 @@ class RouterOSClient:
         return []
 
     def _rest_set_wifi_interface(self, target_name, mode, disabled=False):
-        """Helper to reconfigure interface mode via RouterOS v7 REST API (HTTP Basic Auth)."""
+        """Helper to reconfigure interface mode via RouterOS v7 REST API (HTTP Basic Auth using PATCH)."""
         import urllib.request
         import json
 
         headers = {"Authorization": "Basic YWRtaW46", "Content-Type": "application/json"}
         disabled_str = "true" if disabled else "false"
 
-        # Method 1: RouterOS REST API /rest/interface/wifi/set with numbers
         try:
-            url_set = f"http://{self.host}/rest/interface/wifi/set"
-            body = json.dumps({
-                "numbers": target_name,
-                "configuration.mode": mode,
-                "disabled": disabled_str
-            }).encode("utf-8")
-            req = urllib.request.Request(url_set, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                if resp.status in [200, 201, 204]:
-                    self.logger.info(f"REST API (/set): Reconfigured {target_name} to mode={mode} on {self.host}")
-                    return True
-        except Exception as e:
-            self.logger.debug(f"REST API /set failed for {target_name}: {e}")
-
-        # Method 2: GET /rest/interface/wifi -> find .id -> POST /rest/interface/wifi/<id>
-        try:
+            # 1. GET /rest/interface/wifi to find matching interface .id
             url_get = f"http://{self.host}/rest/interface/wifi"
-            req_get = urllib.request.Request(url_get, headers={"Authorization": "Basic YWRtaW46"})
+            req_get = urllib.request.Request(url_get, headers=headers)
             with urllib.request.urlopen(req_get, timeout=3) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 for item in data:
@@ -284,23 +268,19 @@ class RouterOSClient:
                     if name == target_name:
                         item_id = item.get(".id")
                         if item_id:
-                            # Try both "configuration.mode" and "mode" payload keys
-                            for mode_key in ["configuration.mode", "mode"]:
-                                try:
-                                    url_id = f"http://{self.host}/rest/interface/wifi/{item_id}"
-                                    body_id = json.dumps({
-                                        "disabled": disabled_str,
-                                        mode_key: mode
-                                    }).encode("utf-8")
-                                    req_id = urllib.request.Request(url_id, data=body_id, headers=headers, method="POST")
-                                    with urllib.request.urlopen(req_id, timeout=3) as set_resp:
-                                        if set_resp.status in [200, 201, 204]:
-                                            self.logger.info(f"REST API ({item_id}): Reconfigured {target_name} ({mode_key}={mode}) on {self.host}")
-                                            return True
-                                except Exception:
-                                    pass
+                            # 2. Send PATCH request to /rest/interface/wifi/<item_id>
+                            url_patch = f"http://{self.host}/rest/interface/wifi/{item_id}"
+                            body = json.dumps({
+                                "configuration.mode": mode,
+                                "disabled": disabled_str
+                            }).encode("utf-8")
+                            req_patch = urllib.request.Request(url_patch, data=body, headers=headers, method="PATCH")
+                            with urllib.request.urlopen(req_patch, timeout=3) as patch_resp:
+                                if patch_resp.status in [200, 201, 204]:
+                                    self.logger.info(f"REST API (PATCH {item_id}): Successfully set {target_name} configuration.mode={mode} on {self.host}")
+                                    return True
         except Exception as e:
-            self.logger.error(f"REST API reconfiguration failed for {target_name}: {e}")
+            self.logger.error(f"REST API PATCH reconfiguration failed for {target_name} on {self.host}: {e}")
         return False
 
     def promote_to_master_ap(self, ssid="test_device"):
