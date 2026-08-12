@@ -289,14 +289,13 @@ class TelemetryDataProvider:
         try:
             req_url = f"http://{radio_ip}/rest/interface/wifi"
             import urllib.request
-            import urllib.error
-
-            auth_handler = urllib.request.HTTPBasicAuthHandler()
-            auth_handler.add_password(realm=None, uri=req_url, user="admin", passwd="")
-            opener = urllib.request.build_opener(auth_handler)
+            import base64
 
             req = urllib.request.Request(req_url)
-            with opener.open(req, timeout=2.0) as resp:
+            auth_str = base64.b64encode(b"admin:").decode("ascii")
+            req.add_header("Authorization", f"Basic {auth_str}")
+
+            with urllib.request.urlopen(req, timeout=0.6) as resp:
                 if resp.status == 200:
                     raw_data = json.loads(resp.read().decode("utf-8"))
                     interfaces = []
@@ -352,7 +351,7 @@ class TelemetryDataProvider:
     def _live_radio_hardware_audit_loop(self):
         """
         Periodically audits NetMetal AX hardware radio interface states per device node
-        every 120 seconds (2 minutes) to update live running/disabled interface badges.
+        every 3 seconds to update live running/disabled interface badges.
         """
         radio_ip_map = {
             "192.168.3.65": "192.168.3.3",  # UGV-01
@@ -383,7 +382,7 @@ class TelemetryDataProvider:
                                 node["wifi_details"] = live_details
             except Exception:
                 pass
-            time.sleep(120)
+            time.sleep(3)
 
     def get_system_summary(self):
         with self.lock:
