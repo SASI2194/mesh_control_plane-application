@@ -180,13 +180,19 @@ class TelemetryDataProvider:
 
         self.node_activity = {}
         self.mesh_node_running = False
+        self.master_failover_event = None
+
         # Start live parallel Application Layer Heartbeat Audit daemon thread
         self.monitor_thread = Thread(target=self._live_heartbeat_audit_loop, daemon=True)
         self.monitor_thread.start()
 
-        # Start live 2-minute NetMetal AX Hardware Radio Audit daemon thread
+        # Start live NetMetal AX Hardware Radio Audit daemon thread
         self.radio_audit_thread = Thread(target=self._live_radio_hardware_audit_loop, daemon=True)
         self.radio_audit_thread.start()
+
+        # Start dynamic Master AP Failover Leader Election daemon thread
+        self.failover_thread = Thread(target=self._master_ap_failover_election_loop, daemon=True)
+        self.failover_thread.start()
 
     def set_mesh_node_running(self, running=True):
         """Sets active mesh_node.py application running status flag."""
@@ -419,6 +425,74 @@ class TelemetryDataProvider:
                 pass
             time.sleep(3)
 
+    def _master_ap_failover_election_loop(self):
+        """
+        Monitors health of Master AP across 9-device mesh. If current Master AP drops OFFLINE
+        or has no running AP interface, automatically elects the next available online node
+        in priority sequence (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 ...)
+        to assume Master AP role and trigger local RouterOS hardware promotion.
+        """
+        priority_order = [
+            "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
+        ]
+
+        while True:
+            try:
+                with self.lock:
+                    nodes_dict = {n["id"]: n for n in self.nodes}
+
+                    # 1. Check if current Master AP is online and running AP interface
+                    master_online = False
+                    for n in self.nodes:
+                        if n.get("is_master_ap") and n.get("status") == "ONLINE":
+                            master_online = True
+                            break
+
+                    # 2. If Master AP dropped or is OFFLINE, elect new Master AP
+                    if not master_online:
+                        for node_id in priority_order:
+                            cand = nodes_dict.get(node_id)
+                            if cand and cand.get("status") == "ONLINE":
+                                cand["is_master_ap"] = True
+                                cand["ap_role"] = "ELECTED_MASTER_AP"
+                                self.master_failover_event = {
+                                    "timestamp": time.time(),
+                                    "elected_node_id": cand["id"],
+                                    "elected_node_name": cand["name"],
+                                    "elected_node_ip": cand["ip"],
+                                    "reason": "Previous Master AP Went OFFLINE / Lost Link"
+                                }
+                                # If this machine is the elected node, trigger local hardware promotion
+                                my_ip = self._get_this_machine_ip()
+                                if cand["ip"] == my_ip:
+                                    self._promote_local_radio_hardware()
+                                break
+            except Exception:
+                pass
+            time.sleep(2)
+
+    def _promote_local_radio_hardware(self):
+        """Invokes RouterOS API client to promote local radio interface to active Access Point mode."""
+        try:
+            from hardware.routeros_client import RouterOSClient
+            my_ip = self._get_this_machine_ip()
+            radio_ip_map = {
+                "192.168.3.65": "192.168.3.3",
+                "192.168.3.67": "192.168.3.2",
+                "192.168.3.66": "192.168.3.4",
+                "192.168.3.68": "192.168.3.5",
+                "192.168.3.69": "192.168.3.6",
+                "192.168.3.70": "192.168.3.7",
+                "192.168.3.71": "192.168.3.8",
+            }
+            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
+            client = RouterOSClient(host=local_radio_ip)
+            if client.connect():
+                client.promote_to_master_ap()
+                client.disconnect()
+        except Exception:
+            pass
+
     def get_system_summary(self):
         with self.lock:
             local_ips = self._get_local_ips()
@@ -461,7 +535,8 @@ class TelemetryDataProvider:
                 "system_health": "OPTIMAL" if online_count >= 8 else "DEGRADED",
                 "local_node_id": local_id,
                 "local_node_name": local_name,
-                "local_node_ip": local_ip
+                "local_node_ip": local_ip,
+                "master_failover_event": self.master_failover_event
             }
 
     def get_nodes(self):

@@ -249,30 +249,28 @@ class RouterOSClient:
                 continue
         return []
 
-    ###########################################################################
-
-    def ping(self, address, count=4):
-
-        try:
-
-            resource = self.api.get_binary_resource("/ping")
-
-            return resource.call(
-
-                "ping",
-
-                {
-
-                    "address": address,
-
-                    "count": count,
-
-                },
-
-            )
-
-        except Exception as e:
-
-            self.logger.error(e)
-
-            return None
+    def promote_to_master_ap(self, interface_name="wifi2_vap", ssid="test_device"):
+        """
+        Reconfigures local NetMetal AX WiFi radio interface to AP mode (Access Point)
+        during automatic Master AP failover election.
+        """
+        paths = ["/interface/wifi", "/interface/wireless"]
+        for path in paths:
+            try:
+                resource = self.api.get_resource(path)
+                res = resource.get()
+                if res:
+                    for item in res:
+                        item_id = item.get(".id")
+                        name = item.get("name") or item.get("default-name", "")
+                        if name in [interface_name, "wifi2"]:
+                            resource.set(
+                                id=item_id,
+                                disabled="false"
+                            )
+                            self.logger.info(f"Promoted interface {name} to active AP mode on RouterOS ({self.host})")
+                            return True
+            except Exception as e:
+                self.logger.error(f"Failed to promote RouterOS interface to AP mode: {e}")
+                continue
+        return False

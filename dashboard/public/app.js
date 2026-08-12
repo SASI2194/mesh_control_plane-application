@@ -88,6 +88,23 @@ function renderSummary(summary) {
         title.style.color = 'var(--accent-amber)';
         sub.textContent = `${summary.online_nodes} / ${summary.total_nodes} Devices Active`;
     }
+
+    // Master AP Failover Event Alert Banner
+    if (summary.master_failover_event) {
+        const ev = summary.master_failover_event;
+        let failoverBanner = document.getElementById('master-ap-failover-alert');
+        if (!failoverBanner) {
+            failoverBanner = document.createElement('div');
+            failoverBanner.id = 'master-ap-failover-alert';
+            failoverBanner.style.cssText = 'background: linear-gradient(90deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35)); border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 16px; margin: 10px 0; color: #fbbf24; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 0 12px rgba(245,158,11,0.3);';
+            const container = document.querySelector('.portal-container') || document.body;
+            container.insertBefore(failoverBanner, container.firstChild);
+        }
+        failoverBanner.innerHTML = `
+            <span>⚠️ <strong>AUTOMATIC MASTER AP FAILOVER ACTIVATED</strong>: ${ev.elected_node_id} (${ev.elected_node_ip}) elected as NEW MASTER AP!</span>
+            <small style="color: #fde68a;">[Reason: ${ev.reason}]</small>
+        `;
+    }
 }
 
 // Render SVG 7-Sided Polygon (Heptagon) Wireless Topology Graph
