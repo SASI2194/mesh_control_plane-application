@@ -354,6 +354,17 @@ function renderDeviceCards(nodes) {
                     <span>IP: ${dev.ip}</span>
                     <span>Role: ${dev.role}</span>
                     <span>H/W: ${dev.hardware}</span>
+                    ${dev.wifi_details ? `
+                        <div class="wifi-hw-box" style="margin-top: 6px; padding: 6px 8px; background: rgba(15,23,42,0.75); border-radius: 6px; border: 1px solid rgba(0,229,255,0.25);">
+                            <div style="font-size: 10px; font-weight: 800; color: #00e5ff; margin-bottom: 2px;">📻 NetMetal AX Radios (${dev.wifi_details.total_interfaces} Interfaces):</div>
+                            ${dev.wifi_details.interfaces.map(i => `
+                                <div style="font-size: 9.5px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                    <span>• <strong>${i.name}</strong> (${i.band})</span>
+                                    <span class="role-badge ${i.mode === 'AP' ? 'publisher' : 'subscriber'}" style="font-size: 8px; padding: 1px 5px;">${i.mode} • ${i.freq}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="device-metrics">
