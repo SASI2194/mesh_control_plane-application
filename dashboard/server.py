@@ -351,22 +351,36 @@ class TelemetryDataProvider:
 
     def _live_radio_hardware_audit_loop(self):
         """
-        Periodically audits NetMetal AX hardware radio interface states
+        Periodically audits NetMetal AX hardware radio interface states per device node
         every 120 seconds (2 minutes) to update live running/disabled interface badges.
         """
+        radio_ip_map = {
+            "192.168.3.65": "192.168.3.3",  # UGV-01
+            "192.168.3.67": "192.168.3.2",  # UGV-03
+            "192.168.3.66": "192.168.3.4",  # UGV-02
+            "192.168.3.68": "192.168.3.5",  # UGV-04
+            "192.168.3.69": "192.168.3.6",  # UGV-05
+            "192.168.3.70": "192.168.3.7",  # UGV-06
+            "192.168.3.71": "192.168.3.8",  # GCS-01
+        }
+
         while True:
             try:
-                candidate_ips = ["192.168.3.3", "192.168.3.2", "192.168.3.4", "192.168.3.65", "192.168.3.67"]
-                live_details = None
-                for r_ip in candidate_ips:
-                    live_details = self._fetch_radio_interfaces(r_ip)
-                    if live_details and live_details.get("total_interfaces", 0) > 0:
-                        break
+                # Query each node's specific NetMetal AX radio IP
+                with self.lock:
+                    nodes_copy = list(self.nodes)
 
-                if live_details:
-                    with self.lock:
-                        for node in self.nodes:
-                            node["wifi_details"] = live_details
+                for node in nodes_copy:
+                    node_ip = node["ip"]
+                    radio_ip = radio_ip_map.get(node_ip)
+                    if not radio_ip and node_ip in ["127.0.0.1", "localhost"]:
+                        radio_ip = "192.168.3.3"
+
+                    if radio_ip:
+                        live_details = self._fetch_radio_interfaces(radio_ip)
+                        if live_details and live_details.get("total_interfaces", 0) > 0:
+                            with self.lock:
+                                node["wifi_details"] = live_details
             except Exception:
                 pass
             time.sleep(120)
