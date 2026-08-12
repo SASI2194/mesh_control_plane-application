@@ -501,6 +501,8 @@ class TelemetryDataProvider:
 
     def _promote_local_radio_hardware(self):
         """Invokes RouterOS REST API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
+        if getattr(self, "current_hardware_mode", None) == "AP":
+            return
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
@@ -513,14 +515,19 @@ class TelemetryDataProvider:
                 "192.168.3.70": "192.168.3.7",
                 "192.168.3.71": "192.168.3.8",
             }
-            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
+            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.2")
+            print(f"[HARDWARE FAILOVER] Promoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to MASTER AP mode...")
             client = RouterOSClient(host=local_radio_ip)
-            client.promote_to_master_ap()
-        except Exception:
-            pass
+            res = client.promote_to_master_ap()
+            self.current_hardware_mode = "AP"
+            print(f"[HARDWARE FAILOVER PROMOTION RESULT] {res}")
+        except Exception as e:
+            print(f"[HARDWARE PROMOTION ERROR] {e}")
 
     def _demote_local_radio_hardware(self):
         """Invokes RouterOS REST API client to set local radio to client mode (wifi2 -> STATION-BRIDGE, wifi2_vap -> AP)."""
+        if getattr(self, "current_hardware_mode", None) == "STATION_BRIDGE":
+            return
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
@@ -533,11 +540,14 @@ class TelemetryDataProvider:
                 "192.168.3.70": "192.168.3.7",
                 "192.168.3.71": "192.168.3.8",
             }
-            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
+            local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.2")
+            print(f"[HARDWARE RECONCILIATION] Demoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to STATION-BRIDGE mode...")
             client = RouterOSClient(host=local_radio_ip)
-            client.demote_to_station_bridge()
-        except Exception:
-            pass
+            res = client.demote_to_station_bridge()
+            self.current_hardware_mode = "STATION_BRIDGE"
+            print(f"[HARDWARE DEMOTION RESULT] {res}")
+        except Exception as e:
+            print(f"[HARDWARE DEMOTION ERROR] {e}")
 
     def get_system_summary(self):
         with self.lock:
