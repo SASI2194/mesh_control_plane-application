@@ -99,8 +99,8 @@ class TelemetryDataProvider:
                     "active_interfaces": 2,
                     "interfaces": [
                         {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
-                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
-                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
+                        {"name": "wifi2", "master": "", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vap", "master": "wifi2", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
