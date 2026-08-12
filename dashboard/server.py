@@ -452,6 +452,8 @@ class TelemetryDataProvider:
                     primary_master = nodes_dict.get("UGV-01") or nodes_dict.get("GCS-01")
                     primary_is_online = primary_master and primary_master.get("status") == "ONLINE"
 
+                    my_ip = self._get_this_machine_ip()
+
                     if primary_is_online:
                         # Primary Master AP is ONLINE -> Reconcile & Preempt any temporary failover state!
                         self.master_failover_event = None
@@ -463,7 +465,6 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        my_ip = self._get_this_machine_ip()
                         if primary_master["ip"] == my_ip:
                             self._promote_local_radio_hardware()
                         else:
@@ -493,13 +494,13 @@ class TelemetryDataProvider:
                                     n["is_master_ap"] = False
                                     n["ap_role"] = "STATION_BRIDGE"
 
-                            my_ip = self._get_this_machine_ip()
+                            print(f"[FAILOVER ELECTION] Primary Master AP OFFLINE! Elected Candidate: {elected_node['id']} ({elected_node['ip']}) | Local Host: {my_ip}")
                             if elected_node["ip"] == my_ip:
                                 self._promote_local_radio_hardware()
                             else:
                                 self._demote_local_radio_hardware()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
 
     def _promote_local_radio_hardware(self):
