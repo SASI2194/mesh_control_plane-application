@@ -60,9 +60,13 @@ class ROSPublisherBridge:
                 pub = self.node.create_publisher(String, topic_name, 10)
                 self.publishers[topic_name] = pub
 
+            # Register native ROS 2 topic /mesh_wifi_telemetry for inter-device radio status broadcast
+            self.telemetry_pub = self.node.create_publisher(String, "/mesh_wifi_telemetry", 10)
+            self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
+
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
-            print("[INFO] ROS 2 Native Publisher Bridge active (/mesh_control_plane_receiver)")
+            print("[INFO] ROS 2 Native Publisher Bridge active (/mesh_control_plane_receiver & /mesh_wifi_telemetry)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 
@@ -71,6 +75,17 @@ class ROSPublisherBridge:
         try:
             if self.node:
                 rclpy.spin(self.node)
+        except Exception:
+            pass
+
+    def publish_telemetry(self, json_str):
+        if not self.node or "/mesh_wifi_telemetry" not in self.publishers:
+            return
+        try:
+            from std_msgs.msg import String
+            msg = String()
+            msg.data = json_str
+            self.publishers["/mesh_wifi_telemetry"].publish(msg)
         except Exception:
             pass
 
@@ -293,7 +308,7 @@ class MeshNode:
             time.sleep(1.0)
 
     def _wifi_telemetry_loop(self):
-        """Broadcasts local NetMetal AX WiFi radio status over Zenoh on filtered/_mesh_wifi_telemetry/<ip> every 2s."""
+        """Broadcasts local NetMetal AX WiFi radio status over Zenoh & ROS 2 on /mesh_wifi_telemetry every 2s."""
         wifi_key = f"filtered/_mesh_wifi_telemetry/{self.my_ip}"
         import json
         while self.running:
@@ -305,7 +320,12 @@ class MeshNode:
                         "timestamp": time.time(),
                         "wifi_details": local_node["wifi_details"]
                     }
-                    self.forward_session.session.put(wifi_key, json.dumps(payload_dict).encode("utf-8"))
+                    json_str = json.dumps(payload_dict)
+                    # 1. Publish to Zenoh Control Plane Transport
+                    self.forward_session.session.put(wifi_key, json_str.encode("utf-8"))
+                    # 2. Publish to Native ROS 2 Node Graph (/mesh_wifi_telemetry)
+                    if getattr(self, "ros_bridge", None):
+                        self.ros_bridge.publish_telemetry(json_str)
             except Exception:
                 pass
             time.sleep(2.0)
