@@ -205,8 +205,48 @@ class RouterOSClient:
 
             except Exception:
 
-                continue
+        return []
 
+    ###########################################################################
+
+    def get_wifi_interfaces(self):
+        """
+        Retrieves detailed list of available and active WiFi interfaces
+        from RouterOS v7 WiFi package (/interface/wifi).
+        """
+        paths = ["/interface/wifi", "/interface/wireless"]
+        for path in paths:
+            try:
+                resource = self.api.get_resource(path)
+                res = resource.get()
+                if res:
+                    interfaces = []
+                    for item in res:
+                        name = item.get("name") or item.get("default-name", "wifi")
+                        master = item.get("master-interface", "")
+                        mode = item.get("configuration.mode") or item.get("mode") or "AP"
+                        ssid = item.get("configuration.ssid") or item.get("ssid") or ""
+                        band = item.get("channel.band") or item.get("band") or "5GHz-ax"
+                        freq = item.get("channel.frequency") or item.get("frequency") or "5180"
+                        disabled = item.get("disabled") == "true" or "X" in item.get("flags", "")
+                        running = item.get("running") == "true" or "R" in item.get("flags", "")
+
+                        status_str = "ACTIVE & RUNNING" if running else ("DISABLED" if disabled else "INACTIVE")
+
+                        interfaces.append({
+                            "name": name,
+                            "master_interface": master,
+                            "mode": mode.upper(),
+                            "ssid": ssid,
+                            "band": band,
+                            "freq": freq,
+                            "disabled": disabled,
+                            "running": running,
+                            "status": status_str
+                        })
+                    return interfaces
+            except Exception:
+                continue
         return []
 
     ###########################################################################

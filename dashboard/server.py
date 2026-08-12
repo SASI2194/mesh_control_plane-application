@@ -71,90 +71,108 @@ class TelemetryDataProvider:
             {
                 "id": "UGV-01", "name": "UGV Unit 01", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.65", "role": "Mesh Node", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "AP", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "UGV-02", "name": "UGV Unit 02", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.66", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "AP", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "UGV-03", "name": "UGV Unit 03", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.67", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "UGV-04", "name": "UGV Unit 04", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.68", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "UGV-05", "name": "UGV Unit 05", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.69", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "UGV-06", "name": "UGV Unit 06", "type": "UGV", "hardware": "Jetson Orin + NetMetal AX", "ip": "192.168.3.70", "role": "Field Unit", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "GCS-01", "name": "GCS Primary Command", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.71", "role": "Primary Coordinator", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "AP", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "GCS-02", "name": "GCS Tactical Station 1", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.72", "role": "Tactical Monitor", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
             {
                 "id": "GCS-03", "name": "GCS Tactical Station 2", "type": "GCS", "hardware": "Proc System + Switch + NetMetal AX", "ip": "192.168.3.73", "role": "Backup Command", "status": "OFFLINE", "rssi": -95, "latency": 0.0, "loss": 0.0, "uptime": "0m",
                 "wifi_details": {
-                    "total_interfaces": 2,
+                    "total_interfaces": 3,
+                    "active_interfaces": 2,
                     "interfaces": [
-                        {"name": "wifi1", "mode": "AP", "band": "2.4GHz-ax", "freq": "2412 MHz", "running": True},
-                        {"name": "wifi2", "mode": "STATION-BRIDGE", "band": "5GHz-ax", "freq": "5180 MHz", "running": True}
+                        {"name": "wifi1", "master": "", "mode": "AP", "ssid": "", "band": "2.4GHz", "freq": "N/A", "flags": "MBX", "status": "DISABLED", "running": False},
+                        {"name": "wifi2", "master": "", "mode": "AP", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "MBR", "status": "ACTIVE & RUNNING", "running": True},
+                        {"name": "wifi2_vsb", "master": "wifi2", "mode": "STATION-BRIDGE", "ssid": "test_device", "band": "5GHz-ax", "freq": "5180 MHz", "flags": "BR", "status": "ACTIVE & RUNNING", "running": True}
                     ]
                 }
             },
