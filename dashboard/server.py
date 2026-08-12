@@ -201,11 +201,16 @@ class TelemetryDataProvider:
             self.node_activity[node_ip] = time.time()
 
     def update_remote_node_wifi(self, sender_ip, wifi_details):
-        """Updates live NetMetal AX WiFi radio telemetry for a remote node received over Zenoh."""
+        """Updates live NetMetal AX WiFi radio telemetry for a specific remote node received over Zenoh."""
+        target_ip = getattr(self, "local_ip", None)
+        if target_ip and sender_ip == target_ip:
+            return
+
         with self.lock:
             for node in self.nodes:
                 if node["ip"] == sender_ip:
-                    node["wifi_details"] = wifi_details
+                    import copy
+                    node["wifi_details"] = copy.deepcopy(wifi_details)
                     break
 
     def attach_components(self, registry, scheduler, congestion=None, local_ip=None):
@@ -358,36 +363,38 @@ class TelemetryDataProvider:
 
     def _live_radio_hardware_audit_loop(self):
         """
-        Periodically audits NetMetal AX hardware radio interface states per device node
-        every 3 seconds to update live running/disabled interface badges.
+        Periodically audits ONLY THIS LOCAL DEVICE's NetMetal AX hardware radio interface states
+        every 3 seconds to update its own local running/disabled interface badges.
         """
         radio_ip_map = {
-            "192.168.3.65": "192.168.3.3",  # UGV-01
-            "192.168.3.67": "192.168.3.2",  # UGV-03
-            "192.168.3.66": "192.168.3.4",  # UGV-02
-            "192.168.3.68": "192.168.3.5",  # UGV-04
-            "192.168.3.69": "192.168.3.6",  # UGV-05
-            "192.168.3.70": "192.168.3.7",  # UGV-06
-            "192.168.3.71": "192.168.3.8",  # GCS-01
+            "192.168.3.65": "192.168.3.3",  # UGV-01 local radio
+            "192.168.3.67": "192.168.3.2",  # UGV-03 local radio
+            "192.168.3.66": "192.168.3.4",  # UGV-02 local radio
+            "192.168.3.68": "192.168.3.5",  # UGV-04 local radio
+            "192.168.3.69": "192.168.3.6",  # UGV-05 local radio
+            "192.168.3.70": "192.168.3.7",  # UGV-06 local radio
+            "192.168.3.71": "192.168.3.8",  # GCS-01 local radio
         }
 
         while True:
             try:
-                # Query each node's specific NetMetal AX radio IP
-                with self.lock:
-                    nodes_copy = list(self.nodes)
+                # 1. Determine local node IP and local radio IP
+                target_ip = getattr(self, "local_ip", None)
+                if not target_ip:
+                    local_ips = self._get_local_ips()
+                    target_ip = next((ip for ip in local_ips if ip.startswith("192.168.3.")), "192.168.3.65")
 
-                for node in nodes_copy:
-                    node_ip = node["ip"]
-                    radio_ip = radio_ip_map.get(node_ip)
-                    if not radio_ip and node_ip in ["127.0.0.1", "localhost"]:
-                        radio_ip = "192.168.3.3"
+                local_radio_ip = radio_ip_map.get(target_ip, "192.168.3.3")
 
-                    if radio_ip:
-                        live_details = self._fetch_radio_interfaces(radio_ip)
-                        if live_details and live_details.get("total_interfaces", 0) > 0:
-                            with self.lock:
+                # 2. Fetch ONLY the local radio interface states
+                live_details = self._fetch_radio_interfaces(local_radio_ip)
+                if live_details and live_details.get("total_interfaces", 0) > 0:
+                    with self.lock:
+                        # Update ONLY the local node's card in self.nodes!
+                        for node in self.nodes:
+                            if node["ip"] == target_ip or (target_ip in ["127.0.0.1", "localhost"] and node["id"] == "UGV-01"):
                                 node["wifi_details"] = live_details
+                                break
             except Exception:
                 pass
             time.sleep(3)
