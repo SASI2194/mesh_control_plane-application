@@ -475,6 +475,18 @@ class TelemetryDataProvider:
                     c["is_local"] = n["ip"] == target_ip
                 else:
                     c["is_local"] = n["ip"] in local_ips
+
+                # Determine if node is acting as Master Access Point (Master AP)
+                is_master = False
+                wifi_det = n.get("wifi_details")
+                if wifi_det and isinstance(wifi_det, dict):
+                    for i in wifi_det.get("interfaces", []):
+                        if i.get("name") == "wifi2" and i.get("mode", "").upper() == "AP" and not i.get("master") and i.get("running"):
+                            is_master = True
+                            break
+
+                c["is_master_ap"] = is_master
+                c["ap_role"] = "MASTER_AP" if is_master else "STATION_BRIDGE"
                 nodes_copy.append(c)
             return nodes_copy
 

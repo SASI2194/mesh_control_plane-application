@@ -335,6 +335,10 @@ function renderDeviceCards(nodes) {
             ? `<span class="dev-status-badge local-host">THIS DEVICE</span>`
             : '';
 
+        const apBadge = dev.is_master_ap
+            ? `<span class="dev-status-badge" style="background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(217,119,6,0.5)); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 800;">👑 MASTER AP</span>`
+            : `<span class="dev-status-badge" style="background: rgba(14,165,233,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);">🔗 STATION BRIDGE</span>`;
+
         const signalVal = isOnline ? `${dev.rssi} dBm` : 'N/A';
         const latencyVal = isOnline ? `${dev.latency} ms` : 'Disconnected';
 
@@ -344,6 +348,7 @@ function renderDeviceCards(nodes) {
                     <span class="device-id">${dev.id}</span>
                     <div style="display: flex; gap: 6px; align-items: center;">
                         ${localBadge}
+                        ${apBadge}
                         ${statusBadge}
                         <span class="device-type ${typeClass}">${dev.type}</span>
                     </div>
