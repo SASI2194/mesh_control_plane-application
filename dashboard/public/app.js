@@ -363,13 +363,15 @@ function renderDeviceCards(nodes) {
                             ${dev.wifi_details.interfaces.map(i => {
                                 const isRun = i.running;
                                 const isDis = i.disabled;
-                                let badgeClass = isRun ? (i.mode === 'AP' ? 'publisher' : 'subscriber') : 'idle';
+                                let badgeClass = isDis ? 'idle' : (isRun ? (i.mode === 'AP' ? 'publisher' : 'subscriber') : 'degraded');
+                                let statusText = isDis ? 'DISABLED' : (isRun ? 'RUNNING' : 'INACTIVE (NO LINK)');
                                 let statusLabel = i.flags ? `[${i.flags}] ${i.mode}` : i.mode;
                                 if (i.ssid) statusLabel += ` (${i.ssid})`;
+                                const colorHex = isRun ? '#f1f5f9' : (isDis ? '#64748b' : '#fbbf24');
                                 return `
-                                    <div style="font-size: 9.5px; color: ${isRun ? '#f1f5f9' : '#64748b'}; display: flex; justify-content: space-between; align-items: center; margin-top: 3px;">
+                                    <div style="font-size: 9.5px; color: ${colorHex}; display: flex; justify-content: space-between; align-items: center; margin-top: 3px;">
                                         <span>• <strong>${i.name}</strong> ${i.master ? `<small class="text-dim">(slave of ${i.master})</small>` : ''}</span>
-                                        <span class="role-badge ${badgeClass}" style="font-size: 8px; padding: 1px 5px;">${statusLabel} • ${isDis ? 'DISABLED' : (isRun ? 'RUNNING' : 'INACTIVE')}</span>
+                                        <span class="role-badge ${badgeClass}" style="font-size: 8px; padding: 1px 5px;">${statusLabel} • ${statusText}</span>
                                     </div>
                                 `;
                             }).join('')}
