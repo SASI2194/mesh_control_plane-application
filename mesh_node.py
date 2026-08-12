@@ -228,6 +228,13 @@ class MeshNode:
         self.heartbeat_thread = Thread(target=self._heartbeat_loop, daemon=True)
         self.heartbeat_thread.start()
 
+        #
+        # Start 0.5 Hz Zenoh Control Plane WiFi Radio Telemetry Thread
+        #
+
+        self.wifi_telemetry_thread = Thread(target=self._wifi_telemetry_loop, daemon=True)
+        self.wifi_telemetry_thread.start()
+
     #####################################################################
 
     def _detect_local_ip(self):
@@ -285,6 +292,24 @@ class MeshNode:
                 pass
             time.sleep(1.0)
 
+    def _wifi_telemetry_loop(self):
+        """Broadcasts local NetMetal AX WiFi radio status over Zenoh on filtered/_mesh_wifi_telemetry/<ip> every 2s."""
+        wifi_key = f"filtered/_mesh_wifi_telemetry/{self.my_ip}"
+        import json
+        while self.running:
+            try:
+                local_node = next((n for n in DATA_PROVIDER.nodes if n["ip"] == self.my_ip), None)
+                if local_node and local_node.get("wifi_details"):
+                    payload_dict = {
+                        "sender_ip": self.my_ip,
+                        "timestamp": time.time(),
+                        "wifi_details": local_node["wifi_details"]
+                    }
+                    self.forward_session.session.put(wifi_key, json.dumps(payload_dict).encode("utf-8"))
+            except Exception:
+                pass
+            time.sleep(2.0)
+
     #####################################################################
 
     def callback(self, sample):
@@ -297,6 +322,19 @@ class MeshNode:
         #
 
         if key_str.startswith("filtered/"):
+            # Check for Application Control Plane WiFi Hardware Telemetry Broadcast
+            if "_mesh_wifi_telemetry/" in key_str:
+                import json
+                try:
+                    data = json.loads(payload_bytes.decode("utf-8"))
+                    sender_ip = data.get("sender_ip")
+                    wifi_details = data.get("wifi_details")
+                    if sender_ip and wifi_details:
+                        DATA_PROVIDER.update_remote_node_wifi(sender_ip, wifi_details)
+                except Exception:
+                    pass
+                return
+
             # Check for Application Control Plane Heartbeat & Peer Loss Feedback
             if "_mesh_heartbeat/" in key_str:
                 parts = key_str.split("_mesh_heartbeat/")

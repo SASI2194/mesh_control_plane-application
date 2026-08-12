@@ -200,6 +200,14 @@ class TelemetryDataProvider:
         with self.lock:
             self.node_activity[node_ip] = time.time()
 
+    def update_remote_node_wifi(self, sender_ip, wifi_details):
+        """Updates live NetMetal AX WiFi radio telemetry for a remote node received over Zenoh."""
+        with self.lock:
+            for node in self.nodes:
+                if node["ip"] == sender_ip:
+                    node["wifi_details"] = wifi_details
+                    break
+
     def attach_components(self, registry, scheduler, congestion=None, local_ip=None):
         """Attaches live MeshNode registry, scheduler & congestion instances for real-time telemetry updates."""
         with self.lock:
