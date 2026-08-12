@@ -286,21 +286,21 @@ class RouterOSClient:
     def promote_to_master_ap(self, ssid="test_device"):
         """
         Reconfigures local NetMetal AX WiFi radio interfaces when this node is elected Master AP:
-        - wifi2 (Physical 5GHz radio) -> Mode: ap, Disabled: false
-        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: station-bridge, Disabled: false
+        - Step 1: wifi2_vap / wifi2_vsb (Virtual slave interfaces) -> Mode: station-bridge FIRST
+        - Step 2: wifi2 (Physical 5GHz radio) -> Mode: ap SECOND
         """
-        s1 = self._rest_set_wifi_interface("wifi2", mode="ap", disabled=False)
-        s2 = self._rest_set_wifi_interface("wifi2_vap", mode="station-bridge", disabled=False)
-        s3 = self._rest_set_wifi_interface("wifi2_vsb", mode="station-bridge", disabled=False)
-        return s1 or s2 or s3
+        s_vap = self._rest_set_wifi_interface("wifi2_vap", mode="station-bridge", disabled=False)
+        s_vsb = self._rest_set_wifi_interface("wifi2_vsb", mode="station-bridge", disabled=False)
+        s_master = self._rest_set_wifi_interface("wifi2", mode="ap", disabled=False)
+        return s_master or s_vap or s_vsb
 
     def demote_to_station_bridge(self, ssid="test_device"):
         """
         Reconfigures local NetMetal AX WiFi radio interfaces when this node is a client/slave:
-        - wifi2 (Physical 5GHz radio) -> Mode: station-bridge, Disabled: false
-        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: ap, Disabled: false
+        - Step 1: wifi2 (Physical 5GHz radio) -> Mode: station-bridge FIRST
+        - Step 2: wifi2_vap / wifi2_vsb (Virtual slave interfaces) -> Mode: ap SECOND
         """
-        s1 = self._rest_set_wifi_interface("wifi2", mode="station-bridge", disabled=False)
-        s2 = self._rest_set_wifi_interface("wifi2_vap", mode="ap", disabled=False)
-        s3 = self._rest_set_wifi_interface("wifi2_vsb", mode="ap", disabled=False)
-        return s1 or s2 or s3
+        s_master = self._rest_set_wifi_interface("wifi2", mode="station-bridge", disabled=False)
+        s_vap = self._rest_set_wifi_interface("wifi2_vap", mode="ap", disabled=False)
+        s_vsb = self._rest_set_wifi_interface("wifi2_vsb", mode="ap", disabled=False)
+        return s_master or s_vap or s_vsb
