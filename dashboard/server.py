@@ -440,6 +440,9 @@ class TelemetryDataProvider:
             "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
         ]
 
+        # Grace period for initial startup heartbeat discovery across mesh nodes
+        time.sleep(3.0)
+
         while True:
             try:
                 with self.lock:
@@ -519,7 +522,8 @@ class TelemetryDataProvider:
             print(f"[HARDWARE FAILOVER] Promoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to MASTER AP mode...")
             client = RouterOSClient(host=local_radio_ip)
             res = client.promote_to_master_ap()
-            self.current_hardware_mode = "AP"
+            if res:
+                self.current_hardware_mode = "AP"
             print(f"[HARDWARE FAILOVER PROMOTION RESULT] {res}")
         except Exception as e:
             print(f"[HARDWARE PROMOTION ERROR] {e}")
@@ -544,7 +548,8 @@ class TelemetryDataProvider:
             print(f"[HARDWARE RECONCILIATION] Demoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to STATION-BRIDGE mode...")
             client = RouterOSClient(host=local_radio_ip)
             res = client.demote_to_station_bridge()
-            self.current_hardware_mode = "STATION_BRIDGE"
+            if res:
+                self.current_hardware_mode = "STATION_BRIDGE"
             print(f"[HARDWARE DEMOTION RESULT] {res}")
         except Exception as e:
             print(f"[HARDWARE DEMOTION ERROR] {e}")
