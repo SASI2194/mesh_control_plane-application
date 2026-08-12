@@ -200,10 +200,33 @@ class TelemetryDataProvider:
         with self.lock:
             self.node_activity[node_ip] = time.time()
 
+    def _get_this_machine_ip(self):
+        """Helper to resolve exact physical host IP for this machine (192.168.3.x)."""
+        target_ip = getattr(self, "local_ip", None)
+        if target_ip and target_ip not in ["127.0.0.1", "localhost"]:
+            return target_ip
+
+        local_ips = self._get_local_ips()
+        for ip in local_ips:
+            if ip.startswith("192.168.3."):
+                return ip
+
+        try:
+            res = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode == 0:
+                for ip in res.stdout.strip().split():
+                    if ip.startswith("192.168.3."):
+                        return ip
+        except Exception:
+            pass
+
+        return "192.168.3.65"
+
     def update_remote_node_wifi(self, sender_ip, wifi_details):
         """Updates live NetMetal AX WiFi radio telemetry for a specific remote node received over Zenoh."""
-        target_ip = getattr(self, "local_ip", None)
-        if target_ip and sender_ip == target_ip:
+        my_ip = self._get_this_machine_ip()
+        # Ignore self-broadcasts so local audit loop remains authoritative for local node
+        if sender_ip == my_ip:
             return
 
         with self.lock:
@@ -378,12 +401,8 @@ class TelemetryDataProvider:
 
         while True:
             try:
-                # 1. Determine local node IP and local radio IP
-                target_ip = getattr(self, "local_ip", None)
-                if not target_ip:
-                    local_ips = self._get_local_ips()
-                    target_ip = next((ip for ip in local_ips if ip.startswith("192.168.3.")), "192.168.3.65")
-
+                # 1. Determine local host IP and local radio IP
+                target_ip = self._get_this_machine_ip()
                 local_radio_ip = radio_ip_map.get(target_ip, "192.168.3.3")
 
                 # 2. Fetch ONLY the local radio interface states
@@ -393,7 +412,8 @@ class TelemetryDataProvider:
                         # Update ONLY the local node's card in self.nodes!
                         for node in self.nodes:
                             if node["ip"] == target_ip or (target_ip in ["127.0.0.1", "localhost"] and node["id"] == "UGV-01"):
-                                node["wifi_details"] = live_details
+                                import copy
+                                node["wifi_details"] = copy.deepcopy(live_details)
                                 break
             except Exception:
                 pass
