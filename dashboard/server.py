@@ -184,6 +184,10 @@ class TelemetryDataProvider:
         self.monitor_thread = Thread(target=self._live_heartbeat_audit_loop, daemon=True)
         self.monitor_thread.start()
 
+        # Start live 2-minute NetMetal AX Hardware Radio Audit daemon thread
+        self.radio_audit_thread = Thread(target=self._live_radio_hardware_audit_loop, daemon=True)
+        self.radio_audit_thread.start()
+
     def set_mesh_node_running(self, running=True):
         """Sets active mesh_node.py application running status flag."""
         with self.lock:
@@ -279,6 +283,93 @@ class TelemetryDataProvider:
             return "ONLINE", 8.5
 
         return "OFFLINE", 0.0
+
+    def _fetch_radio_interfaces(self, radio_ip):
+        """Queries local NetMetal AX radio via RouterOS REST API to fetch live interface states."""
+        try:
+            req_url = f"http://{radio_ip}/rest/interface/wifi"
+            import urllib.request
+            import urllib.error
+
+            auth_handler = urllib.request.HTTPBasicAuthHandler()
+            auth_handler.add_password(realm=None, uri=req_url, user="admin", passwd="")
+            opener = urllib.request.build_opener(auth_handler)
+
+            req = urllib.request.Request(req_url)
+            with opener.open(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    raw_data = json.loads(resp.read().decode("utf-8"))
+                    interfaces = []
+                    active_count = 0
+                    for item in raw_data:
+                        name = item.get("name") or item.get("default-name", "wifi")
+                        master = item.get("master-interface", "")
+                        mode = (item.get("configuration.mode") or item.get("mode") or "AP").upper()
+                        ssid = item.get("configuration.ssid") or item.get("ssid") or ""
+                        band = item.get("channel.band") or item.get("band") or "5GHz-ax"
+                        freq = item.get("channel.frequency") or item.get("frequency") or "5180 MHz"
+
+                        is_disabled = str(item.get("disabled", "false")).lower() == "true"
+                        is_inactive = str(item.get("inactive", "false")).lower() == "true"
+                        is_running = str(item.get("running", "false")).lower() == "true"
+
+                        flags = "M" if item.get("master") == "true" else ""
+                        flags += "B" if item.get("bound") == "true" else ""
+                        if is_disabled:
+                            flags += "X"
+                            status_str = "DISABLED"
+                        elif is_running:
+                            flags += "R"
+                            status_str = "ACTIVE & RUNNING"
+                            active_count += 1
+                        elif is_inactive:
+                            flags += "I"
+                            status_str = "INACTIVE"
+                        else:
+                            status_str = "INACTIVE"
+
+                        interfaces.append({
+                            "name": name,
+                            "master": master,
+                            "mode": mode,
+                            "ssid": ssid,
+                            "band": band,
+                            "freq": freq,
+                            "flags": flags,
+                            "status": status_str,
+                            "running": is_running,
+                            "disabled": is_disabled
+                        })
+                    return {
+                        "total_interfaces": len(interfaces),
+                        "active_interfaces": active_count,
+                        "interfaces": interfaces
+                    }
+        except Exception:
+            pass
+        return None
+
+    def _live_radio_hardware_audit_loop(self):
+        """
+        Periodically audits NetMetal AX hardware radio interface states
+        every 120 seconds (2 minutes) to update live running/disabled interface badges.
+        """
+        while True:
+            try:
+                candidate_ips = ["192.168.3.3", "192.168.3.2", "192.168.3.4", "192.168.3.65", "192.168.3.67"]
+                live_details = None
+                for r_ip in candidate_ips:
+                    live_details = self._fetch_radio_interfaces(r_ip)
+                    if live_details and live_details.get("total_interfaces", 0) > 0:
+                        break
+
+                if live_details:
+                    with self.lock:
+                        for node in self.nodes:
+                            node["wifi_details"] = live_details
+            except Exception:
+                pass
+            time.sleep(120)
 
     def get_system_summary(self):
         with self.lock:
