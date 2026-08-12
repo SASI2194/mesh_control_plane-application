@@ -10,7 +10,10 @@ Author  : Mesh Control Plane Project
 """
 
 import time
-import routeros_api
+try:
+    import routeros_api
+except ImportError:
+    routeros_api = None
 
 from utils.logger import MeshLogger
 
@@ -45,6 +48,9 @@ class RouterOSClient:
     ###########################################################################
 
     def connect(self):
+
+        if not routeros_api:
+            return False
 
         try:
 
