@@ -500,7 +500,7 @@ class TelemetryDataProvider:
             time.sleep(2)
 
     def _promote_local_radio_hardware(self):
-        """Invokes RouterOS API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
+        """Invokes RouterOS REST API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
@@ -515,14 +515,12 @@ class TelemetryDataProvider:
             }
             local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
             client = RouterOSClient(host=local_radio_ip)
-            if client.connect():
-                client.promote_to_master_ap()
-                client.disconnect()
+            client.promote_to_master_ap()
         except Exception:
             pass
 
     def _demote_local_radio_hardware(self):
-        """Invokes RouterOS API client to set local radio to client mode (wifi2 -> STATION-BRIDGE, wifi2_vap -> AP)."""
+        """Invokes RouterOS REST API client to set local radio to client mode (wifi2 -> STATION-BRIDGE, wifi2_vap -> AP)."""
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
@@ -537,9 +535,7 @@ class TelemetryDataProvider:
             }
             local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.3")
             client = RouterOSClient(host=local_radio_ip)
-            if client.connect():
-                client.demote_to_station_bridge()
-                client.disconnect()
+            client.demote_to_station_bridge()
         except Exception:
             pass
 
