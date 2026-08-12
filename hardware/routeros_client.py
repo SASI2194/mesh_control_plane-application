@@ -253,6 +253,27 @@ class RouterOSClient:
         """Helper to reconfigure interface mode via RouterOS v7 REST API (HTTP Basic Auth)."""
         import urllib.request
         import json
+
+        headers = {"Authorization": "Basic YWRtaW46", "Content-Type": "application/json"}
+        disabled_str = "true" if disabled else "false"
+
+        # Method 1: RouterOS REST API /rest/interface/wifi/set with numbers
+        try:
+            url_set = f"http://{self.host}/rest/interface/wifi/set"
+            body = json.dumps({
+                "numbers": target_name,
+                "configuration.mode": mode,
+                "disabled": disabled_str
+            }).encode("utf-8")
+            req = urllib.request.Request(url_set, data=body, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status in [200, 201, 204]:
+                    self.logger.info(f"REST API (/set): Reconfigured {target_name} to mode={mode} on {self.host}")
+                    return True
+        except Exception as e:
+            self.logger.debug(f"REST API /set failed for {target_name}: {e}")
+
+        # Method 2: GET /rest/interface/wifi -> find .id -> POST /rest/interface/wifi/<id>
         try:
             url_get = f"http://{self.host}/rest/interface/wifi"
             req_get = urllib.request.Request(url_get, headers={"Authorization": "Basic YWRtaW46"})
@@ -263,23 +284,21 @@ class RouterOSClient:
                     if name == target_name:
                         item_id = item.get(".id")
                         if item_id:
-                            url_set = f"http://{self.host}/rest/interface/wifi/{item_id}"
-                            body = json.dumps({
-                                "disabled": "true" if disabled else "false",
-                                "configuration.mode": mode
-                            }).encode("utf-8")
-                            req_set = urllib.request.Request(
-                                url_set,
-                                data=body,
-                                headers={
-                                    "Authorization": "Basic YWRtaW46",
-                                    "Content-Type": "application/json"
-                                },
-                                method="POST"
-                            )
-                            with urllib.request.urlopen(req_set, timeout=3) as set_resp:
-                                self.logger.info(f"REST API: Reconfigured {target_name} to mode={mode} on {self.host}")
-                                return True
+                            # Try both "configuration.mode" and "mode" payload keys
+                            for mode_key in ["configuration.mode", "mode"]:
+                                try:
+                                    url_id = f"http://{self.host}/rest/interface/wifi/{item_id}"
+                                    body_id = json.dumps({
+                                        "disabled": disabled_str,
+                                        mode_key: mode
+                                    }).encode("utf-8")
+                                    req_id = urllib.request.Request(url_id, data=body_id, headers=headers, method="POST")
+                                    with urllib.request.urlopen(req_id, timeout=3) as set_resp:
+                                        if set_resp.status in [200, 201, 204]:
+                                            self.logger.info(f"REST API ({item_id}): Reconfigured {target_name} ({mode_key}={mode}) on {self.host}")
+                                            return True
+                                except Exception:
+                                    pass
         except Exception as e:
             self.logger.error(f"REST API reconfiguration failed for {target_name}: {e}")
         return False

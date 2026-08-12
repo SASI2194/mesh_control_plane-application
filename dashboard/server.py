@@ -427,10 +427,14 @@ class TelemetryDataProvider:
 
     def _master_ap_failover_election_loop(self):
         """
-        Monitors health of Master AP across 9-device mesh. If current Master AP drops OFFLINE
-        or has no running AP interface, automatically elects the next available online node
-        in priority sequence (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 ...)
-        to assume Master AP role and trigger local RouterOS hardware promotion.
+        Monitors health of Master AP across 9-device mesh.
+        If Primary Master AP (UGV-01 or GCS-01) comes back ONLINE:
+          - Preempts any temporary failover Master AP.
+          - Re-establishes UGV-01/GCS-01 as the single sole Master AP.
+          - Demotes temporary failover nodes back to STATION-BRIDGE.
+        If Primary Master AP drops OFFLINE:
+          - Automatically elects the next available online node in priority sequence
+            (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 -> UGV-04 -> UGV-05 -> UGV-06).
         """
         priority_order = [
             "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
@@ -441,34 +445,56 @@ class TelemetryDataProvider:
                 with self.lock:
                     nodes_dict = {n["id"]: n for n in self.nodes}
 
-                    # 1. Check if current Master AP is online and running AP interface
-                    master_online = False
-                    for n in self.nodes:
-                        if n.get("is_master_ap") and n.get("status") == "ONLINE":
-                            master_online = True
-                            break
+                    # 1. Primary Master AP check: UGV-01 or GCS-01
+                    primary_master = nodes_dict.get("UGV-01") or nodes_dict.get("GCS-01")
+                    primary_is_online = primary_master and primary_master.get("status") == "ONLINE"
 
-                    # 2. If Master AP dropped or is OFFLINE, elect new Master AP
-                    if not master_online:
+                    if primary_is_online:
+                        # Primary Master AP is ONLINE -> Reconcile & Preempt any temporary failover state!
+                        self.master_failover_event = None
+                        for n in self.nodes:
+                            if n["id"] == primary_master["id"]:
+                                n["is_master_ap"] = True
+                                n["ap_role"] = "MASTER_AP"
+                            else:
+                                n["is_master_ap"] = False
+                                n["ap_role"] = "STATION_BRIDGE"
+
+                        my_ip = self._get_this_machine_ip()
+                        if primary_master["ip"] == my_ip:
+                            self._promote_local_radio_hardware()
+                        else:
+                            self._demote_local_radio_hardware()
+                    else:
+                        # Primary Master AP is OFFLINE -> Elect first available online candidate from priority queue
+                        elected_node = None
                         for node_id in priority_order:
                             cand = nodes_dict.get(node_id)
                             if cand and cand.get("status") == "ONLINE":
-                                cand["is_master_ap"] = True
-                                cand["ap_role"] = "ELECTED_MASTER_AP"
-                                self.master_failover_event = {
-                                    "timestamp": time.time(),
-                                    "elected_node_id": cand["id"],
-                                    "elected_node_name": cand["name"],
-                                    "elected_node_ip": cand["ip"],
-                                    "reason": "Previous Master AP Went OFFLINE / Lost Link"
-                                }
-                                # Trigger local hardware promotion or demotion depending on elected host identity
-                                my_ip = self._get_this_machine_ip()
-                                if cand["ip"] == my_ip:
-                                    self._promote_local_radio_hardware()
-                                else:
-                                    self._demote_local_radio_hardware()
+                                elected_node = cand
                                 break
+
+                        if elected_node:
+                            self.master_failover_event = {
+                                "timestamp": time.time(),
+                                "elected_node_id": elected_node["id"],
+                                "elected_node_name": elected_node["name"],
+                                "elected_node_ip": elected_node["ip"],
+                                "reason": "Primary Master AP Went OFFLINE / Lost Link"
+                            }
+                            for n in self.nodes:
+                                if n["id"] == elected_node["id"]:
+                                    n["is_master_ap"] = True
+                                    n["ap_role"] = "ELECTED_MASTER_AP"
+                                else:
+                                    n["is_master_ap"] = False
+                                    n["ap_role"] = "STATION_BRIDGE"
+
+                            my_ip = self._get_this_machine_ip()
+                            if elected_node["ip"] == my_ip:
+                                self._promote_local_radio_hardware()
+                            else:
+                                self._demote_local_radio_hardware()
             except Exception:
                 pass
             time.sleep(2)

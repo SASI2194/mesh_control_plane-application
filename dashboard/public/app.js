@@ -90,9 +90,9 @@ function renderSummary(summary) {
     }
 
     // Master AP Failover Event Alert Banner
+    let failoverBanner = document.getElementById('master-ap-failover-alert');
     if (summary.master_failover_event) {
         const ev = summary.master_failover_event;
-        let failoverBanner = document.getElementById('master-ap-failover-alert');
         if (!failoverBanner) {
             failoverBanner = document.createElement('div');
             failoverBanner.id = 'master-ap-failover-alert';
@@ -104,6 +104,8 @@ function renderSummary(summary) {
             <span>⚠️ <strong>AUTOMATIC MASTER AP FAILOVER ACTIVATED</strong>: ${ev.elected_node_id} (${ev.elected_node_ip}) elected as NEW MASTER AP!</span>
             <small style="color: #fde68a;">[Reason: ${ev.reason}]</small>
         `;
+    } else if (failoverBanner) {
+        failoverBanner.remove();
     }
 }
 
