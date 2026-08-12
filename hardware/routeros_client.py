@@ -249,68 +249,59 @@ class RouterOSClient:
                 continue
         return []
 
+    def _rest_set_wifi_interface(self, target_name, mode, disabled=False):
+        """Helper to reconfigure interface mode via RouterOS v7 REST API (HTTP Basic Auth)."""
+        import urllib.request
+        import json
+        try:
+            url_get = f"http://{self.host}/rest/interface/wifi"
+            req_get = urllib.request.Request(url_get, headers={"Authorization": "Basic YWRtaW46"})
+            with urllib.request.urlopen(req_get, timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                for item in data:
+                    name = item.get("name") or item.get("default-name", "")
+                    if name == target_name:
+                        item_id = item.get(".id")
+                        if item_id:
+                            url_set = f"http://{self.host}/rest/interface/wifi/{item_id}"
+                            body = json.dumps({
+                                "disabled": "true" if disabled else "false",
+                                "configuration.mode": mode
+                            }).encode("utf-8")
+                            req_set = urllib.request.Request(
+                                url_set,
+                                data=body,
+                                headers={
+                                    "Authorization": "Basic YWRtaW46",
+                                    "Content-Type": "application/json"
+                                },
+                                method="POST"
+                            )
+                            with urllib.request.urlopen(req_set, timeout=3) as set_resp:
+                                self.logger.info(f"REST API: Reconfigured {target_name} to mode={mode} on {self.host}")
+                                return True
+        except Exception as e:
+            self.logger.error(f"REST API reconfiguration failed for {target_name}: {e}")
+        return False
+
     def promote_to_master_ap(self, ssid="test_device"):
         """
         Reconfigures local NetMetal AX WiFi radio interfaces when this node is elected Master AP:
-        - wifi2 (Physical 5GHz radio) -> Mode: AP, Disabled: false
-        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: STATION-BRIDGE, Disabled: false
+        - wifi2 (Physical 5GHz radio) -> Mode: ap, Disabled: false
+        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: station-bridge, Disabled: false
         """
-        paths = ["/interface/wifi", "/interface/wireless"]
-        for path in paths:
-            try:
-                resource = self.api.get_resource(path)
-                res = resource.get()
-                if res:
-                    for item in res:
-                        item_id = item.get(".id")
-                        name = item.get("name") or item.get("default-name", "")
-                        if name == "wifi2":
-                            try:
-                                resource.set(id=item_id, disabled="false", mode="ap")
-                            except Exception:
-                                resource.set(id=item_id, disabled="false")
-                            self.logger.info(f"Promoted wifi2 to AP mode on RouterOS ({self.host})")
-                        elif name in ["wifi2_vap", "wifi2_vsb"]:
-                            try:
-                                resource.set(id=item_id, disabled="false", mode="station-bridge")
-                            except Exception:
-                                resource.set(id=item_id, disabled="false")
-                            self.logger.info(f"Switched {name} to STATION-BRIDGE mode on RouterOS ({self.host})")
-                    return True
-            except Exception as e:
-                self.logger.error(f"Failed to promote RouterOS interfaces to Master AP: {e}")
-                continue
-        return False
+        s1 = self._rest_set_wifi_interface("wifi2", mode="ap", disabled=False)
+        s2 = self._rest_set_wifi_interface("wifi2_vap", mode="station-bridge", disabled=False)
+        s3 = self._rest_set_wifi_interface("wifi2_vsb", mode="station-bridge", disabled=False)
+        return s1 or s2 or s3
 
     def demote_to_station_bridge(self, ssid="test_device"):
         """
         Reconfigures local NetMetal AX WiFi radio interfaces when this node is a client/slave:
-        - wifi2 (Physical 5GHz radio) -> Mode: STATION-BRIDGE, Disabled: false
-        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: AP, Disabled: false
+        - wifi2 (Physical 5GHz radio) -> Mode: station-bridge, Disabled: false
+        - wifi2_vap / wifi2_vsb (Virtual interface) -> Mode: ap, Disabled: false
         """
-        paths = ["/interface/wifi", "/interface/wireless"]
-        for path in paths:
-            try:
-                resource = self.api.get_resource(path)
-                res = resource.get()
-                if res:
-                    for item in res:
-                        item_id = item.get(".id")
-                        name = item.get("name") or item.get("default-name", "")
-                        if name == "wifi2":
-                            try:
-                                resource.set(id=item_id, disabled="false", mode="station-bridge")
-                            except Exception:
-                                resource.set(id=item_id, disabled="false")
-                            self.logger.info(f"Set wifi2 to STATION-BRIDGE mode on RouterOS ({self.host})")
-                        elif name in ["wifi2_vap", "wifi2_vsb"]:
-                            try:
-                                resource.set(id=item_id, disabled="false", mode="ap")
-                            except Exception:
-                                resource.set(id=item_id, disabled="false")
-                            self.logger.info(f"Set {name} to AP mode on RouterOS ({self.host})")
-                    return True
-            except Exception as e:
-                self.logger.error(f"Failed to set RouterOS interfaces to station-bridge mode: {e}")
-                continue
-        return False
+        s1 = self._rest_set_wifi_interface("wifi2", mode="station-bridge", disabled=False)
+        s2 = self._rest_set_wifi_interface("wifi2_vap", mode="ap", disabled=False)
+        s3 = self._rest_set_wifi_interface("wifi2_vsb", mode="ap", disabled=False)
+        return s1 or s2 or s3
