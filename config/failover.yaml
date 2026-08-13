@@ -42,7 +42,7 @@ failover:
       name: "GCS Tactical Station 1"
       type: "GCS"
       host_ip: "192.168.3.72"
-      radio_ip: "192.168.3.9"
+      radio_ip: "192.168.3.8"
       role: "Tactical Monitor"
       switching_interval_seconds: 45.0
 
@@ -50,7 +50,7 @@ failover:
       name: "GCS Tactical Station 2"
       type: "GCS"
       host_ip: "192.168.3.73"
-      radio_ip: "192.168.3.10"
+      radio_ip: "192.168.3.8"
       role: "Backup Command"
       switching_interval_seconds: 60.0
 
