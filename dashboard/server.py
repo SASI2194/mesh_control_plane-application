@@ -435,6 +435,10 @@ class TelemetryDataProvider:
         If Primary Master AP drops OFFLINE:
           - Automatically elects the next available online node in priority sequence
             (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 -> UGV-04 -> UGV-05 -> UGV-06).
+        30s Disconnected Master AP Search Probe:
+          - If a node is operating as Master AP but sees 0 active remote mesh peers,
+            it periodically toggles its radio to STATION-BRIDGE mode for 30s to scan and connect
+            to another active Master AP in RF range, breaking AP-to-AP RF deadlocks.
         """
         priority_order = [
             "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
@@ -443,20 +447,31 @@ class TelemetryDataProvider:
         # Grace period for initial startup heartbeat discovery across mesh nodes
         time.sleep(3.0)
 
+        # 30-Second Disconnected Probe Tracker
+        last_probe_toggle_time = time.time()
+        probe_state = "AP"  # "AP" or "STATION_BRIDGE"
+
         while True:
             try:
                 with self.lock:
                     nodes_dict = {n["id"]: n for n in self.nodes}
+                    my_ip = self._get_this_machine_ip()
+
+                    # Find active remote mesh peers (excluding self)
+                    remote_online_nodes = [
+                        n for n in self.nodes 
+                        if n["ip"] != my_ip and n.get("status") == "ONLINE"
+                    ]
+                    has_remote_peers = len(remote_online_nodes) > 0
 
                     # 1. Primary Master AP check: UGV-01 or GCS-01
                     primary_master = nodes_dict.get("UGV-01") or nodes_dict.get("GCS-01")
                     primary_is_online = primary_master and primary_master.get("status") == "ONLINE"
 
-                    my_ip = self._get_this_machine_ip()
-
                     if primary_is_online:
                         # Primary Master AP is ONLINE -> Reconcile & Preempt any temporary failover state!
                         self.master_failover_event = None
+                        probe_state = "AP"
                         for n in self.nodes:
                             if n["id"] == primary_master["id"]:
                                 n["is_master_ap"] = True
@@ -466,8 +481,30 @@ class TelemetryDataProvider:
                                 n["ap_role"] = "STATION_BRIDGE"
 
                         if primary_master["ip"] == my_ip:
-                            self._promote_local_radio_hardware()
+                            if not has_remote_peers:
+                                # Primary Master isolated with 0 remote peers -> Perform 30s probe cycle
+                                now = time.time()
+                                if now - last_probe_toggle_time >= 30.0:
+                                    last_probe_toggle_time = now
+                                    if probe_state == "AP":
+                                        probe_state = "STATION_BRIDGE"
+                                        print(f"[30S PROBE TOGGLE] Primary Master AP ({my_ip}) isolated (0 remote peers). Toggling radio to STATION-BRIDGE for 30s scan probe...")
+                                        self._demote_local_radio_hardware(force=True)
+                                    else:
+                                        probe_state = "AP"
+                                        print(f"[30S PROBE TOGGLE] Primary Master AP ({my_ip}) 30s probe ended. Toggling back to MASTER AP for 30s beaconing...")
+                                        self._promote_local_radio_hardware(force=True)
+                                else:
+                                    if probe_state == "AP":
+                                        self._promote_local_radio_hardware()
+                                    else:
+                                        self._demote_local_radio_hardware()
+                            else:
+                                probe_state = "AP"
+                                last_probe_toggle_time = time.time()
+                                self._promote_local_radio_hardware()
                         else:
+                            probe_state = "AP"
                             self._demote_local_radio_hardware()
                     else:
                         # Primary Master AP is OFFLINE -> Elect first available online candidate from priority queue
@@ -477,6 +514,12 @@ class TelemetryDataProvider:
                             if cand and cand.get("status") == "ONLINE":
                                 elected_node = cand
                                 break
+
+                        # Fallback to local host if no remote nodes are online
+                        if not elected_node:
+                            local_node = next((n for n in self.nodes if n["ip"] == my_ip), None)
+                            if local_node:
+                                elected_node = local_node
 
                         if elected_node:
                             self.master_failover_event = {
@@ -494,18 +537,41 @@ class TelemetryDataProvider:
                                     n["is_master_ap"] = False
                                     n["ap_role"] = "STATION_BRIDGE"
 
-                            print(f"[FAILOVER ELECTION] Primary Master AP OFFLINE! Elected Candidate: {elected_node['id']} ({elected_node['ip']}) | Local Host: {my_ip}")
-                            if elected_node["ip"] == my_ip:
-                                self._promote_local_radio_hardware()
+                            is_local_elected = (elected_node["ip"] == my_ip)
+
+                            if is_local_elected:
+                                # 30s Disconnected Probe Logic for Master AP with 0 remote peers
+                                if not has_remote_peers:
+                                    now = time.time()
+                                    if now - last_probe_toggle_time >= 30.0:
+                                        last_probe_toggle_time = now
+                                        if probe_state == "AP":
+                                            probe_state = "STATION_BRIDGE"
+                                            print(f"[30S PROBE TOGGLE] Elected Master AP ({my_ip}) isolated (0 remote peers). Toggling radio to STATION-BRIDGE for 30s scan probe...")
+                                            self._demote_local_radio_hardware(force=True)
+                                        else:
+                                            probe_state = "AP"
+                                            print(f"[30S PROBE TOGGLE] Elected Master AP ({my_ip}) 30s probe ended. Toggling back to MASTER AP for 30s beaconing...")
+                                            self._promote_local_radio_hardware(force=True)
+                                    else:
+                                        if probe_state == "AP":
+                                            self._promote_local_radio_hardware()
+                                        else:
+                                            self._demote_local_radio_hardware()
+                                else:
+                                    probe_state = "AP"
+                                    last_probe_toggle_time = time.time()
+                                    self._promote_local_radio_hardware()
                             else:
+                                probe_state = "AP"
                                 self._demote_local_radio_hardware()
             except Exception as e:
                 print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
 
-    def _promote_local_radio_hardware(self):
+    def _promote_local_radio_hardware(self, force=False):
         """Invokes RouterOS REST API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
-        if getattr(self, "current_hardware_mode", None) == "AP":
+        if not force and getattr(self, "current_hardware_mode", None) == "AP":
             return
         try:
             from hardware.routeros_client import RouterOSClient
@@ -529,9 +595,9 @@ class TelemetryDataProvider:
         except Exception as e:
             print(f"[HARDWARE PROMOTION ERROR] {e}")
 
-    def _demote_local_radio_hardware(self):
+    def _demote_local_radio_hardware(self, force=False):
         """Invokes RouterOS REST API client to set local radio to client mode (wifi2 -> STATION-BRIDGE, wifi2_vap -> AP)."""
-        if getattr(self, "current_hardware_mode", None) == "STATION_BRIDGE":
+        if not force and getattr(self, "current_hardware_mode", None) == "STATION_BRIDGE":
             return
         try:
             from hardware.routeros_client import RouterOSClient
@@ -553,6 +619,7 @@ class TelemetryDataProvider:
                 self.current_hardware_mode = "STATION_BRIDGE"
             print(f"[HARDWARE DEMOTION RESULT] {res}")
         except Exception as e:
+            print(f"[HARDWARE DEMOTION ERROR] {e}")
             print(f"[HARDWARE DEMOTION ERROR] {e}")
 
     def get_system_summary(self):
