@@ -527,17 +527,10 @@ class TelemetryDataProvider:
     def _master_ap_failover_election_loop(self):
         """
         Monitors health of Master AP across 9-device mesh using config/failover.yaml.
-        If Primary Master AP (UGV-01 or GCS-01) comes back ONLINE:
-          - Preempts any temporary failover Master AP.
-          - Re-establishes UGV-01/GCS-01 as the single sole Master AP.
-          - Demotes temporary failover nodes back to STATION-BRIDGE.
-        If Primary Master AP drops OFFLINE:
-          - Automatically elects the next available online node in priority sequence
-            defined in config/failover.yaml.
-        Configurable Disconnected Master AP Search Probe:
-          - If a node is operating as Master AP but sees 0 active remote mesh peers,
-            it periodically toggles its radio to STATION-BRIDGE mode for switching_interval_seconds to scan and connect
-            to another active Master AP in RF range, breaking AP-to-AP RF deadlocks.
+        Determines the single highest-priority ONLINE node in the mesh:
+          - Highest priority ONLINE node (e.g. GCS-01 / UGV-01) -> Promotes to MASTER AP.
+          - All lower priority connected nodes -> Demote to STATION-BRIDGE and lock.
+          - Isolated nodes with 0 peers -> Perform rank-staggered search probe cycle.
         """
         # Grace period for initial startup heartbeat discovery across mesh nodes
         time.sleep(3.0)
@@ -549,7 +542,8 @@ class TelemetryDataProvider:
 
                 with self.lock:
                     nodes_dict = {n["id"]: n for n in self.nodes}
-                    my_ip = self._get_this_machine_ip()
+                    my_node = next((n for n in self.nodes if n["ip"] == my_ip), None)
+                    local_node_id = my_node["id"] if my_node else "UGV-01"
 
                     # Find active remote mesh peers (excluding self)
                     remote_online_nodes = [
@@ -558,76 +552,62 @@ class TelemetryDataProvider:
                     ]
                     has_remote_peers = len(remote_online_nodes) > 0
 
-                    # 1. Primary Master AP check: UGV-01 or GCS-01
-                    primary_master = nodes_dict.get("UGV-01") or nodes_dict.get("GCS-01")
-                    primary_is_online = primary_master and primary_master.get("status") == "ONLINE"
+                    # 1. Determine all currently ONLINE node IDs across the mesh
+                    online_node_ids = [n["id"] for n in self.nodes if n.get("status") == "ONLINE"]
 
-                    if primary_is_online:
-                        # Primary Master AP is ONLINE -> Reconcile & Preempt any temporary failover state!
+                    # 2. Identify highest priority ONLINE node from priority_order
+                    highest_online_master_id = None
+                    for node_id in priority_order:
+                        if node_id in online_node_ids:
+                            highest_online_master_id = node_id
+                            break
+
+                    # 3. Fallback: if no remote nodes are online yet, local node acts as candidate
+                    if not highest_online_master_id:
+                        highest_online_master_id = local_node_id
+
+                    # 4. Evaluate if THIS host is the elected Master AP
+                    i_am_master_ap = (local_node_id == highest_online_master_id)
+
+                    if i_am_master_ap:
                         self.master_failover_event = None
                         for n in self.nodes:
-                            if n["id"] == primary_master["id"]:
+                            if n["id"] == local_node_id:
                                 n["is_master_ap"] = True
                                 n["ap_role"] = "MASTER_AP"
                             else:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        if primary_master["ip"] == my_ip:
-                            if not has_remote_peers:
-                                self._handle_disconnected_30s_probe(my_ip, switching_interval)
-                            else:
-                                self._probe_state_start = 0.0
-                                self._probe_state = "AP"
-                                self._promote_local_radio_hardware()
+                        if not has_remote_peers:
+                            # Isolated Master AP with 0 peers -> Run rank-staggered search probe cycle
+                            self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
+                            # Master AP with active connected peers -> LOCK IN MASTER AP MODE!
                             self._probe_state_start = 0.0
                             self._probe_state = "AP"
-                            self._demote_local_radio_hardware()
+                            self._promote_local_radio_hardware()
                     else:
-                        # Primary Master AP is OFFLINE -> Elect first available online candidate from priority queue
-                        elected_node = None
-                        for node_id in priority_order:
-                            cand = nodes_dict.get(node_id)
-                            if cand and cand.get("status") == "ONLINE":
-                                elected_node = cand
-                                break
-
-                        # Fallback to local host if no remote nodes are online
-                        if not elected_node:
-                            local_node = next((n for n in self.nodes if n["ip"] == my_ip), None)
-                            if local_node:
-                                elected_node = local_node
-
-                        if elected_node:
-                            self.master_failover_event = {
-                                "timestamp": time.time(),
-                                "elected_node_id": elected_node["id"],
-                                "elected_node_name": elected_node["name"],
-                                "elected_node_ip": elected_node["ip"],
-                                "reason": "Primary Master AP Went OFFLINE / Lost Link"
-                            }
-                            for n in self.nodes:
-                                if n["id"] == elected_node["id"]:
-                                    n["is_master_ap"] = True
-                                    n["ap_role"] = "ELECTED_MASTER_AP"
-                                else:
-                                    n["is_master_ap"] = False
-                                    n["ap_role"] = "STATION_BRIDGE"
-
-                            is_local_elected = (elected_node["ip"] == my_ip)
-
-                            if is_local_elected:
-                                if not has_remote_peers:
-                                    self._handle_disconnected_30s_probe(my_ip, switching_interval)
-                                else:
-                                    self._probe_state_start = 0.0
-                                    self._probe_state = "AP"
-                                    self._promote_local_radio_hardware()
+                        # THIS host is NOT the Master AP -> LOCK IN STATION-BRIDGE CLIENT MODE!
+                        self.master_failover_event = {
+                            "timestamp": time.time(),
+                            "elected_node_id": highest_online_master_id,
+                            "elected_node_name": nodes_dict.get(highest_online_master_id, {}).get("name", highest_online_master_id),
+                            "elected_node_ip": nodes_dict.get(highest_online_master_id, {}).get("ip", ""),
+                            "reason": f"Higher Priority Node ({highest_online_master_id}) Active as Master AP"
+                        }
+                        for n in self.nodes:
+                            if n["id"] == highest_online_master_id:
+                                n["is_master_ap"] = True
+                                n["ap_role"] = "MASTER_AP"
                             else:
-                                self._probe_state_start = 0.0
-                                self._probe_state = "AP"
-                                self._demote_local_radio_hardware()
+                                n["is_master_ap"] = False
+                                n["ap_role"] = "STATION_BRIDGE"
+
+                        # Reset probe state and lock hardware in STATION-BRIDGE mode
+                        self._probe_state_start = 0.0
+                        self._probe_state = "STATION_BRIDGE"
+                        self._demote_local_radio_hardware()
             except Exception as e:
                 print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
