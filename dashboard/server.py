@@ -425,10 +425,43 @@ class TelemetryDataProvider:
                 pass
             time.sleep(3)
 
-    def _handle_disconnected_30s_probe(self, my_ip):
+    def _load_failover_config(self):
+        """Loads device priority hierarchy and probe switching interval from config/failover.yaml."""
+        default_priority = [
+            "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
+        ]
+        default_interval = 30.0
+        try:
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            failover_cfg = cm.get_failover() or {}
+            cfg = failover_cfg.get("failover", {})
+            priority = cfg.get("device_priority") or default_priority
+            interval = float(cfg.get("switching_interval_seconds", default_interval))
+            return priority, interval
+        except Exception:
+            pass
+
+        try:
+            import yaml
+            from pathlib import Path
+            p = Path("config/failover.yaml")
+            if p.exists():
+                with open(p, "r") as f:
+                    data = yaml.safe_load(f)
+                    cfg = data.get("failover", {})
+                    priority = cfg.get("device_priority") or default_priority
+                    interval = float(cfg.get("switching_interval_seconds", default_interval))
+                    return priority, interval
+        except Exception:
+            pass
+
+        return default_priority, default_interval
+
+    def _handle_disconnected_30s_probe(self, my_ip, switching_interval=30.0):
         """
-        Manages strict 30s AP <-> 30s STATION-BRIDGE search probe cycle for isolated Master APs.
-        Ensures radio stays in STATION-BRIDGE mode for FULL 30s to allow scanning & association.
+        Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
+        Ensures radio stays in STATION-BRIDGE mode for FULL switching_interval seconds.
         """
         now = time.time()
         state_start = getattr(self, "_probe_state_start", 0.0)
@@ -442,18 +475,18 @@ class TelemetryDataProvider:
 
         elapsed = now - state_start
 
-        if elapsed >= 30.0:
+        if elapsed >= switching_interval:
             self._probe_state_start = now
             if current_state == "AP":
                 self._probe_state = "STATION_BRIDGE"
-                print(f"[30S PROBE DWELL] 30s AP phase completed for {my_ip}. Toggling to FULL 30s STATION-BRIDGE scan probe...")
+                print(f"[{int(switching_interval)}S PROBE DWELL] {int(switching_interval)}s AP phase completed for {my_ip}. Toggling to FULL {int(switching_interval)}s STATION-BRIDGE scan probe...")
                 self._demote_local_radio_hardware(force=True)
             else:
                 self._probe_state = "AP"
-                print(f"[30S PROBE DWELL] 30s STATION-BRIDGE scan probe completed for {my_ip}. Toggling to FULL 30s MASTER AP beaconing...")
+                print(f"[{int(switching_interval)}S PROBE DWELL] {int(switching_interval)}s STATION-BRIDGE scan probe completed for {my_ip}. Toggling to FULL {int(switching_interval)}s MASTER AP beaconing...")
                 self._promote_local_radio_hardware(force=True)
         else:
-            # Maintain current probe state for FULL 30s duration without premature switching
+            # Maintain current probe state for FULL switching_interval duration without premature switching
             if current_state == "AP":
                 self._promote_local_radio_hardware()
             else:
@@ -461,28 +494,26 @@ class TelemetryDataProvider:
 
     def _master_ap_failover_election_loop(self):
         """
-        Monitors health of Master AP across 9-device mesh.
+        Monitors health of Master AP across 9-device mesh using config/failover.yaml.
         If Primary Master AP (UGV-01 or GCS-01) comes back ONLINE:
           - Preempts any temporary failover Master AP.
           - Re-establishes UGV-01/GCS-01 as the single sole Master AP.
           - Demotes temporary failover nodes back to STATION-BRIDGE.
         If Primary Master AP drops OFFLINE:
           - Automatically elects the next available online node in priority sequence
-            (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 -> UGV-04 -> UGV-05 -> UGV-06).
-        30s Disconnected Master AP Search Probe:
+            defined in config/failover.yaml.
+        Configurable Disconnected Master AP Search Probe:
           - If a node is operating as Master AP but sees 0 active remote mesh peers,
-            it periodically toggles its radio to STATION-BRIDGE mode for a FULL 30s to scan and connect
+            it periodically toggles its radio to STATION-BRIDGE mode for switching_interval_seconds to scan and connect
             to another active Master AP in RF range, breaking AP-to-AP RF deadlocks.
         """
-        priority_order = [
-            "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
-        ]
-
         # Grace period for initial startup heartbeat discovery across mesh nodes
         time.sleep(3.0)
 
         while True:
             try:
+                priority_order, switching_interval = self._load_failover_config()
+
                 with self.lock:
                     nodes_dict = {n["id"]: n for n in self.nodes}
                     my_ip = self._get_this_machine_ip()
@@ -511,7 +542,7 @@ class TelemetryDataProvider:
 
                         if primary_master["ip"] == my_ip:
                             if not has_remote_peers:
-                                self._handle_disconnected_30s_probe(my_ip)
+                                self._handle_disconnected_30s_probe(my_ip, switching_interval)
                             else:
                                 self._probe_state_start = 0.0
                                 self._probe_state = "AP"
@@ -555,7 +586,7 @@ class TelemetryDataProvider:
 
                             if is_local_elected:
                                 if not has_remote_peers:
-                                    self._handle_disconnected_30s_probe(my_ip)
+                                    self._handle_disconnected_30s_probe(my_ip, switching_interval)
                                 else:
                                     self._probe_state_start = 0.0
                                     self._probe_state = "AP"

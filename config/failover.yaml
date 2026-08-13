@@ -1,0 +1,25 @@
+# ===============================================================================
+# Mesh Control Plane - Master AP Election & Failover Configuration
+# File: config/failover.yaml
+# ===============================================================================
+
+failover:
+
+  # Disconnected Master AP search probe switching interval (seconds)
+  # When a Master AP has 0 connected remote peers, it alternates between
+  # Master AP and Station-Bridge mode for this duration to scan and reconnect.
+  switching_interval_seconds: 30.0
+
+  # Priority queue for Master AP election hierarchy (highest priority first)
+  # When primary Master AP (GCS-01 / UGV-01) drops offline, the first online candidate
+  # in this priority list is elected as the new Master AP.
+  device_priority:
+    - GCS-01
+    - GCS-02
+    - GCS-03
+    - UGV-01
+    - UGV-02
+    - UGV-03
+    - UGV-04
+    - UGV-05
+    - UGV-06

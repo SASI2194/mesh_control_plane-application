@@ -33,6 +33,7 @@ class ConfigManager:
             cls._instance.mesh = {}
             cls._instance.priorities = {}
             cls._instance.routing = {}
+            cls._instance.failover = {}
 
             cls._instance.logger = MeshLogger.get_logger("ConfigManager")
 
@@ -47,6 +48,8 @@ class ConfigManager:
         self.priorities = self._load_yaml("config/priorities.yaml")
 
         self.routing = self._load_yaml("config/routing.yaml")
+
+        self.failover = self._load_yaml("config/failover.yaml")
 
         self.logger.info("Configuration loaded successfully.")
 
@@ -84,6 +87,12 @@ class ConfigManager:
 
     ###########################################################################
 
+    def get_failover(self):
+
+        return self.failover
+
+    ###########################################################################
+
     def get(self, section, key=None):
 
         tables = {
@@ -93,6 +102,8 @@ class ConfigManager:
             "priorities": self.priorities,
 
             "routing": self.routing,
+
+            "failover": self.failover,
 
         }
 
