@@ -425,38 +425,70 @@ class TelemetryDataProvider:
                 pass
             time.sleep(3)
 
-    def _load_failover_config(self):
-        """Loads device priority hierarchy and probe switching interval from config/failover.yaml."""
+    def _load_failover_config(self, my_ip=None):
+        """
+        Loads device priority hierarchy and calculates per-device staggered switching intervals from config/failover.yaml.
+        Priority rank 1 (GCS-01/UGV-01) = 30s base interval.
+        Priority rank N = base_interval + (rank_index * 15s increment).
+        Custom overrides in config/failover.yaml take precedence.
+        """
         default_priority = [
             "GCS-01", "GCS-02", "GCS-03", "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06"
         ]
-        default_interval = 30.0
+        base_interval = 30.0
+        stagger_increment = 15.0
+        custom_intervals = {}
+
         try:
             from utils.config_manager import ConfigManager
             cm = ConfigManager()
             failover_cfg = cm.get_failover() or {}
             cfg = failover_cfg.get("failover", {})
             priority = cfg.get("device_priority") or default_priority
-            interval = float(cfg.get("switching_interval_seconds", default_interval))
-            return priority, interval
+            base_interval = float(cfg.get("base_switching_interval_seconds", 30.0))
+            stagger_increment = float(cfg.get("priority_stagger_increment_seconds", 15.0))
+            custom_intervals = cfg.get("device_custom_intervals") or {}
         except Exception:
-            pass
+            priority = default_priority
 
         try:
-            import yaml
-            from pathlib import Path
-            p = Path("config/failover.yaml")
-            if p.exists():
-                with open(p, "r") as f:
-                    data = yaml.safe_load(f)
-                    cfg = data.get("failover", {})
-                    priority = cfg.get("device_priority") or default_priority
-                    interval = float(cfg.get("switching_interval_seconds", default_interval))
-                    return priority, interval
+            if not custom_intervals:
+                import yaml
+                from pathlib import Path
+                p = Path("config/failover.yaml")
+                if p.exists():
+                    with open(p, "r") as f:
+                        data = yaml.safe_load(f)
+                        cfg = data.get("failover", {})
+                        priority = cfg.get("device_priority") or default_priority
+                        base_interval = float(cfg.get("base_switching_interval_seconds", 30.0))
+                        stagger_increment = float(cfg.get("priority_stagger_increment_seconds", 15.0))
+                        custom_intervals = cfg.get("device_custom_intervals") or {}
         except Exception:
             pass
 
-        return default_priority, default_interval
+        # Identify local node ID from my_ip
+        local_node_id = None
+        if my_ip:
+            with self.lock:
+                for n in self.nodes:
+                    if n["ip"] == my_ip:
+                        local_node_id = n["id"]
+                        break
+
+        if not local_node_id:
+            local_node_id = "UGV-01"
+
+        # Explicit custom interval override takes highest precedence
+        if local_node_id in custom_intervals:
+            interval = float(custom_intervals[local_node_id])
+        elif local_node_id in priority:
+            rank_idx = priority.index(local_node_id)
+            interval = base_interval + (rank_idx * stagger_increment)
+        else:
+            interval = base_interval
+
+        return priority, interval
 
     def _handle_disconnected_30s_probe(self, my_ip, switching_interval=30.0):
         """
@@ -512,7 +544,8 @@ class TelemetryDataProvider:
 
         while True:
             try:
-                priority_order, switching_interval = self._load_failover_config()
+                my_ip = self._get_this_machine_ip()
+                priority_order, switching_interval = self._load_failover_config(my_ip)
 
                 with self.lock:
                     nodes_dict = {n["id"]: n for n in self.nodes}

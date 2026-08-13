@@ -5,10 +5,13 @@
 
 failover:
 
-  # Disconnected Master AP search probe switching interval (seconds)
-  # When a Master AP has 0 connected remote peers, it alternates between
-  # Master AP and Station-Bridge mode for this duration to scan and reconnect.
-  switching_interval_seconds: 30.0
+  # Base switching interval (seconds) for Priority 1 Master AP (default: 30.0s)
+  base_switching_interval_seconds: 30.0
+
+  # Staggered interval increment (seconds) added for each lower priority rank
+  # Prevents phase-lock synchronization when multiple isolated devices probe simultaneously.
+  # Calculation: interval = base_switching_interval + (priority_rank * stagger_increment)
+  priority_stagger_increment_seconds: 15.0
 
   # Priority queue for Master AP election hierarchy (highest priority first)
   # When primary Master AP (GCS-01 / UGV-01) drops offline, the first online candidate
@@ -23,3 +26,16 @@ failover:
     - UGV-04
     - UGV-05
     - UGV-06
+
+  # Per-Device Custom Probe Switching Intervals (seconds)
+  # Optional explicit interval overrides per device to eliminate RF phase-lock conflicts.
+  device_custom_intervals:
+    GCS-01: 30.0
+    GCS-02: 45.0
+    GCS-03: 60.0
+    UGV-01: 30.0
+    UGV-02: 45.0
+    UGV-03: 60.0
+    UGV-04: 75.0
+    UGV-05: 90.0
+    UGV-06: 105.0
