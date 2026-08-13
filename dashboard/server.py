@@ -425,6 +425,40 @@ class TelemetryDataProvider:
                 pass
             time.sleep(3)
 
+    def _handle_disconnected_30s_probe(self, my_ip):
+        """
+        Manages strict 30s AP <-> 30s STATION-BRIDGE search probe cycle for isolated Master APs.
+        Ensures radio stays in STATION-BRIDGE mode for FULL 30s to allow scanning & association.
+        """
+        now = time.time()
+        state_start = getattr(self, "_probe_state_start", 0.0)
+        current_state = getattr(self, "_probe_state", "AP")
+
+        if state_start == 0.0:
+            self._probe_state_start = now
+            self._probe_state = "AP"
+            self._promote_local_radio_hardware()
+            return
+
+        elapsed = now - state_start
+
+        if elapsed >= 30.0:
+            self._probe_state_start = now
+            if current_state == "AP":
+                self._probe_state = "STATION_BRIDGE"
+                print(f"[30S PROBE DWELL] 30s AP phase completed for {my_ip}. Toggling to FULL 30s STATION-BRIDGE scan probe...")
+                self._demote_local_radio_hardware(force=True)
+            else:
+                self._probe_state = "AP"
+                print(f"[30S PROBE DWELL] 30s STATION-BRIDGE scan probe completed for {my_ip}. Toggling to FULL 30s MASTER AP beaconing...")
+                self._promote_local_radio_hardware(force=True)
+        else:
+            # Maintain current probe state for FULL 30s duration without premature switching
+            if current_state == "AP":
+                self._promote_local_radio_hardware()
+            else:
+                self._demote_local_radio_hardware()
+
     def _master_ap_failover_election_loop(self):
         """
         Monitors health of Master AP across 9-device mesh.
@@ -437,7 +471,7 @@ class TelemetryDataProvider:
             (GCS-01 -> GCS-02 -> GCS-03 -> UGV-01 -> UGV-02 -> UGV-03 -> UGV-04 -> UGV-05 -> UGV-06).
         30s Disconnected Master AP Search Probe:
           - If a node is operating as Master AP but sees 0 active remote mesh peers,
-            it periodically toggles its radio to STATION-BRIDGE mode for 30s to scan and connect
+            it periodically toggles its radio to STATION-BRIDGE mode for a FULL 30s to scan and connect
             to another active Master AP in RF range, breaking AP-to-AP RF deadlocks.
         """
         priority_order = [
@@ -446,10 +480,6 @@ class TelemetryDataProvider:
 
         # Grace period for initial startup heartbeat discovery across mesh nodes
         time.sleep(3.0)
-
-        # 30-Second Disconnected Probe Tracker
-        last_probe_toggle_time = time.time()
-        probe_state = "AP"  # "AP" or "STATION_BRIDGE"
 
         while True:
             try:
@@ -471,7 +501,6 @@ class TelemetryDataProvider:
                     if primary_is_online:
                         # Primary Master AP is ONLINE -> Reconcile & Preempt any temporary failover state!
                         self.master_failover_event = None
-                        probe_state = "AP"
                         for n in self.nodes:
                             if n["id"] == primary_master["id"]:
                                 n["is_master_ap"] = True
@@ -482,29 +511,14 @@ class TelemetryDataProvider:
 
                         if primary_master["ip"] == my_ip:
                             if not has_remote_peers:
-                                # Primary Master isolated with 0 remote peers -> Perform 30s probe cycle
-                                now = time.time()
-                                if now - last_probe_toggle_time >= 30.0:
-                                    last_probe_toggle_time = now
-                                    if probe_state == "AP":
-                                        probe_state = "STATION_BRIDGE"
-                                        print(f"[30S PROBE TOGGLE] Primary Master AP ({my_ip}) isolated (0 remote peers). Toggling radio to STATION-BRIDGE for 30s scan probe...")
-                                        self._demote_local_radio_hardware(force=True)
-                                    else:
-                                        probe_state = "AP"
-                                        print(f"[30S PROBE TOGGLE] Primary Master AP ({my_ip}) 30s probe ended. Toggling back to MASTER AP for 30s beaconing...")
-                                        self._promote_local_radio_hardware(force=True)
-                                else:
-                                    if probe_state == "AP":
-                                        self._promote_local_radio_hardware()
-                                    else:
-                                        self._demote_local_radio_hardware()
+                                self._handle_disconnected_30s_probe(my_ip)
                             else:
-                                probe_state = "AP"
-                                last_probe_toggle_time = time.time()
+                                self._probe_state_start = 0.0
+                                self._probe_state = "AP"
                                 self._promote_local_radio_hardware()
                         else:
-                            probe_state = "AP"
+                            self._probe_state_start = 0.0
+                            self._probe_state = "AP"
                             self._demote_local_radio_hardware()
                     else:
                         # Primary Master AP is OFFLINE -> Elect first available online candidate from priority queue
@@ -540,30 +554,15 @@ class TelemetryDataProvider:
                             is_local_elected = (elected_node["ip"] == my_ip)
 
                             if is_local_elected:
-                                # 30s Disconnected Probe Logic for Master AP with 0 remote peers
                                 if not has_remote_peers:
-                                    now = time.time()
-                                    if now - last_probe_toggle_time >= 30.0:
-                                        last_probe_toggle_time = now
-                                        if probe_state == "AP":
-                                            probe_state = "STATION_BRIDGE"
-                                            print(f"[30S PROBE TOGGLE] Elected Master AP ({my_ip}) isolated (0 remote peers). Toggling radio to STATION-BRIDGE for 30s scan probe...")
-                                            self._demote_local_radio_hardware(force=True)
-                                        else:
-                                            probe_state = "AP"
-                                            print(f"[30S PROBE TOGGLE] Elected Master AP ({my_ip}) 30s probe ended. Toggling back to MASTER AP for 30s beaconing...")
-                                            self._promote_local_radio_hardware(force=True)
-                                    else:
-                                        if probe_state == "AP":
-                                            self._promote_local_radio_hardware()
-                                        else:
-                                            self._demote_local_radio_hardware()
+                                    self._handle_disconnected_30s_probe(my_ip)
                                 else:
-                                    probe_state = "AP"
-                                    last_probe_toggle_time = time.time()
+                                    self._probe_state_start = 0.0
+                                    self._probe_state = "AP"
                                     self._promote_local_radio_hardware()
                             else:
-                                probe_state = "AP"
+                                self._probe_state_start = 0.0
+                                self._probe_state = "AP"
                                 self._demote_local_radio_hardware()
             except Exception as e:
                 print(f"[ELECTION ERROR] {e}")
