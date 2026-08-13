@@ -632,6 +632,37 @@ class TelemetryDataProvider:
                 print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
 
+    def _get_radio_ip_map(self):
+        """Returns physical host IP -> NetMetal AX Radio IP mapping loaded from config/failover.yaml."""
+        default_map = {
+            "192.168.3.65": "192.168.3.3",
+            "192.168.3.67": "192.168.3.2",
+            "192.168.3.66": "192.168.3.4",
+            "192.168.3.68": "192.168.3.5",
+            "192.168.3.69": "192.168.3.6",
+            "192.168.3.70": "192.168.3.7",
+            "192.168.3.71": "192.168.3.8",
+            "192.168.3.72": "192.168.3.9",
+            "192.168.3.73": "192.168.3.10",
+        }
+        try:
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            failover_cfg = cm.get_failover() or {}
+            nodes = failover_cfg.get("failover", {}).get("device_nodes", {})
+            if nodes:
+                dynamic_map = {}
+                for node_id, node_info in nodes.items():
+                    h_ip = node_info.get("host_ip")
+                    r_ip = node_info.get("radio_ip")
+                    if h_ip and r_ip:
+                        dynamic_map[h_ip] = r_ip
+                if dynamic_map:
+                    return dynamic_map
+        except Exception:
+            pass
+        return default_map
+
     def _promote_local_radio_hardware(self, force=False):
         """Invokes RouterOS REST API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
         if not force and getattr(self, "current_hardware_mode", None) == "AP":
@@ -639,15 +670,7 @@ class TelemetryDataProvider:
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
-            radio_ip_map = {
-                "192.168.3.65": "192.168.3.3",
-                "192.168.3.67": "192.168.3.2",
-                "192.168.3.66": "192.168.3.4",
-                "192.168.3.68": "192.168.3.5",
-                "192.168.3.69": "192.168.3.6",
-                "192.168.3.70": "192.168.3.7",
-                "192.168.3.71": "192.168.3.8",
-            }
+            radio_ip_map = self._get_radio_ip_map()
             local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.2")
             print(f"[HARDWARE FAILOVER] Promoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to MASTER AP mode...")
             client = RouterOSClient(host=local_radio_ip)
@@ -665,15 +688,7 @@ class TelemetryDataProvider:
         try:
             from hardware.routeros_client import RouterOSClient
             my_ip = self._get_this_machine_ip()
-            radio_ip_map = {
-                "192.168.3.65": "192.168.3.3",
-                "192.168.3.67": "192.168.3.2",
-                "192.168.3.66": "192.168.3.4",
-                "192.168.3.68": "192.168.3.5",
-                "192.168.3.69": "192.168.3.6",
-                "192.168.3.70": "192.168.3.7",
-                "192.168.3.71": "192.168.3.8",
-            }
+            radio_ip_map = self._get_radio_ip_map()
             local_radio_ip = radio_ip_map.get(my_ip, "192.168.3.2")
             print(f"[HARDWARE RECONCILIATION] Demoting local NetMetal AX radio ({local_radio_ip}) for host {my_ip} to STATION-BRIDGE mode...")
             client = RouterOSClient(host=local_radio_ip)

@@ -27,15 +27,77 @@ failover:
     - UGV-05
     - UGV-06
 
-  # Per-Device Custom Probe Switching Intervals (seconds)
-  # Optional explicit interval overrides per device to eliminate RF phase-lock conflicts.
-  device_custom_intervals:
-    GCS-01: 30.0
-    GCS-02: 45.0
-    GCS-03: 60.0
-    UGV-01: 30.0
-    UGV-02: 45.0
-    UGV-03: 60.0
-    UGV-04: 75.0
-    UGV-05: 90.0
-    UGV-06: 105.0
+  # Full Mesh Device Node Registry & Hardware Mapping Table
+  # Links Device ID, Name, Type, Host IP, NetMetal AX Radio IP, Role, and Probe Interval
+  device_nodes:
+    GCS-01:
+      name: "GCS Primary Command"
+      type: "GCS"
+      host_ip: "192.168.3.71"
+      radio_ip: "192.168.3.8"
+      role: "Primary Coordinator"
+      switching_interval_seconds: 30.0
+
+    GCS-02:
+      name: "GCS Tactical Station 1"
+      type: "GCS"
+      host_ip: "192.168.3.72"
+      radio_ip: "192.168.3.9"
+      role: "Tactical Monitor"
+      switching_interval_seconds: 45.0
+
+    GCS-03:
+      name: "GCS Tactical Station 2"
+      type: "GCS"
+      host_ip: "192.168.3.73"
+      radio_ip: "192.168.3.10"
+      role: "Backup Command"
+      switching_interval_seconds: 60.0
+
+    UGV-01:
+      name: "UGV Unit 01"
+      type: "UGV"
+      host_ip: "192.168.3.65"
+      radio_ip: "192.168.3.3"
+      role: "Mesh Node"
+      switching_interval_seconds: 30.0
+
+    UGV-02:
+      name: "UGV Unit 02"
+      type: "UGV"
+      host_ip: "192.168.3.66"
+      radio_ip: "192.168.3.4"
+      role: "Field Unit"
+      switching_interval_seconds: 45.0
+
+    UGV-03:
+      name: "UGV Unit 03"
+      type: "UGV"
+      host_ip: "192.168.3.67"
+      radio_ip: "192.168.3.2"
+      role: "Field Unit"
+      switching_interval_seconds: 60.0
+
+    UGV-04:
+      name: "UGV Unit 04"
+      type: "UGV"
+      host_ip: "192.168.3.68"
+      radio_ip: "192.168.3.5"
+      role: "Field Unit"
+      switching_interval_seconds: 75.0
+
+    UGV-05:
+      name: "UGV Unit 05"
+      type: "UGV"
+      host_ip: "192.168.3.69"
+      radio_ip: "192.168.3.6"
+      role: "Field Unit"
+      switching_interval_seconds: 90.0
+
+    UGV-06:
+      name: "UGV Unit 06"
+      type: "UGV"
+      host_ip: "192.168.3.70"
+      radio_ip: "192.168.3.7"
+      role: "Field Unit"
+      switching_interval_seconds: 105.0
