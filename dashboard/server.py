@@ -748,12 +748,12 @@ class TelemetryDataProvider:
                     c["is_local"] = n["ip"] in local_ips
 
                 # Determine if node is acting as Master Access Point (Master AP)
-                is_master = (n.get("ap_role") == "ELECTED_MASTER_AP" and n.get("status") == "ONLINE")
+                is_master = (n.get("ap_role") in ["MASTER_AP", "ELECTED_MASTER_AP"] and n.get("status") == "ONLINE")
                 if not is_master and n.get("status") == "ONLINE":
                     wifi_det = n.get("wifi_details")
                     if wifi_det and isinstance(wifi_det, dict):
                         for i in wifi_det.get("interfaces", []):
-                            if i.get("name") == "wifi2" and i.get("mode", "").upper() == "AP" and not i.get("master") and i.get("running"):
+                            if i.get("name") == "wifi2" and i.get("mode", "").upper() == "AP" and not i.get("disabled"):
                                 is_master = True
                                 break
 
