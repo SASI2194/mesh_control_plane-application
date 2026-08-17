@@ -345,8 +345,16 @@ class TelemetryDataProvider:
                     for item in raw_data:
                         name = item.get("name") or item.get("default-name", "wifi")
                         master = item.get("master-interface", "")
-                        cfg_dict = item.get("configuration") if isinstance(item.get("configuration"), dict) else {}
-                        mode = (cfg_dict.get("mode") or item.get("mode") or item.get("configuration.mode") or "STATION-BRIDGE").upper()
+                        cfg_val = item.get("configuration")
+                        if isinstance(cfg_val, dict):
+                            mode_raw = cfg_val.get("mode")
+                        else:
+                            mode_raw = item.get("mode") or item.get("configuration.mode")
+                        
+                        if not mode_raw:
+                            mode = "AP" if name in ["wifi1", "wifi2_vap"] else "STATION-BRIDGE"
+                        else:
+                            mode = str(mode_raw).upper()
                         ssid = item.get("configuration.ssid") or item.get("ssid") or ""
                         band = item.get("channel.band") or item.get("band") or "5GHz-ax"
                         freq = item.get("channel.frequency") or item.get("frequency") or "5180 MHz"
