@@ -82,6 +82,27 @@ class ForwardingEngine:
             origin_ip=origin
         )
 
+        # Real-time Wireless Mesh Link Audit (2.0s Heartbeat Freshness Window)
+        remote_active = False
+        try:
+            from dashboard.server import DATA_PROVIDER
+            if DATA_PROVIDER:
+                import time
+                now = time.time()
+                with DATA_PROVIDER.lock:
+                    for n in DATA_PROVIDER.nodes:
+                        if not n.get("is_local") and (now - DATA_PROVIDER.node_activity.get(n["ip"], 0.0)) <= 2.0:
+                            remote_active = True
+                            break
+        except Exception:
+            remote_active = True
+
+        if not remote_active:
+            self.dropped_packets += 1
+            self.dropped_bytes += len(sample.payload)
+            print(f"[HOLD (LINK DOWN)] {output_key} (Seq #{sample.sequence_number})")
+            return
+
         #################################################################
         # Publish
         #################################################################

@@ -729,8 +729,9 @@ class TelemetryDataProvider:
 
             # Inter-System Mesh Bandwidth Capacity Governance:
             # Active mesh bandwidth capacity measures inter-system data transfer across the mesh.
-            # If 0 remote subscriber nodes are active (isolated local host), inter-system mesh throughput is 0.0 Mbps.
-            remote_nodes_online = any(n["status"] == "ONLINE" and not n.get("is_local") for n in self.nodes)
+            # Real-Time Link Loss Detection: If heartbeats stop for > 2.0s (link loss), remote_nodes_online becomes False and bandwidth drops to 0.0 Mbps instantly.
+            now = time.time()
+            remote_nodes_online = any((now - self.node_activity.get(n["ip"], 0.0)) <= 2.0 and not n.get("is_local") for n in self.nodes)
 
             allowed = self.scheduler.allowed_topics
             live_used_bw = 0.0
