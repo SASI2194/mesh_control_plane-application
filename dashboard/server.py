@@ -729,7 +729,8 @@ class TelemetryDataProvider:
 
             # Inter-System Mesh Bandwidth Capacity Governance:
             # Active mesh bandwidth capacity measures inter-system data transfer across the mesh using configured node_offline_timeout_seconds buffer (10.0s).
-            remote_nodes_online = any(n["status"] == "ONLINE" and not n.get("is_local") for n in self.nodes)
+            # If 0 remote mesh nodes are ONLINE (n["ip"] != local_ip), active inter-system mesh bandwidth is 0.0 Mbps.
+            remote_nodes_online = any(n["status"] == "ONLINE" and n["ip"] != local_ip for n in self.nodes)
 
             allowed = self.scheduler.allowed_topics
             live_used_bw = 0.0
