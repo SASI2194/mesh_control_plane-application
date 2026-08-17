@@ -11,7 +11,7 @@ failover:
   # Staggered interval increment (seconds) added for each lower priority rank
   # Prevents phase-lock synchronization when multiple isolated devices probe simultaneously.
   # Calculation: interval = base_switching_interval + (priority_rank * stagger_increment)
-  priority_stagger_increment_seconds: 15.0
+  priority_stagger_increment_seconds: 10.0
 
   # Priority queue for Master AP election hierarchy (highest priority first)
   # When primary Master AP (GCS-01 / UGV-01) drops offline, the first online candidate
@@ -44,7 +44,7 @@ failover:
       host_ip: "192.168.3.72"
       radio_ip: "192.168.3.8"
       role: "Tactical Monitor"
-      switching_interval_seconds: 45.0
+      switching_interval_seconds: 40.0
 
     GCS-03:
       name: "GCS Tactical Station 2"
@@ -52,7 +52,7 @@ failover:
       host_ip: "192.168.3.73"
       radio_ip: "192.168.3.8"
       role: "Backup Command"
-      switching_interval_seconds: 60.0
+      switching_interval_seconds: 50.0
 
     UGV-01:
       name: "UGV Unit 01"
@@ -68,7 +68,7 @@ failover:
       host_ip: "192.168.3.66"
       radio_ip: "192.168.3.4"
       role: "Field Unit"
-      switching_interval_seconds: 45.0
+      switching_interval_seconds: 40.0
 
     UGV-03:
       name: "UGV Unit 03"
@@ -76,7 +76,7 @@ failover:
       host_ip: "192.168.3.67"
       radio_ip: "192.168.3.2"
       role: "Field Unit"
-      switching_interval_seconds: 60.0
+      switching_interval_seconds: 50.0
 
     UGV-04:
       name: "UGV Unit 04"
@@ -84,7 +84,7 @@ failover:
       host_ip: "192.168.3.68"
       radio_ip: "192.168.3.5"
       role: "Field Unit"
-      switching_interval_seconds: 75.0
+      switching_interval_seconds: 60.0
 
     UGV-05:
       name: "UGV Unit 05"
@@ -92,7 +92,7 @@ failover:
       host_ip: "192.168.3.69"
       radio_ip: "192.168.3.6"
       role: "Field Unit"
-      switching_interval_seconds: 90.0
+      switching_interval_seconds: 70.0
 
     UGV-06:
       name: "UGV Unit 06"
@@ -100,4 +100,4 @@ failover:
       host_ip: "192.168.3.70"
       radio_ip: "192.168.3.7"
       role: "Field Unit"
-      switching_interval_seconds: 105.0
+      switching_interval_seconds: 80.0

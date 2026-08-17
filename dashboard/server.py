@@ -461,18 +461,21 @@ class TelemetryDataProvider:
             priority = default_priority
 
         try:
-            if not custom_intervals:
-                import yaml
-                from pathlib import Path
-                p = Path("config/failover.yaml")
-                if p.exists():
-                    with open(p, "r") as f:
-                        data = yaml.safe_load(f)
-                        cfg = data.get("failover", {})
-                        priority = cfg.get("device_priority") or default_priority
-                        base_interval = float(cfg.get("base_switching_interval_seconds", 30.0))
-                        stagger_increment = float(cfg.get("priority_stagger_increment_seconds", 15.0))
-                        custom_intervals = cfg.get("device_custom_intervals") or {}
+            import yaml
+            from pathlib import Path
+            p = Path("config/failover.yaml")
+            if p.exists():
+                with open(p, "r") as f:
+                    data = yaml.safe_load(f)
+                    cfg = data.get("failover", {})
+                    priority = cfg.get("device_priority") or default_priority
+                    base_interval = float(cfg.get("base_switching_interval_seconds", 30.0))
+                    stagger_increment = float(cfg.get("priority_stagger_increment_seconds", 10.0))
+                    custom_intervals = cfg.get("device_custom_intervals") or {}
+                    device_nodes = cfg.get("device_nodes", {})
+                    for dev_id, dev_info in device_nodes.items():
+                        if isinstance(dev_info, dict) and "switching_interval_seconds" in dev_info:
+                            custom_intervals[dev_id] = float(dev_info["switching_interval_seconds"])
         except Exception:
             pass
 
