@@ -727,15 +727,20 @@ class TelemetryDataProvider:
             local_name = local_node["name"] if local_node else "Local Node Host"
             local_ip = local_node["ip"] if local_node else (target_ip or next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1"))
 
-            # Calculate real-time dynamic measured bandwidth sum across allowed active topics (0.0 Mbps when idle)
+            # Inter-System Mesh Bandwidth Capacity Governance:
+            # Active mesh bandwidth capacity measures inter-system data transfer across the mesh.
+            # If 0 remote subscriber nodes are active (isolated local host), inter-system mesh throughput is 0.0 Mbps.
+            remote_nodes_online = any(n["status"] == "ONLINE" and not n.get("is_local") for n in self.nodes)
+
             allowed = self.scheduler.allowed_topics
             live_used_bw = 0.0
-            for name, topic in self.registry.all_topics().items():
-                if name in allowed:
-                    tx_mbps = topic.get("tx_mbps", 0.0)
-                    rx_mbps = topic.get("rx_mbps", 0.0)
-                    bw = tx_mbps if tx_mbps > 0.0 else rx_mbps
-                    live_used_bw += bw
+            if remote_nodes_online:
+                for name, topic in self.registry.all_topics().items():
+                    if name in allowed:
+                        tx_mbps = topic.get("tx_mbps", 0.0)
+                        rx_mbps = topic.get("rx_mbps", 0.0)
+                        bw = tx_mbps if tx_mbps > 0.0 else rx_mbps
+                        live_used_bw += bw
 
             return {
                 "timestamp": time.time(),
