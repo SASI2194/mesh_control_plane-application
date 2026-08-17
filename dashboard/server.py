@@ -297,7 +297,7 @@ class TelemetryDataProvider:
 
                     # 2. Remote Node Application Heartbeat & Topic Activity Audit
                     last_active = self.node_activity.get(ip, 0.0)
-                    if (now - last_active) <= 2.5:
+                    if (now - last_active) <= 5.0:
                         node["status"] = "ONLINE"
                         node["latency"] = 8.5
                         node["rssi"] = -68
@@ -321,7 +321,7 @@ class TelemetryDataProvider:
             return "ONLINE", 1.0
 
         last_active = self.node_activity.get(ip, 0.0)
-        if (time.time() - last_active) <= 2.5:
+        if (time.time() - last_active) <= 5.0:
             return "ONLINE", 8.5
 
         return "OFFLINE", 0.0
