@@ -747,15 +747,23 @@ class TelemetryDataProvider:
                 else:
                     c["is_local"] = n["ip"] in local_ips
 
-                # Determine if node is acting as Master Access Point (Master AP)
-                is_master = (n.get("ap_role") in ["MASTER_AP", "ELECTED_MASTER_AP"] and n.get("status") == "ONLINE")
-                if not is_master and n.get("status") == "ONLINE":
+                # Determine if node is acting as Master Access Point (Master AP) dynamically based on live wifi2 hardware mode
+                is_master = False
+                if n.get("status") == "ONLINE":
                     wifi_det = n.get("wifi_details")
+                    wifi2_mode = None
                     if wifi_det and isinstance(wifi_det, dict):
                         for i in wifi_det.get("interfaces", []):
-                            if i.get("name") == "wifi2" and i.get("mode", "").upper() == "AP" and not i.get("disabled"):
-                                is_master = True
+                            if i.get("name") == "wifi2":
+                                wifi2_mode = (i.get("mode") or "").upper()
                                 break
+                    
+                    if wifi2_mode == "AP":
+                        is_master = True
+                    elif wifi2_mode in ["STATION-BRIDGE", "STATION"]:
+                        is_master = False
+                    else:
+                        is_master = (n.get("ap_role") in ["MASTER_AP", "ELECTED_MASTER_AP"])
 
                 c["is_master_ap"] = is_master
                 c["ap_role"] = "MASTER_AP" if is_master else "STATION_BRIDGE"
