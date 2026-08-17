@@ -82,29 +82,6 @@ class ForwardingEngine:
             origin_ip=origin
         )
 
-        # Inter-System Mesh Transport Governance:
-        # Check if ANY remote mesh node (ip != local_ip) is ONLINE.
-        # If 0 remote mesh nodes are online (isolated local host), hold payload in standby.
-        remote_active = False
-        try:
-            from dashboard.server import DATA_PROVIDER
-            if DATA_PROVIDER:
-                with DATA_PROVIDER.lock:
-                    local_ips = DATA_PROVIDER._get_local_ips()
-                    target_ip = getattr(DATA_PROVIDER, "local_ip", None)
-                    local_ip = target_ip or next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1")
-                    remote_active = any(n.get("status") == "ONLINE" and n.get("ip") != local_ip for n in DATA_PROVIDER.nodes)
-            else:
-                remote_active = True
-        except Exception:
-            remote_active = True
-
-        if not remote_active:
-            self.dropped_packets += 1
-            self.dropped_bytes += len(sample.payload)
-            print(f"[HOLD (STANDBY - 0 REMOTE NODES)] {output_key} (Seq #{sample.sequence_number})")
-            return
-
         #################################################################
         # Publish
         #################################################################
