@@ -354,9 +354,14 @@ function renderDeviceCards(nodes) {
             ? `<span class="dev-status-badge local-host">THIS DEVICE</span>`
             : '';
 
-        const apBadge = dev.is_master_ap
-            ? `<span class="dev-status-badge" style="background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(217,119,6,0.5)); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 800;">👑 MASTER AP</span>`
-            : `<span class="dev-status-badge" style="background: rgba(14,165,233,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);">🔗 STATION BRIDGE</span>`;
+        let apBadge = `<span class="dev-status-badge" style="background: rgba(14,165,233,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);">🔗 STATION BRIDGE</span>`;
+        if (dev.is_master_ap) {
+            apBadge = `<span class="dev-status-badge" style="background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(217,119,6,0.5)); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 800;">👑 MASTER AP</span>`;
+        } else if (dev.ap_role === 'UNKNOWN_AP_AVAILABLE') {
+            apBadge = `<span class="dev-status-badge" style="background: rgba(0,229,255,0.15); color: #00e5ff; border: 1px solid rgba(0,229,255,0.4); font-weight: 700;">❓ UNKNOWN AP</span>`;
+        } else if (dev.ap_role === 'SEARCH_PROBE') {
+            apBadge = `<span class="dev-status-badge" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); font-weight: 700;">🔍 PROBING</span>`;
+        }
 
         const signalVal = isOnline ? `${dev.rssi} dBm` : 'N/A';
         const latencyVal = isOnline ? `${dev.latency} ms` : 'Disconnected';
