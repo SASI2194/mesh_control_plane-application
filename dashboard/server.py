@@ -628,14 +628,10 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        if not has_remote_peers:
-                            # Isolated Master AP with 0 peers -> Run rank-staggered search probe cycle
-                            self._handle_disconnected_30s_probe(my_ip, switching_interval)
-                        else:
-                            # Master AP with active connected peers -> LOCK IN MASTER AP MODE!
-                            self._probe_state_start = 0.0
-                            self._probe_state = "AP"
-                            self._promote_local_radio_hardware()
+                        # Top-Ranked Candidate Node -> LOCK IN MASTER AP MODE continuously so lower-ranked nodes can connect!
+                        self._probe_state_start = 0.0
+                        self._probe_state = "AP"
+                        self._promote_local_radio_hardware()
                     else:
                         # THIS host is NOT the Master AP -> LOCK IN STATION-BRIDGE CLIENT MODE!
                         self.master_failover_event = {
