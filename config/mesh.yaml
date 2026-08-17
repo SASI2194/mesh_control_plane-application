@@ -30,6 +30,10 @@ radio:
 
 network:
 
+  mesh_subnet_prefix: "192.168.3."
+
+  mesh_subnet_cidr: "192.168.3.0/24"
+
   configured_nodes: 9
 
   configured_gcs: 3

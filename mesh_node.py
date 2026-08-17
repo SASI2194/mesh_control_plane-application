@@ -258,17 +258,29 @@ class MeshNode:
     #####################################################################
 
     def _detect_local_ip(self):
-        """Dynamically detects local physical 192.168.3.x network interface IP (strictly no fallback to outer LAN/internet)."""
-        # 1. Try ip route get to 192.168.3.1 gateway
+        """Dynamically detects local physical wireless mesh network interface IP based on configured subnet prefix in config/mesh.yaml."""
+        subnet_prefix = "192.168.3."
         try:
-            res = subprocess.run(["ip", "route", "get", "192.168.3.1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            cm.load()
+            net_cfg = (cm.get("mesh") or {}).get("network", {})
+            subnet_prefix = net_cfg.get("mesh_subnet_prefix", "192.168.3.")
+        except Exception:
+            pass
+
+        gateway_target = subnet_prefix + "1" if subnet_prefix.endswith(".") else subnet_prefix + ".1"
+
+        # 1. Try ip route get to gateway target
+        try:
+            res = subprocess.run(["ip", "route", "get", gateway_target], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode == 0:
                 tokens = res.stdout.split()
                 if "src" in tokens:
                     idx = tokens.index("src")
                     if idx + 1 < len(tokens):
                         candidate = tokens[idx + 1]
-                        if candidate.startswith("192.168.3."):
+                        if candidate.startswith(subnet_prefix):
                             return candidate
         except Exception:
             pass
@@ -278,7 +290,7 @@ class MeshNode:
             res = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode == 0:
                 for ip in res.stdout.strip().split():
-                    if ip.startswith("192.168.3."):
+                    if ip.startswith(subnet_prefix):
                         return ip
         except Exception:
             pass
@@ -286,10 +298,10 @@ class MeshNode:
         # 3. Try UDP socket connection probe
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("192.168.3.1", 80))
+            s.connect((gateway_target, 80))
             ip = s.getsockname()[0]
             s.close()
-            if ip and ip.startswith("192.168.3."):
+            if ip and ip.startswith(subnet_prefix):
                 return ip
         except Exception:
             pass
