@@ -126,6 +126,11 @@ class MeshNode:
 
         self.running = True
         self.my_ip = self._detect_local_ip()
+        while not self.my_ip or not self.my_ip.startswith("192.168.3."):
+            print("[NETWORK WAITING] Waiting for 192.168.3.x Mesh Network interface to become active... (data held/discarded)")
+            time.sleep(1.0)
+            self.my_ip = self._detect_local_ip()
+
         self.republished_hashes = set()
         self.republished_lock = Lock()
 
@@ -253,7 +258,7 @@ class MeshNode:
     #####################################################################
 
     def _detect_local_ip(self):
-        """Dynamically detects local physical network interface IP without any hardcoded fallback."""
+        """Dynamically detects local physical 192.168.3.x network interface IP (strictly no fallback to outer LAN/internet)."""
         # 1. Try ip route get to 192.168.3.1 gateway
         try:
             res = subprocess.run(["ip", "route", "get", "192.168.3.1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -262,7 +267,9 @@ class MeshNode:
                 if "src" in tokens:
                     idx = tokens.index("src")
                     if idx + 1 < len(tokens):
-                        return tokens[idx + 1]
+                        candidate = tokens[idx + 1]
+                        if candidate.startswith("192.168.3."):
+                            return candidate
         except Exception:
             pass
 
@@ -273,9 +280,6 @@ class MeshNode:
                 for ip in res.stdout.strip().split():
                     if ip.startswith("192.168.3."):
                         return ip
-                for ip in res.stdout.strip().split():
-                    if ip and not ip.startswith("127.") and not ip.startswith("172."):
-                        return ip
         except Exception:
             pass
 
@@ -285,12 +289,12 @@ class MeshNode:
             s.connect(("192.168.3.1", 80))
             ip = s.getsockname()[0]
             s.close()
-            if ip and not ip.startswith("127."):
+            if ip and ip.startswith("192.168.3."):
                 return ip
         except Exception:
             pass
 
-        return "127.0.0.1"
+        return None
 
     #####################################################################
 
