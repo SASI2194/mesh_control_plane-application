@@ -539,6 +539,21 @@ class TelemetryDataProvider:
 
         return priority, interval
 
+    def _log_failover_event(self, msg):
+        """Prints failover election & probe timing logs to terminal and writes to logs/failover_election.log."""
+        print(msg)
+        try:
+            from pathlib import Path
+            from datetime import datetime
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
+            log_file = log_dir / "failover_election.log"
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] {msg}\n")
+        except Exception:
+            pass
+
     def _handle_disconnected_30s_probe(self, my_ip, switching_interval):
         """
         Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
@@ -551,7 +566,7 @@ class TelemetryDataProvider:
         if state_start == 0.0:
             self._probe_state_start = now
             self._probe_state = "AP"
-            print(f"[PROBE TIMING AUDIT] Initializing search probe cycle for isolated host {my_ip}. Configured Switching Interval: {switching_interval:.1f}s | Initial Mode: AP")
+            self._log_failover_event(f"[PROBE TIMING AUDIT] Initializing search probe cycle for isolated host {my_ip}. Configured Switching Interval: {switching_interval:.1f}s | Initial Mode: AP")
             self._promote_local_radio_hardware()
             return
 
@@ -561,15 +576,15 @@ class TelemetryDataProvider:
             self._probe_state_start = now
             if current_state == "AP":
                 self._probe_state = "STATION_BRIDGE"
-                print(f"[PROBE HARDWARE SWITCH] Dwell limit reached ({elapsed:.1f}s >= {switching_interval:.1f}s). Toggling hardware from AP -> STATION_BRIDGE (Scan Probe Phase)...")
+                self._log_failover_event(f"[PROBE HARDWARE SWITCH] Dwell limit reached ({elapsed:.1f}s >= {switching_interval:.1f}s). Toggling hardware from AP -> STATION_BRIDGE (Scan Probe Phase)...")
                 self._demote_local_radio_hardware(force=True)
             else:
                 self._probe_state = "AP"
-                print(f"[PROBE HARDWARE SWITCH] Dwell limit reached ({elapsed:.1f}s >= {switching_interval:.1f}s). Toggling hardware from STATION_BRIDGE -> AP (Beacon Phase)...")
+                self._log_failover_event(f"[PROBE HARDWARE SWITCH] Dwell limit reached ({elapsed:.1f}s >= {switching_interval:.1f}s). Toggling hardware from STATION_BRIDGE -> AP (Beacon Phase)...")
                 self._promote_local_radio_hardware(force=True)
         else:
             remaining = switching_interval - elapsed
-            print(f"[PROBE TIMING AUDIT] Host {my_ip} ISOLATED (0 peers). Current Mode: {current_state} | Elapsed: {elapsed:.1f}s / {switching_interval:.1f}s | Next Mode Switch in: {remaining:.1f}s")
+            self._log_failover_event(f"[PROBE TIMING AUDIT] Host {my_ip} ISOLATED (0 peers). Current Mode: {current_state} | Elapsed: {elapsed:.1f}s / {switching_interval:.1f}s | Next Mode Switch in: {remaining:.1f}s")
             if current_state == "AP":
                 self._promote_local_radio_hardware()
             else:
@@ -631,10 +646,10 @@ class TelemetryDataProvider:
                                 n["ap_role"] = "STATION_BRIDGE"
 
                         if not has_remote_peers:
-                            print(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is ELECTED MASTER AP (Isolated: 0 peers). Running Probe Cycle (Interval: {switching_interval:.1f}s)...")
+                            self._log_failover_event(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is ELECTED MASTER AP (Isolated: 0 peers). Running Probe Cycle (Interval: {switching_interval:.1f}s)...")
                             self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
-                            print(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is ELECTED MASTER AP (Connected: {len(remote_online_nodes)} peers). Locking hardware in MASTER AP mode.")
+                            self._log_failover_event(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is ELECTED MASTER AP (Connected: {len(remote_online_nodes)} peers). Locking hardware in MASTER AP mode.")
                             self._probe_state_start = 0.0
                             self._probe_state = "AP"
                             self._promote_local_radio_hardware()
@@ -656,10 +671,10 @@ class TelemetryDataProvider:
                                 n["ap_role"] = "STATION_BRIDGE"
 
                         if not has_remote_peers:
-                            print(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is CLIENT NODE (Isolated: 0 peers, Higher Rank: {highest_online_master_id}). Running Search Probe Cycle (Interval: {switching_interval:.1f}s)...")
+                            self._log_failover_event(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is CLIENT NODE (Isolated: 0 peers, Higher Rank: {highest_online_master_id}). Running Search Probe Cycle (Interval: {switching_interval:.1f}s)...")
                             self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
-                            print(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is CLIENT NODE (Connected to Master AP {highest_online_master_id}). Locking hardware in STATION_BRIDGE client mode.")
+                            self._log_failover_event(f"[FAILOVER ELECTION AUDIT] Local Host {my_ip} ({local_node_id}) is CLIENT NODE (Connected to Master AP {highest_online_master_id}). Locking hardware in STATION_BRIDGE client mode.")
                             self._probe_state_start = 0.0
                             self._probe_state = "STATION_BRIDGE"
                             self._demote_local_radio_hardware()
