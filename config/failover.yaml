@@ -13,6 +13,10 @@ failover:
   # Calculation: interval = base_switching_interval + (priority_rank * stagger_increment)
   priority_stagger_increment_seconds: 10.0
 
+  # Node application heartbeat offline timeout threshold (seconds)
+  # Provides blackout buffer during RF hardware mode switch role handovers
+  node_offline_timeout_seconds: 10.0
+
   # Priority queue for Master AP election hierarchy (highest priority first)
   # When primary Master AP (GCS-01 / UGV-01) drops offline, the first online candidate
   # in this priority list is elected as the new Master AP.

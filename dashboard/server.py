@@ -297,7 +297,8 @@ class TelemetryDataProvider:
 
                     # 2. Remote Node Application Heartbeat & Topic Activity Audit
                     last_active = self.node_activity.get(ip, 0.0)
-                    if (now - last_active) <= 5.0:
+                    offline_timeout = self._get_node_offline_timeout()
+                    if (now - last_active) <= offline_timeout:
                         node["status"] = "ONLINE"
                         node["latency"] = 8.5
                         node["rssi"] = -68
@@ -307,6 +308,22 @@ class TelemetryDataProvider:
                         node["rssi"] = -95
 
             time.sleep(1.0)
+
+    def _get_node_offline_timeout(self):
+        """Loads node_offline_timeout_seconds from config/failover.yaml (default: 10.0s)."""
+        try:
+            import yaml
+            from pathlib import Path
+            p = Path("config/failover.yaml")
+            if p.exists():
+                with open(p, "r") as f:
+                    data = yaml.safe_load(f)
+                    val = data.get("failover", {}).get("node_offline_timeout_seconds")
+                    if val is not None:
+                        return float(val)
+        except Exception:
+            pass
+        return 10.0
 
     def _ping_device(self, ip):
         """
@@ -321,7 +338,8 @@ class TelemetryDataProvider:
             return "ONLINE", 1.0
 
         last_active = self.node_activity.get(ip, 0.0)
-        if (time.time() - last_active) <= 5.0:
+        offline_timeout = self._get_node_offline_timeout()
+        if (time.time() - last_active) <= offline_timeout:
             return "ONLINE", 8.5
 
         return "OFFLINE", 0.0
