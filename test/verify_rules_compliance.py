@@ -48,9 +48,18 @@ def audit_rule_1():
     assert '"default_permission": "deny"' in content or "default_permission: \"deny\"" in content, "Default permission is not DENY!"
     assert "filtered/**" in content, "filtered/** key expression missing from access control rules!"
 
+    # Verify strict wireless mesh subnet binding configured in mesh.yaml
+    mesh_cfg_path = os.path.join(PROJECT_ROOT, "config", "mesh.yaml")
+    assert os.path.exists(mesh_cfg_path), "mesh.yaml config missing!"
+    with open(mesh_cfg_path, "r") as f:
+        mesh_cfg = yaml.safe_load(f)
+    net_cfg = mesh_cfg.get("network", {})
+    assert "mesh_subnet_prefix" in net_cfg, "mesh_subnet_prefix missing from mesh.yaml!"
+
     print("✓ Zenoh Router Access Control: ENABLED")
     print("✓ Default Policy: DENY (Un-admitted topics blocked from physical interface)")
     print("✓ Exclusive Routing Target: filtered/** admitted")
+    print("✓ Strict Wireless Mesh Subnet Binding: ENABLED (network.mesh_subnet_prefix in config/mesh.yaml)")
     print("RULE 1 COMPLIANCE: [PASS]")
     return True
 
