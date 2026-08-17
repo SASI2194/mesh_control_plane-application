@@ -628,12 +628,16 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        # Top-Ranked Candidate Node -> LOCK IN MASTER AP MODE continuously so lower-ranked nodes can connect!
-                        self._probe_state_start = 0.0
-                        self._probe_state = "AP"
-                        self._promote_local_radio_hardware()
+                        if not has_remote_peers:
+                            # Isolated candidate with 0 peers -> Run rank-staggered search probe cycle!
+                            self._handle_disconnected_30s_probe(my_ip, switching_interval)
+                        else:
+                            # Master AP with active connected peers -> LOCK IN MASTER AP MODE!
+                            self._probe_state_start = 0.0
+                            self._probe_state = "AP"
+                            self._promote_local_radio_hardware()
                     else:
-                        # THIS host is NOT the Master AP -> LOCK IN STATION-BRIDGE CLIENT MODE!
+                        # THIS host is NOT the Master AP
                         self.master_failover_event = {
                             "timestamp": time.time(),
                             "elected_node_id": highest_online_master_id,
@@ -649,10 +653,14 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        # Reset probe state and lock hardware in STATION-BRIDGE mode
-                        self._probe_state_start = 0.0
-                        self._probe_state = "STATION_BRIDGE"
-                        self._demote_local_radio_hardware()
+                        if not has_remote_peers:
+                            # Isolated node with 0 peers -> Run rank-staggered search probe cycle!
+                            self._handle_disconnected_30s_probe(my_ip, switching_interval)
+                        else:
+                            # Connected client node -> LOCK IN STATION-BRIDGE CLIENT MODE!
+                            self._probe_state_start = 0.0
+                            self._probe_state = "STATION_BRIDGE"
+                            self._demote_local_radio_hardware()
             except Exception as e:
                 print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
