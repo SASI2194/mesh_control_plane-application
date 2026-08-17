@@ -179,6 +179,8 @@ class TelemetryDataProvider:
         ]
 
         self.node_activity = {}
+        self.network_activity = {}
+        self.transmission_activity = {}
         self.mesh_node_running = False
         self.master_failover_event = None
 
@@ -204,7 +206,24 @@ class TelemetryDataProvider:
     def record_node_activity(self, node_ip):
         """Records real-time application heartbeat activity timestamp for a node IP."""
         with self.lock:
-            self.node_activity[node_ip] = time.time()
+            now = time.time()
+            self.node_activity[node_ip] = now
+            self.network_activity[node_ip] = now
+            self.transmission_activity[node_ip] = now
+
+    def record_network_activity(self, node_ip):
+        """Records decoupled physical network discovery heartbeat activity timestamp."""
+        with self.lock:
+            now = time.time()
+            self.network_activity[node_ip] = now
+            self.node_activity[node_ip] = now
+
+    def record_transmission_activity(self, node_ip):
+        """Records decoupled topic transmission telemetry heartbeat activity timestamp."""
+        with self.lock:
+            now = time.time()
+            self.transmission_activity[node_ip] = now
+            self.node_activity[node_ip] = now
 
     def _get_this_machine_ip(self):
         """Helper to resolve exact physical host IP for this machine (192.168.3.x)."""
@@ -295,8 +314,8 @@ class TelemetryDataProvider:
                         node["rssi"] = -62
                         continue
 
-                    # 2. Remote Node Application Heartbeat & Topic Activity Audit
-                    last_active = self.node_activity.get(ip, 0.0)
+                    # 2. Remote Node Physical Network Link Heartbeat & Topology Audit (Decoupled 10s Buffer)
+                    last_active = self.network_activity.get(ip, self.node_activity.get(ip, 0.0))
                     offline_timeout = self._get_node_offline_timeout()
                     if (now - last_active) <= offline_timeout:
                         node["status"] = "ONLINE"

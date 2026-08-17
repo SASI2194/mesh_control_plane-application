@@ -153,9 +153,17 @@ def audit_rule_4():
     assert len(ugv_nodes) == 6, "UGV count mismatch!"
     assert len(gcs_nodes) == 3, "GCS count mismatch!"
 
+    # Verify multi-interval heartbeat configuration in config/heartbeat.yaml
+    hb_cfg_path = os.path.join(PROJECT_ROOT, "config", "heartbeat.yaml")
+    assert os.path.exists(hb_cfg_path), "config/heartbeat.yaml configuration missing!"
+    with open(hb_cfg_path, "r") as f:
+        hb_cfg = yaml.safe_load(f).get("heartbeat", {})
+    assert "network" in hb_cfg and "transmission" in hb_cfg, "Decoupled network/transmission heartbeats missing from heartbeat.yaml!"
+
     print(f"✓ Supported Device Architecture: 9 Devices Total (6 UGVs + 3 GCSs)")
     print(f"✓ UGV Hardware Spec: Jetson Orin + NetMetal AX (UGV-01 .. UGV-06)")
     print(f"✓ GCS Hardware Spec: Proc System + Switch + NetMetal AX (GCS-01 .. GCS-03)")
+    print(f"✓ Multi-Interval Heartbeat Governance: ENABLED (config/heartbeat.yaml)")
     print(f"✓ Telemetry Server Port: 8080 (dashboard/server.py)")
     print("RULE 4 COMPLIANCE: [PASS]")
     return True

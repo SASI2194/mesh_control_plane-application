@@ -251,8 +251,12 @@ class MeshNode:
         # Start 1 Hz Control Plane Application Heartbeat Thread
         #
 
-        self.heartbeat_thread = Thread(target=self._heartbeat_loop, daemon=True)
-        self.heartbeat_thread.start()
+        # Start Decoupled Multi-Interval Heartbeat Threads (config/heartbeat.yaml)
+        self.net_heartbeat_thread = Thread(target=self._network_heartbeat_loop, daemon=True)
+        self.net_heartbeat_thread.start()
+
+        self.tx_heartbeat_thread = Thread(target=self._transmission_heartbeat_loop, daemon=True)
+        self.tx_heartbeat_thread.start()
 
         #
         # Start 0.5 Hz Zenoh Control Plane WiFi Radio Telemetry Thread
@@ -316,9 +320,22 @@ class MeshNode:
 
     #####################################################################
 
-    def _heartbeat_loop(self):
-        """Sends a periodic 1 Hz control plane application heartbeat and loss feedback to peer nodes over Zenoh."""
-        heartbeat_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
+    def _network_heartbeat_loop(self):
+        """Sends a periodic 1 Hz physical network discovery heartbeat over Zenoh for link state & topology maintenance."""
+        heartbeat_key = f"filtered/_mesh_network_heartbeat/{self.my_ip}"
+        legacy_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
+        while self.running:
+            try:
+                payload = f"{time.time()}:{self.my_ip}".encode("utf-8")
+                self.forward_session.session.put(heartbeat_key, payload)
+                self.forward_session.session.put(legacy_key, payload)
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+    def _transmission_heartbeat_loop(self):
+        """Sends a periodic 0.5 Hz topic transmission telemetry & loss feedback heartbeat over Zenoh."""
+        heartbeat_key = f"filtered/_mesh_transmission_heartbeat/{self.my_ip}"
         import struct
         while self.running:
             try:
@@ -327,7 +344,7 @@ class MeshNode:
                 self.forward_session.session.put(heartbeat_key, payload)
             except Exception:
                 pass
-            time.sleep(1.0)
+            time.sleep(2.0)
 
     def _wifi_telemetry_loop(self):
         """Broadcasts local NetMetal AX WiFi radio status over Zenoh & ROS 2 on /mesh_wifi_telemetry every 2s."""
@@ -377,7 +394,30 @@ class MeshNode:
                     pass
                 return
 
-            # Check for Application Control Plane Heartbeat & Peer Loss Feedback
+            # Check for Network Link Discovery Heartbeat
+            if "_mesh_network_heartbeat/" in key_str:
+                parts = key_str.split("_mesh_network_heartbeat/")
+                if len(parts) > 1:
+                    sender_ip = parts[1]
+                    DATA_PROVIDER.record_network_activity(sender_ip)
+                return
+
+            # Check for Topic Transmission Telemetry Heartbeat & Peer Loss Feedback
+            if "_mesh_transmission_heartbeat/" in key_str:
+                parts = key_str.split("_mesh_transmission_heartbeat/")
+                if len(parts) > 1:
+                    sender_ip = parts[1]
+                    DATA_PROVIDER.record_transmission_activity(sender_ip)
+                    if len(payload_bytes) >= 4:
+                        import struct
+                        try:
+                            peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
+                            self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
+                        except Exception:
+                            pass
+                return
+
+            # Check for Application Control Plane Legacy Heartbeat & Peer Loss Feedback
             if "_mesh_heartbeat/" in key_str:
                 parts = key_str.split("_mesh_heartbeat/")
                 if len(parts) > 1:

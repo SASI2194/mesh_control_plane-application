@@ -1,0 +1,18 @@
+# ==============================================================================
+# Mesh Control Plane - Multi-Interval Heartbeat Governance Configuration
+# ==============================================================================
+
+heartbeat:
+  # Network Discovery & Hardware Link Heartbeat (Decoupled Physical Layer)
+  network:
+    enabled: true
+    interval_seconds: 1.0
+    timeout_seconds: 10.0      # 10s buffer for NetMetal AX RF mode reconfigurations
+    topic: "/mesh_network_heartbeat"
+
+  # Transmission & Application Topic Data Heartbeat (Decoupled Payload Layer)
+  transmission:
+    enabled: true
+    interval_seconds: 2.0
+    timeout_seconds: 5.0       # 5s threshold for subscriber data throughput tracking
+    topic: "/mesh_transmission_heartbeat"

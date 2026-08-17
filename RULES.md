@@ -50,6 +50,7 @@
   - **6 UGVs** (`UGV-01` to `UGV-06`): Jetson Orin compute + NetMetal AX radio.
   - **3 GCSs** (`GCS-01` to `GCS-03`): Processing System + Ethernet Switch + NetMetal AX radio.
 - **Port & Access**: Web telemetry portal operates on HTTP port `8080` (`dashboard/server.py`) and must auto-start with `mesh_node.py`.
+- **Multi-Interval Heartbeat Governance**: Physical network discovery (`network_heartbeat`: 1.0s interval, 10.0s buffer) and topic transmission telemetry (`transmission_heartbeat`: 2.0s interval, 5.0s buffer) MUST be decoupled and configured via `config/heartbeat.yaml`.
 
 ---
 
