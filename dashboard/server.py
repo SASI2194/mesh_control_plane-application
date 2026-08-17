@@ -184,6 +184,9 @@ class TelemetryDataProvider:
         self.mesh_node_running = False
         self.master_failover_event = None
 
+        # Reset log files on application startup
+        self._reset_failover_logs()
+
         # Start live parallel Application Layer Heartbeat Audit daemon thread
         self.monitor_thread = Thread(target=self._live_heartbeat_audit_loop, daemon=True)
         self.monitor_thread.start()
@@ -195,6 +198,22 @@ class TelemetryDataProvider:
         # Start dynamic Master AP Failover Leader Election daemon thread
         self.failover_thread = Thread(target=self._master_ap_failover_election_loop, daemon=True)
         self.failover_thread.start()
+
+    def _reset_failover_logs(self):
+        """Erases previous failover election logs on application restart."""
+        try:
+            from pathlib import Path
+            from datetime import datetime
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
+            log_file = log_dir / "failover_election.log"
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(log_file, "w", encoding="utf-8") as f:
+                f.write("===================================================================================\n")
+                f.write(f" Mesh Control Plane Failover Election & Probe Audit Log (Session Started: {now_str})\n")
+                f.write("===================================================================================\n\n")
+        except Exception:
+            pass
 
     def set_mesh_node_running(self, running=True):
         """Sets active mesh_node.py application running status flag."""
@@ -539,9 +558,19 @@ class TelemetryDataProvider:
 
         return priority, interval
 
+    def _get_wifi2_status_str(self):
+        """Returns concise live wifi2 / wifi2_vap hardware interface status string."""
+        mode = getattr(self, "current_hardware_mode", "AP")
+        if mode == "AP":
+            return "[wifi2: AP (Master Beacon) | wifi2_vap: STATION-BRIDGE (Secondary Scan)]"
+        else:
+            return "[wifi2: STATION-BRIDGE (Primary Scan Client) | wifi2_vap: AP (Secondary Beacon)]"
+
     def _log_failover_event(self, msg):
-        """Prints failover election & probe timing logs to terminal and writes to logs/failover_election.log."""
-        print(msg)
+        """Prints failover election & probe timing logs to terminal and writes to logs/failover_election.log with wifi2 status."""
+        wifi2_st = self._get_wifi2_status_str()
+        full_msg = f"{msg} | {wifi2_st}"
+        print(full_msg)
         try:
             from pathlib import Path
             from datetime import datetime
@@ -550,7 +579,7 @@ class TelemetryDataProvider:
             log_file = log_dir / "failover_election.log"
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"[{timestamp}] {msg}\n")
+                f.write(f"[{timestamp}] {full_msg}\n")
         except Exception:
             pass
 
