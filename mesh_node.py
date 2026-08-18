@@ -154,8 +154,8 @@ class MeshNode:
         self.peer = ZenohSession(PEER_CONFIG)
         self.forward_session = ZenohSession(PEER_CONFIG)
 
-        self.peer.connect(self.my_ip)
-        self.forward_session.connect(self.my_ip)
+        self.peer.connect(self.my_ip, listen=True)
+        self.forward_session.connect(self.my_ip, listen=False)
 
         #
         # Key Mapper
