@@ -42,13 +42,14 @@ class SchedulerLogger:
     def _reset_log_files(self):
         """Erases previous log contents and writes clean headers on script startup."""
         with open(self.csv_logfile, "w", encoding="utf-8") as f:
-            f.write("Timestamp,Topic_ID,Topic_Name,Priority,Role,Tx_Rate_Hz,Tx_Msg_Size,Tx_Live_Mbps,Rx_Rate_Hz,Rx_Msg_Size,Rx_Live_Mbps,Diff_Mbps,Delivery_Pct,Admission_Status,Lossless_Verification\n")
+            f.write("Timestamp,Topic_ID,Topic_Name,Priority,Role,Tx_Rate_Hz,Tx_Msg_Size,Tx_Live_Mbps,Rx_Rate_Hz,Rx_Msg_Size,Rx_Live_Mbps,Diff_Mbps,Delivery_Pct,Return_Peer_Loss_Pct,Admission_Status,Lossless_Verification\n")
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(self.text_logfile, "w", encoding="utf-8") as f:
             f.write(f"===================================================================================\n")
             f.write(f" Mesh Control Plane Priority Scheduler & Dual Tx/Rx Differential Log (Session: {now_str})\n")
             f.write(f" Heartbeat Governance: Phase 1 Network HB @ 1.0 Hz (15.0s Timeout) | Phase 2 Tx HB @ 0.5 Hz (5.0s Timeout)\n")
+            f.write(f" Peer Loss Feedback Return Status: Transmitted over Phase 2 Heartbeat (!f float loss)\n")
             f.write(f"===================================================================================\n\n")
 
     def log_snapshot(self, registry, scheduler, congestion_controller=None):
@@ -117,13 +118,13 @@ class SchedulerLogger:
                         f"{now_str},{topic['id']},{topic['name']},P{topic['priority']},{role},"
                         f"{tx_hz:.1f},{tx_size},{tx_mbps:.1f},"
                         f"{rx_hz:.1f},{rx_size},{rx_mbps:.1f},"
-                        f"{diff_mbps:.1f},{delivery_pct:.1f}%,{status_str},{verif_str}\n"
+                        f"{diff_mbps:.1f},{delivery_pct:.1f}%,{last_loss:.1f}%,{status_str},{verif_str}\n"
                     )
 
             # 2. Append to human-readable Text Log
             with open(self.text_logfile, "a", encoding="utf-8") as txt_f:
                 txt_f.write(f"[{now_str}] PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT\n")
-                txt_f.write(f"Capacity: {avail_bw:.1f} Mbps | Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps | Heartbeats: Phase 1 Net (1.0 Hz) / Phase 2 Tx (0.5 Hz)\n")
+                txt_f.write(f"Capacity: {avail_bw:.1f} Mbps | Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps | Return Loss Feedback: {last_loss:.1f}% | Heartbeats: Phase 1 Net (1.0 Hz) / Phase 2 Tx (0.5 Hz)\n")
                 txt_f.write("-" * 115 + "\n")
                 txt_f.write(f"{'ID':<4} {'Topic Name':<12} {'Pri':<5} {'Role':<10} {'Tx Hz':<8} {'Tx Mbps':<9} {'Rx Hz':<8} {'Rx Mbps':<9} {'Diff':<8} {'Delivery':<10} {'Status':<9} {'Verification':<16}\n")
                 txt_f.write("-" * 115 + "\n")
