@@ -417,13 +417,15 @@ class MeshNode:
                 if len(parts) > 1:
                     sender_ip = parts[1]
                     DATA_PROVIDER.record_transmission_activity(sender_ip)
-                    if len(payload_bytes) >= 4:
-                        import struct
-                        try:
-                            peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
-                            self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
-                        except Exception:
-                            pass
+                    # Ignore self-loopback heartbeats published by self
+                    if sender_ip != self.my_ip and sender_ip not in ["127.0.0.1", "localhost"]:
+                        if len(payload_bytes) >= 4:
+                            import struct
+                            try:
+                                peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
+                                self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
+                            except Exception:
+                                pass
                 return
 
             # Check for Application Control Plane Legacy Heartbeat & Peer Loss Feedback

@@ -77,7 +77,7 @@ class SchedulerLogger:
                 now = time.time()
                 with monitor_obj.lock:
                     for ip, (ts, ploss) in list(monitor_obj.peer_losses.items()):
-                        if (now - ts) <= 5.0 and ploss > peer_loss:
+                        if (now - ts) <= 15.0 and ploss > peer_loss:
                             peer_loss = ploss
 
             has_tx = any(t.get("tx_hz", 0.0) > 0.0 for t in topics.values())

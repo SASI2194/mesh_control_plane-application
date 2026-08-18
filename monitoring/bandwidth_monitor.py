@@ -250,8 +250,8 @@ class RealtimeBandwidthMonitor:
         with self.lock:
             if hasattr(self, "peer_losses"):
                 for ip, (ts, loss) in list(self.peer_losses.items()):
-                    # Ignore stale peer loss older than 5.0 seconds (matching Phase 2 heartbeat timeout in config/heartbeat.yaml)
-                    if (now - ts) <= 5.0:
+                    # Ignore stale peer loss older than 15.0 seconds (matching 15s offline timeout buffer)
+                    if (now - ts) <= 15.0:
                         if loss > max_peer_loss:
                             max_peer_loss = loss
 
