@@ -148,14 +148,11 @@ class MeshNode:
         self.scheduler_logger = SchedulerLogger(log_dir="logs")
 
         #
-        # Transport Sessions
+        # Transport Session (Single Unified Zenoh Session)
         #
 
-        self.peer = ZenohSession(PEER_CONFIG)
-        self.forward_session = ZenohSession(PEER_CONFIG)
-
-        self.peer.connect(self.my_ip, listen=True)
-        self.forward_session.connect(self.my_ip, listen=False)
+        self.session = ZenohSession(PEER_CONFIG)
+        self.session.connect(self.my_ip)
 
         #
         # Key Mapper
@@ -231,7 +228,7 @@ class MeshNode:
         #
 
         self.forwarding = ForwardingEngine(
-            self.forward_session,
+            self.session,
             my_ip=self.my_ip
         )
 
@@ -240,7 +237,7 @@ class MeshNode:
         #
 
         self.receiver = TopicReceiver(
-            self.peer,
+            self.session,
             self.registry,
             self.callback
         )
@@ -327,8 +324,8 @@ class MeshNode:
         while self.running:
             try:
                 payload = f"{time.time()}:{self.my_ip}".encode("utf-8")
-                self.forward_session.session.put(heartbeat_key, payload)
-                self.forward_session.session.put(legacy_key, payload)
+                self.session.publish(heartbeat_key, payload)
+                self.session.publish(legacy_key, payload)
             except Exception:
                 pass
             time.sleep(1.0)
@@ -350,7 +347,7 @@ class MeshNode:
                 if has_online_peers or len(DATA_PROVIDER.network_activity) > 0:
                     max_loss = self.bw_monitor.get_max_loss_percent()
                     payload = struct.pack("!f", float(max_loss)) + f"{time.time()}:{self.my_ip}".encode("utf-8")
-                    self.forward_session.session.put(heartbeat_key, payload)
+                    self.session.publish(heartbeat_key, payload)
             except Exception:
                 pass
             time.sleep(2.0)
@@ -370,7 +367,7 @@ class MeshNode:
                     }
                     json_str = json.dumps(payload_dict)
                     # 1. Publish to Zenoh Control Plane Transport
-                    self.forward_session.session.put(wifi_key, json_str.encode("utf-8"))
+                    self.session.publish(wifi_key, json_str.encode("utf-8"))
                     # 2. Publish to Native ROS 2 Node Graph (/mesh_wifi_telemetry)
                     if getattr(self, "ros_bridge", None):
                         self.ros_bridge.publish_telemetry(json_str)
@@ -462,7 +459,7 @@ class MeshNode:
                 self.republished_hashes.add(payload_hash)
 
             try:
-                self.forward_session.session.put(local_key, raw_payload)
+                self.session.publish(local_key, raw_payload)
                 if self.ros_bridge and ros_topic:
                     self.ros_bridge.publish_message(ros_topic, raw_payload)
             except Exception:
@@ -576,8 +573,7 @@ class MeshNode:
         DATA_PROVIDER.set_mesh_node_running(False)
         self.forwarding.statistics()
         self.receiver.stop()
-        self.peer.close()
-        self.forward_session.close()
+        self.session.close()
 
 
 ########################################################################
