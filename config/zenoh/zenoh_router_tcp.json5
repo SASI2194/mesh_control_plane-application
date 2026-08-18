@@ -27,7 +27,7 @@
   },
   "scouting": {
     "multicast": { "enabled": false },
-    "gossip": { "enabled": true, "multihop": true }
+    "gossip": { "enabled": false, "multihop": false }
   },
   "routing": {
     "router": {

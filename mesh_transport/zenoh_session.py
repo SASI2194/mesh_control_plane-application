@@ -10,13 +10,20 @@ class ZenohSession:
 
     #################################################################
 
-    def connect(self):
+    def connect(self, local_ip=None):
 
         config = zenoh.Config.from_file(self.config_file)
 
+        if local_ip and local_ip.startswith("192.168.3."):
+            # Enforce Rule 1: Bind Zenoh listening endpoints strictly to 192.168.3.x wireless mesh interface
+            try:
+                config.insert_json5("listen/endpoints", f'["tcp/{local_ip}:7447"]')
+            except Exception:
+                pass
+
         self.session = zenoh.open(config)
 
-        print(f"[INFO] Connected : {self.config_file}")
+        print(f"[INFO] Connected : {self.config_file} (Bound to {local_ip or 'default'})")
 
     #################################################################
 

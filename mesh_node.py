@@ -41,7 +41,7 @@ from dashboard.server import start_dashboard_background, DATA_PROVIDER
 from core.network_models import MeshSample
 
 
-PEER_CONFIG = "/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5"
+PEER_CONFIG = "config/zenoh/zenoh_router_tcp.json5"
 
 
 class ROSPublisherBridge:
@@ -154,8 +154,8 @@ class MeshNode:
         self.peer = ZenohSession(PEER_CONFIG)
         self.forward_session = ZenohSession(PEER_CONFIG)
 
-        self.peer.connect()
-        self.forward_session.connect()
+        self.peer.connect(self.my_ip)
+        self.forward_session.connect(self.my_ip)
 
         #
         # Key Mapper
