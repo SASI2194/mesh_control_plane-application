@@ -48,6 +48,7 @@ class SchedulerLogger:
         with open(self.text_logfile, "w", encoding="utf-8") as f:
             f.write(f"===================================================================================\n")
             f.write(f" Mesh Control Plane Priority Scheduler & Dual Tx/Rx Differential Log (Session: {now_str})\n")
+            f.write(f" Heartbeat Governance: Phase 1 Network HB @ 1.0 Hz (15.0s Timeout) | Phase 2 Tx HB @ 0.5 Hz (5.0s Timeout)\n")
             f.write(f"===================================================================================\n\n")
 
     def log_snapshot(self, registry, scheduler, congestion_controller=None):
@@ -122,7 +123,7 @@ class SchedulerLogger:
             # 2. Append to human-readable Text Log
             with open(self.text_logfile, "a", encoding="utf-8") as txt_f:
                 txt_f.write(f"[{now_str}] PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT\n")
-                txt_f.write(f"Capacity: {avail_bw:.1f} Mbps | Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps\n")
+                txt_f.write(f"Capacity: {avail_bw:.1f} Mbps | Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps | Heartbeats: Phase 1 Net (1.0 Hz) / Phase 2 Tx (0.5 Hz)\n")
                 txt_f.write("-" * 115 + "\n")
                 txt_f.write(f"{'ID':<4} {'Topic Name':<12} {'Pri':<5} {'Role':<10} {'Tx Hz':<8} {'Tx Mbps':<9} {'Rx Hz':<8} {'Rx Mbps':<9} {'Diff':<8} {'Delivery':<10} {'Status':<9} {'Verification':<16}\n")
                 txt_f.write("-" * 115 + "\n")
