@@ -333,7 +333,7 @@ class TelemetryDataProvider:
                         node["rssi"] = -62
                         continue
 
-                    # 2. Remote Node Physical Network Link Heartbeat & Topology Audit (Decoupled 10s Buffer)
+                    # 2. Remote Node Physical Network Link Heartbeat & Topology Audit (Decoupled 15s Buffer)
                     last_active = self.network_activity.get(ip, self.node_activity.get(ip, 0.0))
                     offline_timeout = self._get_node_offline_timeout()
                     if (now - last_active) <= offline_timeout:
@@ -348,7 +348,7 @@ class TelemetryDataProvider:
             time.sleep(1.0)
 
     def _get_node_offline_timeout(self):
-        """Loads node_offline_timeout_seconds from config/failover.yaml (default: 10.0s)."""
+        """Loads node_offline_timeout_seconds from config/failover.yaml (default: 15.0s)."""
         try:
             import yaml
             from pathlib import Path

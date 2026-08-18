@@ -1,18 +1,21 @@
 # ==============================================================================
-# Mesh Control Plane - Multi-Interval Heartbeat Governance Configuration
+# Mesh Control Plane - Sequential Two-Phase Segregated Heartbeat Governance
 # ==============================================================================
 
 heartbeat:
-  # Network Discovery & Hardware Link Heartbeat (Decoupled Physical Layer)
+  # Phase 1: Network Link Discovery & Hardware Link Heartbeat (Decoupled Physical Layer)
+  # Dedicated 100% to physical network heartbeats to restore fast 3-4s physical link lock
   network:
     enabled: true
     interval_seconds: 1.0
-    timeout_seconds: 10.0      # 10s buffer for NetMetal AX RF mode reconfigurations
+    timeout_seconds: 15.0      # 15s buffer for NetMetal AX RF mode reconfigurations & 5GHz scans
     topic: "/mesh_network_heartbeat"
 
-  # Transmission & Application Topic Data Heartbeat (Decoupled Payload Layer)
+  # Phase 2: Transmission Data & Return Status Verification (Decoupled Payload Layer)
+  # Belongs strictly to Phase 2 (activated ONLY when network link is ONLINE) to monitor return throughput
   transmission:
     enabled: true
     interval_seconds: 2.0
     timeout_seconds: 5.0       # 5s threshold for subscriber data throughput tracking
     topic: "/mesh_transmission_heartbeat"
+

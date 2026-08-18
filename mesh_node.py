@@ -334,14 +334,23 @@ class MeshNode:
             time.sleep(1.0)
 
     def _transmission_heartbeat_loop(self):
-        """Sends a periodic 0.5 Hz topic transmission telemetry & loss feedback heartbeat over Zenoh."""
+        """
+        Phase 2 Transmission Telemetry & Return Status Verification Loop.
+        Executed ONLY once physical network link is locked and ONLINE (Phase 2 Segregation).
+        Restores fast 3-4s physical link lock during Phase 1 search probes.
+        """
         heartbeat_key = f"filtered/_mesh_transmission_heartbeat/{self.my_ip}"
         import struct
         while self.running:
             try:
-                max_loss = self.bw_monitor.get_max_loss_percent()
-                payload = struct.pack("!f", float(max_loss)) + f"{time.time()}:{self.my_ip}".encode("utf-8")
-                self.forward_session.session.put(heartbeat_key, payload)
+                # Phase 2 Segregation Guard: Publish transmission heartbeats ONLY when network is ONLINE
+                has_online_peers = any(
+                    n.get("status") == "ONLINE" for n in DATA_PROVIDER.nodes if n.get("ip") != self.my_ip
+                )
+                if has_online_peers or len(DATA_PROVIDER.network_activity) > 0:
+                    max_loss = self.bw_monitor.get_max_loss_percent()
+                    payload = struct.pack("!f", float(max_loss)) + f"{time.time()}:{self.my_ip}".encode("utf-8")
+                    self.forward_session.session.put(heartbeat_key, payload)
             except Exception:
                 pass
             time.sleep(2.0)
