@@ -548,7 +548,7 @@ class MeshNode:
         # Log Priority Scheduler & Real-Time Topic Admission snapshot to log files
         #
 
-        self.scheduler_logger.log_snapshot(self.registry, self.scheduler, self.congestion)
+        self.scheduler_logger.log_snapshot(self.registry, self.scheduler, self.congestion, bw_monitor=self.bw_monitor)
 
     #####################################################################
 
