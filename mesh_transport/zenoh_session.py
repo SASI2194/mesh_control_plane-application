@@ -21,7 +21,19 @@ class ZenohSession:
             except Exception:
                 pass
 
-        self.session = zenoh.open(config)
+        try:
+            self.session = zenoh.open(config)
+        except Exception as e:
+            if local_ip and local_ip.startswith("192.168.3."):
+                # If fixed port 7447 is occupied by another process, fallback to ephemeral port on 192.168.3.x
+                try:
+                    config.insert_json5("listen", f'{{"endpoints": ["tcp/{local_ip}:0"]}}')
+                    self.session = zenoh.open(config)
+                except Exception:
+                    config.insert_json5("listen", '{"endpoints": []}')
+                    self.session = zenoh.open(config)
+            else:
+                raise e
 
         print(f"[INFO] Connected : {self.config_file} (Bound to {local_ip or 'default'})")
 
