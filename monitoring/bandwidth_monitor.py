@@ -163,7 +163,7 @@ class RealtimeBandwidthMonitor:
         if tx_m["hz"] > 0.0 and rx_m["hz"] == 0.0:
             # Pure Publisher (Tx Role): 100.0% transmission delivery (No false receiver loss)
             delivery_pct = 100.0
-        elif rx_m["hz"] > 0.0:
+        elif rx_m["hz"] > 0.0 or (rx_obj is not None and tx_m["hz"] == 0.0):
             # Subscriber (Rx Role): Cross-verify Rx Hz rate against expected Tx Hz rate (25.0 Hz default)
             expected_tx_hz = tx_m["hz"] if tx_m["hz"] > 0.0 else 25.0
             rate_del_pct = round(min(100.0, (rx_m["hz"] / expected_tx_hz) * 100.0), 1)
@@ -237,8 +237,8 @@ class RealtimeBandwidthMonitor:
         max_local_loss = 0.0
         for topic in all_keys:
             m = self.get_topic_metrics(topic)
-            # Only evaluate packet loss for topics with active traffic
-            if m.get("tx_hz", 0.0) > 0.0 or m.get("rx_hz", 0.0) > 0.0:
+            # Evaluate packet loss for local tx topics or active subscriber topics
+            if m.get("tx_hz", 0.0) > 0.0 or m.get("rx_hz", 0.0) > 0.0 or topic in self.rx_stats:
                 del_pct = m.get("delivery_pct", 100.0)
                 if del_pct < 100.0:
                     loss = 100.0 - del_pct
