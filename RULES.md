@@ -68,3 +68,13 @@
 - **Automated Testing**: Every code change must pass all automated test scripts in `test/` (`test_zenoh.py`, `test_realtime_bandwidth.py`, `test_congestion_controller.py`, `test_dashboard_server.py`, `test_manage_rules.py`).
 - **Semantic Versioning**: All release tags must follow `vX.Y.Z` semantic versioning guidelines.
 - **Manual Approval Directive**: Code must NEVER be pushed to GitHub (`git push`) automatically without explicit manual user approval following local verification.
+
+---
+
+## RULE 8: Mandatory Release History Synchronization & Documentation Policy
+> **Whenever updating code, committing changes, or releasing a version tag to Git, `README.md` MUST be fully updated with the complete, itemized release history for all intervening version tags (`v4.4.0`, `v5.0.0`, `v5.1.0`, `v5.2.0`, `v5.3.0`, etc.).**
+> 
+> - **Itemized Release History**: Every version tag released must contain a dedicated row in the `README.md` Version Control table documenting all architectural fixes, hardware integrations, configuration parameters, and benchmark discoveries included in that version.
+> - **Synchronized Tag Reference**: The `Current Active Release Tag` in `README.md` must strictly match the latest semantic release version tag in Git.
+> - **Pre-Commit Enforcement**: Committing or pushing release tags to Git without completing the full `README.md` release history update is strictly forbidden.
+
