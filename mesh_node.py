@@ -209,6 +209,7 @@ class MeshNode:
 
         try:
             DATA_PROVIDER.attach_components(self.registry, self.scheduler, self.congestion, self.my_ip)
+            DATA_PROVIDER.heartbeat_callback = self.send_immediate_heartbeat
             DATA_PROVIDER.record_node_activity(self.my_ip)
             start_dashboard_background(host="0.0.0.0", port=8080)
             print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
@@ -316,6 +317,18 @@ class MeshNode:
         return None
 
     #####################################################################
+
+    def send_immediate_heartbeat(self):
+        """Immediately transmits a physical network discovery heartbeat burst over Zenoh P2P transport."""
+        try:
+            heartbeat_key = f"filtered/_mesh_network_heartbeat/{self.my_ip}"
+            legacy_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
+            payload = f"{time.time()}:{self.my_ip}".encode("utf-8")
+            if hasattr(self, "session") and self.session:
+                self.session.publish(heartbeat_key, payload)
+                self.session.publish(legacy_key, payload)
+        except Exception:
+            pass
 
     def _network_heartbeat_loop(self):
         """Sends a periodic 1 Hz physical network discovery heartbeat over Zenoh for link state & topology maintenance."""

@@ -469,10 +469,20 @@ class TelemetryDataProvider:
             pass
         return None
 
+    def trigger_heartbeat_event(self):
+        """Signals mesh_node.py to immediately publish a discovery heartbeat."""
+        cb = getattr(self, "heartbeat_callback", None)
+        if cb and callable(cb):
+            try:
+                cb()
+            except Exception:
+                pass
+
     def _live_radio_hardware_audit_loop(self):
         """
         Periodically audits ONLY THIS LOCAL DEVICE's NetMetal AX hardware radio interface states
-        every 3 seconds to update its own local running/disabled interface badges.
+        every 3 seconds to update its own local running/disabled interface badges,
+        and fires an immediate heartbeat event the instant physical Wi-Fi status becomes RUNNING.
         """
         radio_ip_map = {
             "192.168.3.65": "192.168.3.3",  # UGV-01 local radio
@@ -484,6 +494,7 @@ class TelemetryDataProvider:
             "192.168.3.71": "192.168.3.8",  # GCS-01 local radio
         }
 
+        prev_running = False
         while True:
             try:
                 # 1. Determine local host IP and local radio IP
@@ -493,6 +504,15 @@ class TelemetryDataProvider:
                 # 2. Fetch ONLY the local radio interface states
                 live_details = self._fetch_radio_interfaces(local_radio_ip)
                 if live_details and live_details.get("total_interfaces", 0) > 0:
+                    curr_running = live_details.get("active_interfaces", 0) > 0
+
+                    # Event Trigger: Instant Wi-Fi link association detected! Fire immediate heartbeat burst!
+                    if curr_running and not prev_running:
+                        self._log_failover_event(f"[RADIO EVENT] Physical Wi-Fi interface associated (ACTIVE & RUNNING). Triggering immediate heartbeat burst!")
+                        self.trigger_heartbeat_event()
+
+                    prev_running = curr_running
+
                     with self.lock:
                         # Update ONLY the local node's card in self.nodes!
                         for node in self.nodes:
