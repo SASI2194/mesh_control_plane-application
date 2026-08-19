@@ -41,7 +41,7 @@ from dashboard.server import start_dashboard_background, DATA_PROVIDER
 from core.network_models import MeshSample
 
 
-PEER_CONFIG = "config/zenoh/zenoh_router_tcp.json5"
+PEER_CONFIG = "config/zenoh/zenoh_peer_tcp.json5"
 
 
 class ROSPublisherBridge:

@@ -21,7 +21,7 @@ import threading
 from mesh_transport.zenoh_session import ZenohSession
 
 
-PEER_CONFIG = "config/zenoh/zenoh_router_tcp.json5"
+PEER_CONFIG = "config/zenoh/zenoh_peer_tcp.json5"
 
 
 class VerificationReceiver:
