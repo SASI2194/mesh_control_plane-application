@@ -561,10 +561,44 @@ class TelemetryDataProvider:
     def _get_wifi2_status_str(self):
         """Returns concise live wifi2 / wifi2_vap hardware interface status string."""
         mode = getattr(self, "current_hardware_mode", "AP")
+        my_ip = self._get_this_machine_ip()
+        
+        local_wifi_details = None
+        with self.lock:
+            for node in self.nodes:
+                if node.get("ip") == my_ip or (my_ip in ["127.0.0.1", "localhost"] and node.get("id") == "UGV-01"):
+                    local_wifi_details = node.get("wifi_details")
+                    break
+
+        if local_wifi_details and isinstance(local_wifi_details, dict):
+            interfaces = local_wifi_details.get("interfaces", [])
+            active_cnt = local_wifi_details.get("active_interfaces", 0)
+            total_cnt = local_wifi_details.get("total_interfaces", len(interfaces))
+            
+            if interfaces:
+                iface_parts = []
+                for iface in interfaces:
+                    name = iface.get("name", "wifi")
+                    if_mode = iface.get("mode", "")
+                    if_status = iface.get("status", "INACTIVE")
+                    freq = iface.get("freq", "")
+                    ssid = iface.get("ssid", "")
+                    
+                    part = f"{name}: {if_mode} ({if_status}"
+                    if freq and freq != "N/A":
+                        part += f", {freq}"
+                    if ssid:
+                        part += f", SSID: {ssid}"
+                    part += ")"
+                    iface_parts.append(part)
+                
+                details_str = " | ".join(iface_parts)
+                return f"[WiFi Radio: Mode={mode} | Active={active_cnt}/{total_cnt} | {details_str}]"
+
         if mode == "AP":
-            return "[wifi2: AP (Master Beacon) | wifi2_vap: STATION-BRIDGE (Secondary Scan)]"
+            return "[WiFi Radio: Mode=AP (Master Beacon) | wifi2: AP (Master Beacon) | wifi2_vap: STATION-BRIDGE (Secondary Scan)]"
         else:
-            return "[wifi2: STATION-BRIDGE (Primary Scan Client) | wifi2_vap: AP (Secondary Beacon)]"
+            return "[WiFi Radio: Mode=STATION-BRIDGE (Scan Client) | wifi2: STATION-BRIDGE (Primary Scan Client) | wifi2_vap: AP (Secondary Beacon)]"
 
     def _log_failover_event(self, msg):
         """Prints failover election & probe timing logs to terminal and writes to logs/failover_election.log with wifi2 status."""
