@@ -47,7 +47,25 @@
         "permission": "allow",
         "messages": ["put", "declare_subscriber"],
         "flows": ["egress", "ingress"],
-        "key_exprs": ["filtered/**", "mesh_control/**", "zenoh/**"]
+        "key_exprs": [
+          "filtered/**"
+        ]
+      },
+      {
+        "id": "allow_mesh_control",
+        "permission": "allow",
+        "messages": ["put", "declare_subscriber"],
+        "flows": ["egress", "ingress"],
+        "key_exprs": [
+          "mesh/**"
+        ]
+      }
+    ],
+    "subjects": [{ "id": "all" }],
+    "policies": [
+      {
+        "rules": ["allow_filtered_topics", "allow_mesh_control"],
+        "subjects": ["all"]
       }
     ]
   },
