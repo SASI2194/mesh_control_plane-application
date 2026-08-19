@@ -634,7 +634,8 @@ class TelemetryDataProvider:
     def _handle_disconnected_30s_probe(self, my_ip, switching_interval):
         """
         Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
-        Ensures radio stays in STATION-BRIDGE mode for FULL switching_interval seconds.
+        Ensures radio stays in STATION-BRIDGE mode for FULL switching_interval seconds,
+        but PAUSES mode switching whenever hardware radio status is ACTIVE & RUNNING.
         """
         now = time.time()
         state_start = getattr(self, "_probe_state_start", 0.0)
@@ -645,6 +646,21 @@ class TelemetryDataProvider:
             self._probe_state = "AP"
             self._log_failover_event(f"[PROBE TIMING AUDIT] Initializing search probe cycle for isolated host {my_ip}. Configured Switching Interval: {switching_interval:.1f}s | Initial Mode: AP")
             self._promote_local_radio_hardware()
+            return
+
+        # Check if local NetMetal AX radio interface status is physically ACTIVE & RUNNING
+        is_radio_running = False
+        with self.lock:
+            my_node = next((n for n in self.nodes if n.get("ip") == my_ip), None)
+            if my_node and my_node.get("wifi_details"):
+                wifi_det = my_node["wifi_details"]
+                if wifi_det.get("active_interfaces", 0) > 0:
+                    is_radio_running = True
+
+        if is_radio_running:
+            # Physical Wi-Fi radio is RUNNING! Reset probe timer to prevent switching during active link!
+            self._probe_state_start = now
+            self._log_failover_event(f"[PROBE LINK HOLD] Hardware radio is ACTIVE & RUNNING. Holding current mode ({current_state}) to maintain active Wi-Fi link.")
             return
 
         elapsed = now - state_start
