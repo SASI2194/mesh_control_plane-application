@@ -304,6 +304,21 @@ class TelemetryDataProvider:
             pass
         return local_ips
 
+    def _is_mesh_node_process_running(self):
+        """Checks if mesh_node.py process is actively running in OS process table or recording heartbeats."""
+        if not self.mesh_node_running:
+            return False
+        now = time.time()
+        target_ip = getattr(self, "local_ip", "")
+        last_local_act = self.node_activity.get(target_ip, 0.0)
+        if (now - last_local_act) > 3.0 and last_local_act > 0.0:
+            try:
+                res = subprocess.run(["pgrep", "-f", "mesh_node.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                return res.returncode == 0
+            except Exception:
+                return False
+        return True
+
     def _live_heartbeat_audit_loop(self):
         """
         Continuously audits active mesh node status based 100% on Application Layer
@@ -313,30 +328,29 @@ class TelemetryDataProvider:
             local_ips = self._get_local_ips()
             target_ip = getattr(self, "local_ip", None)
             now = time.time()
+            app_running = self._is_mesh_node_process_running()
 
             with self.lock:
                 for node in self.nodes:
                     ip = node["ip"]
 
-                    # If local mesh_node.py application is NOT running, ALL nodes are OFFLINE
-                    if not self.mesh_node_running:
-                        node["status"] = "OFFLINE"
-                        node["latency"] = 0.0
-                        node["rssi"] = -95
-                        continue
-
-                    # 1. Local Node Audit
+                    # 1. Local Host Node Audit
                     is_this_local = (ip == target_ip) if target_ip else (ip in local_ips)
                     if is_this_local:
-                        node["status"] = "ONLINE"
-                        node["latency"] = 1.0
-                        node["rssi"] = -62
+                        if app_running:
+                            node["status"] = "ONLINE"
+                            node["latency"] = 1.0
+                            node["rssi"] = -62
+                        else:
+                            node["status"] = "OFFLINE"
+                            node["latency"] = 0.0
+                            node["rssi"] = -95
                         continue
 
                     # 2. Remote Node Physical Network Link Heartbeat & Topology Audit (Decoupled 15s Buffer)
                     last_active = self.network_activity.get(ip, self.node_activity.get(ip, 0.0))
                     offline_timeout = self._get_node_offline_timeout()
-                    if (now - last_active) <= offline_timeout:
+                    if app_running and (now - last_active) <= offline_timeout and last_active > 0.0:
                         node["status"] = "ONLINE"
                         node["latency"] = 8.5
                         node["rssi"] = -68
