@@ -375,7 +375,7 @@ class TelemetryDataProvider:
                         return float(val)
         except Exception:
             pass
-        return 10.0
+        return 60.0
 
     def _ping_device(self, ip):
         """
