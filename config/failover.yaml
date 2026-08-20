@@ -15,7 +15,7 @@ failover:
 
   # Node application heartbeat offline timeout threshold (seconds)
   # Provides blackout buffer during RF hardware mode switch role handovers
-  node_offline_timeout_seconds: 10.0
+  node_offline_timeout_seconds: 60.0
 
   # Priority queue for Master AP election hierarchy (highest priority first)
   # When primary Master AP (GCS-01 / UGV-01) drops offline, the first online candidate

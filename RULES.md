@@ -69,3 +69,16 @@
 - **Automated Testing**: Every code change must pass all automated test scripts in `test/` (`test_zenoh.py`, `test_realtime_bandwidth.py`, `test_congestion_controller.py`, `test_dashboard_server.py`, `test_manage_rules.py`).
 - **Semantic Versioning**: All release tags must follow `vX.Y.Z` semantic versioning guidelines.
 - **Manual Approval Directive**: Code must NEVER be pushed to GitHub (`git push`) automatically without explicit manual user approval following local verification.
+
+---
+
+## RULE 8: Mandatory Release History Synchronization & Documentation Policy
+- **Itemized Release History**: Every software release tag (`vX.Y.Z`) MUST contain an itemized, line-by-line version control entry in `README.md` documenting all feature additions, parameter updates, architectural refactors, and bug fixes before git commits are finalized or tags are created.
+- **Pre-Push Documentation Audit**: Git tags MUST NOT be pushed to remote repositories (`git push origin --tags`) without verified release history alignment in `README.md`.
+
+---
+
+## RULE 9: Mandatory Version Release Documentation & Deprecation Governance Policy
+- **Mandatory README Update Per Version**: Every version update MUST update `README.md` with explicit release notes detailing configuration changes (e.g., `node_offline_timeout_seconds` updated to 60.0 seconds).
+- **Explicit Version Deprecation Notice**: Non-recommended or experimental interim versions (such as `v5.2.0`, `v5.3.0`, and `v5.4.0`) MUST be explicitly marked as **NOT RECOMMENDED / DEPRECATED** in the `README.md` version control release table.
+

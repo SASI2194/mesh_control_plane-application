@@ -310,7 +310,7 @@ class TelemetryDataProvider:
             time.sleep(1.0)
 
     def _get_node_offline_timeout(self):
-        """Loads node_offline_timeout_seconds from config/failover.yaml (default: 10.0s)."""
+        """Loads node_offline_timeout_seconds from config/failover.yaml (default: 60.0s)."""
         try:
             import yaml
             from pathlib import Path
@@ -323,7 +323,7 @@ class TelemetryDataProvider:
                         return float(val)
         except Exception:
             pass
-        return 10.0
+        return 60.0
 
     def _ping_device(self, ip):
         """
