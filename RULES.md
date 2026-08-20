@@ -82,3 +82,10 @@
 - **Mandatory README Update Per Version**: Every version update MUST update `README.md` with explicit release notes detailing configuration changes (e.g., `node_offline_timeout_seconds` updated to 60.0 seconds).
 - **Explicit Version Deprecation Notice**: Non-recommended or experimental interim versions (such as `v5.2.0`, `v5.3.0`, and `v5.4.0`) MUST be explicitly marked as **NOT RECOMMENDED / DEPRECATED** in the `README.md` version control release table.
 
+---
+
+## RULE 10: Mandatory User Approval Directive for Network & Zenoh Configuration Files
+- **Strict User Approval Requirement**: Modifying, editing, or re-configuring any Zenoh configuration file (`config/zenoh/zenoh_peer_tcp.json5`, `config/zenoh/zenoh_router_tcp.json5`, `.json`, `.json5`) or transport session definitions (`PEER_CONFIG`) is strictly prohibited without explicit prior user review and approval.
+- **Unsanctioned Config Revert Policy**: If any network configuration file or `.json5` file is modified without explicit user authorization, the change MUST be immediately reverted back to its previous authorized state.
+
+
