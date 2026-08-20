@@ -42,19 +42,20 @@ class SchedulerLogger:
     def _reset_log_files(self):
         """Erases previous log contents and writes clean headers on script startup."""
         with open(self.csv_logfile, "w", encoding="utf-8") as f:
-            f.write("Timestamp,Topic_ID,Topic_Name,Priority,Role,Tx_Rate_Hz,Tx_Msg_Size,Tx_Live_Mbps,Rx_Rate_Hz,Rx_Msg_Size,Rx_Live_Mbps,Diff_Mbps,Delivery_Pct,Admission_Status,Lossless_Verification\n")
+            f.write("Timestamp,Topic_ID,Topic_Name,Priority,Role,Tx_Rate_Hz,Tx_Msg_Size,Publisher_Tx_Mbps,Rx_Rate_Hz,Rx_Msg_Size,Subscriber_Rx_Mbps,Diff_Mbps,Delivery_Pct,Admission_Status,Lossless_Verification\n")
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(self.text_logfile, "w", encoding="utf-8") as f:
-            f.write(f"===================================================================================\n")
-            f.write(f" Mesh Control Plane Priority Scheduler & Dual Tx/Rx Differential Log (Session: {now_str})\n")
-            f.write(f"===================================================================================\n\n")
+            f.write(f"===================================================================================================\n")
+            f.write(f" Mesh Control Plane Priority Scheduler Log — Publisher Transmitted (Tx) & Subscriber Received (Rx)\n")
+            f.write(f" Session Started: {now_str}\n")
+            f.write(f"===================================================================================================\n\n")
 
     def log_snapshot(self, registry, scheduler, congestion_controller=None):
         """
-        Captures and writes current Tx/Rx Role rates, Differential Mbps, Delivery efficiency,
-        and Rule 3 cross-verified Lossless Verification status to logs/priority_scheduler.csv
-        and logs/priority_scheduler.log.
+        Captures and writes current Publisher (Tx) transmitted rates, Subscriber (Rx) received rates,
+        Differential Mbps, Delivery efficiency, and Rule 3 cross-verified Lossless Verification status
+        to logs/priority_scheduler.csv and logs/priority_scheduler.log.
         """
         with self.lock:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -68,6 +69,18 @@ class SchedulerLogger:
             shedding_level = getattr(congestion_obj, "shedding_level", 0) if congestion_obj else 0
             last_loss = getattr(congestion_obj, "last_loss_percent", 0.0) if congestion_obj else 0.0
 
+            total_tx_mbps = 0.0
+            total_rx_mbps = 0.0
+
+            # Pre-calculate totals across all topics
+            for name, topic in topics.items():
+                tx_m = topic.get("tx_mbps", 0.0)
+                rx_m = topic.get("rx_mbps", 0.0)
+                total_tx_mbps += tx_m
+                total_rx_mbps += rx_m
+
+            total_diff_mbps = round(total_tx_mbps - total_rx_mbps, 1)
+
             # 1. Append to structured CSV Log
             with open(self.csv_logfile, "a", encoding="utf-8") as csv_f:
                 for name, topic in sorted(topics.items(), key=lambda x: (x[1]["priority"], x[1]["id"])):
@@ -75,7 +88,7 @@ class SchedulerLogger:
                     role = topic.get("role", "IDLE")
 
                     tx_hz = topic.get("tx_hz", 0.0)
-                    tx_mbps = topic.get("tx_mbps", 0.0) if is_allowed else 0.0
+                    tx_mbps = topic.get("tx_mbps", 0.0)
                     tx_size = topic.get("tx_data_size_str", "0 B") if tx_hz > 0.0 else "0 B"
 
                     rx_hz = topic.get("rx_hz", 0.0)
@@ -121,18 +134,19 @@ class SchedulerLogger:
 
             # 2. Append to human-readable Text Log
             with open(self.text_logfile, "a", encoding="utf-8") as txt_f:
-                txt_f.write(f"[{now_str}] PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT\n")
-                txt_f.write(f"Capacity: {avail_bw:.1f} Mbps | Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps\n")
-                txt_f.write("-" * 115 + "\n")
-                txt_f.write(f"{'ID':<4} {'Topic Name':<12} {'Pri':<5} {'Role':<10} {'Tx Hz':<8} {'Tx Mbps':<9} {'Rx Hz':<8} {'Rx Mbps':<9} {'Diff':<8} {'Delivery':<10} {'Status':<9} {'Verification':<16}\n")
-                txt_f.write("-" * 115 + "\n")
+                txt_f.write(f"[{now_str}] PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT — PUBLISHER (Tx) vs SUBSCRIBER (Rx) BANDWIDTH\n")
+                txt_f.write(f"Network Capacity: {avail_bw:.1f} Mbps | Admitted Used: {used_bw:.1f} Mbps | Remaining: {max(0, avail_bw - used_bw):.1f} Mbps\n")
+                txt_f.write(f"Publisher Transmitted (Tx): {total_tx_mbps:.1f} Mbps | Subscriber Received (Rx): {total_rx_mbps:.1f} Mbps | Total Diff: {total_diff_mbps:.1f} Mbps\n")
+                txt_f.write("-" * 135 + "\n")
+                txt_f.write(f"{'ID':<4} {'Topic Name':<12} {'Pri':<5} {'Role':<10} {'Tx Hz':<8} {'Publisher Tx Mbps':<18} {'Rx Hz':<8} {'Subscriber Rx Mbps':<19} {'Diff Mbps':<10} {'Delivery':<10} {'Status':<9} {'Verification':<16}\n")
+                txt_f.write("-" * 135 + "\n")
 
                 for name, topic in sorted(topics.items(), key=lambda x: (x[1]["priority"], x[1]["id"])):
                     is_allowed = name in allowed_topics
                     role = topic.get("role", "IDLE")
 
                     tx_hz = topic.get("tx_hz", 0.0)
-                    tx_mbps = topic.get("tx_mbps", 0.0) if is_allowed else 0.0
+                    tx_mbps = topic.get("tx_mbps", 0.0)
 
                     rx_hz = topic.get("rx_hz", 0.0)
                     rx_mbps = topic.get("rx_mbps", 0.0)
@@ -169,8 +183,8 @@ class SchedulerLogger:
 
                     txt_f.write(
                         f"{topic['id']:<4} {topic['name']:<12} P{topic['priority']:<4} {role:<10} "
-                        f"{tx_hz:<8.1f} {tx_mbps:<9.1f} {rx_hz:<8.1f} {rx_mbps:<9.1f} "
-                        f"{diff_mbps:<8.1f} {delivery_pct:<9.1f}% {status_str:<9} {verif_str:<16}\n"
+                        f"{tx_hz:<8.1f} {tx_mbps:<18.1f} {rx_hz:<8.1f} {rx_mbps:<19.1f} "
+                        f"{diff_mbps:<10.1f} {delivery_pct:<9.1f}% {status_str:<9} {verif_str:<16}\n"
                     )
 
-                txt_f.write("=" * 115 + "\n\n")
+                txt_f.write("=" * 135 + "\n\n")
