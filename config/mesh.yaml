@@ -18,16 +18,6 @@ zenoh:
   
   mode: peer
 
-radio:
-
-  host: 192.168.3.3
-
-  username: mesh
-
-  password: mesh123
-
-  api_port: 8728
-
 network:
 
   mesh_subnet_prefix: "192.168.3."
