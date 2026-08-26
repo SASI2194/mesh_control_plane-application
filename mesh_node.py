@@ -76,6 +76,7 @@ class ROSPublisherBridge:
 
     def __init__(self, registry):
         self.publishers = {}
+        self.topic_types = {}
         self.node = None
         self.last_republished_time = {}
         self.republished_lock = Lock()
@@ -90,10 +91,12 @@ class ROSPublisherBridge:
                 msg_class = get_message_class(type_str)
                 pub = self.node.create_publisher(msg_class, topic_name, 10)
                 self.publishers[topic_name] = pub
+                self.topic_types[topic_name] = msg_class
 
             # Register native ROS 2 topic /mesh_wifi_telemetry for inter-device radio status broadcast
             self.telemetry_pub = self.node.create_publisher(String, "/mesh_wifi_telemetry", 10)
             self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
+            self.topic_types["/mesh_wifi_telemetry"] = String
 
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
@@ -128,8 +131,9 @@ class ROSPublisherBridge:
                 self.last_republished_time[ros_topic] = time.time()
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
+            msg_class = self.topic_types.get(ros_topic, String)
             try:
-                msg = deserialize_message(raw_payload, String)
+                msg = deserialize_message(raw_payload, msg_class)
             except Exception:
                 msg = String()
                 msg.data = raw_payload.decode("utf-8", errors="ignore")
