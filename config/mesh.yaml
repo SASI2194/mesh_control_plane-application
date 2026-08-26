@@ -1,8 +1,8 @@
 node:
 
-  id: AGV01
+  id: UGV01
 
-  type: AGV
+  type: UGV
 
 router:
 
@@ -28,7 +28,7 @@ network:
 
   configured_gcs: 3
 
-  configured_agv: 6
+  configured_ugv: 6
 
   minimum_operational_nodes: 2
 
