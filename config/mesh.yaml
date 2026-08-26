@@ -58,7 +58,7 @@ logging:
 
 mesh:
 
-  version: 2.0
+  version: 60.0
 
   control_topic_prefix: "/mesh"
 
