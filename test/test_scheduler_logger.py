@@ -40,8 +40,8 @@ class TestSchedulerLogger(unittest.TestCase):
     def test_log_snapshot_creation(self):
         # Update metrics with test data
         metrics = {
-            "/topic_01": {"mbps": 40.0, "hz": 50.0, "data_size_str": "100.0 KB"},
-            "/topic_02": {"mbps": 60.0, "hz": 30.0, "data_size_str": "250.0 KB"},
+            "/camera/camera/color/camera_info": {"mbps": 40.0, "hz": 50.0, "data_size_str": "100.0 KB"},
+            "/camera/camera/color/image_raw": {"mbps": 60.0, "hz": 30.0, "data_size_str": "250.0 KB"},
         }
         self.registry.update_measured_metrics(metrics)
 
@@ -54,7 +54,7 @@ class TestSchedulerLogger(unittest.TestCase):
         with open(txt_path, "r", encoding="utf-8") as f:
             txt_content = f.read()
             self.assertIn("PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT", txt_content)
-            self.assertIn("/topic_01", txt_content)
+            self.assertIn("/camera/camera/color/camera_info", txt_content)
 
         # Verify CSV log creation
         csv_path = os.path.join(self.test_dir, "priority_scheduler.csv")
@@ -63,7 +63,7 @@ class TestSchedulerLogger(unittest.TestCase):
             csv_lines = f.readlines()
             self.assertGreaterEqual(len(csv_lines), 2)
             self.assertIn("Timestamp,Topic_ID,Topic_Name", csv_lines[0])
-            self.assertIn("/topic_01", csv_lines[1])
+            self.assertIn("/camera/camera/color/camera_info", csv_lines[1])
             self.assertIn("ALLOWED", csv_lines[1])
 
     def tearDown(self):

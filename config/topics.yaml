@@ -1,101 +1,121 @@
 topics:
 
   - id: 1
-    name: /topic_01
+    name: /camera/camera/color/camera_info
+    type: sensor_msgs/msg/CameraInfo
     priority: 1
     status: ALLOW
 
   - id: 2
-    name: /topic_02
+    name: /camera/camera/color/image_raw
+    type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
   - id: 3
-    name: /topic_03
+    name: /camera/camera/color/image_raw/compressed
+    type: sensor_msgs/msg/CompressedImage
     priority: 1
     status: ALLOW
 
   - id: 4
-    name: /topic_04
+    name: /camera/camera/color/image_raw/compressedDepth
+    type: sensor_msgs/msg/CompressedImage
     priority: 1
     status: ALLOW
 
   - id: 5
-    name: /topic_05
+    name: /camera/camera/color/image_raw/theora
+    type: theora_image_transport/msg/Packet
     priority: 2
     status: ALLOW
 
   - id: 6
-    name: /topic_06
+    name: /camera/camera/color/metadata
+    type: realsense2_camera_msgs/msg/Metadata
     priority: 2
     status: ALLOW
 
   - id: 7
-    name: /topic_07
+    name: /camera/camera/depth/camera_info
+    type: sensor_msgs/msg/CameraInfo
     priority: 2
-    status: ALLOW
+    status: DENY
 
   - id: 8
-    name: /topic_08
+    name: /camera/camera/depth/image_rect_raw
+    type: sensor_msgs/msg/Image
     priority: 4
-    status: ALLOW
+    status: DENY
 
   - id: 9
-    name: /topic_09
+    name: /camera/camera/depth/image_rect_raw/compressed
+    type: sensor_msgs/msg/CompressedImage
     priority: 3
-    status: ALLOW
+    status: DENY
 
   - id: 10
-    name: /topic_10
+    name: /camera/camera/depth/image_rect_raw/compressedDepth
+    type: sensor_msgs/msg/CompressedImage
     priority: 3
-    status: ALLOW
+    status: DENY
 
   - id: 11
-    name: /topic_11
+    name: /camera/camera/depth/image_rect_raw/theora
+    type: theora_image_transport/msg/Packet
     priority: 2
-    status: ALLOW
+    status: DENY
 
   - id: 12
-    name: /topic_12
+    name: /camera/camera/depth/metadata
+    type: realsense2_camera_msgs/msg/Metadata
     priority: 3
-    status: ALLOW
+    status: DENY
 
   - id: 13
-    name: /topic_13
+    name: /camera/camera/extrinsics/depth_to_color
+    type: realsense2_camera_msgs/msg/Extrinsics
     priority: 4
-    status: ALLOW
+    status: DENY
 
   - id: 14
     name: /topic_14
+    type: std_msgs/msg/String
     priority: 4
-    status: ALLOW
+    status: DENY
 
   - id: 15
     name: /topic_15
+    type: std_msgs/msg/String
     priority: 4
-    status: ALLOW
+    status: DENY
 
   - id: 16
     name: /topic_16
+    type: std_msgs/msg/String
     priority: 4
-    status: ALLOW
+    status: DENY
 
   - id: 17
     name: /topic_17
+    type: std_msgs/msg/String
     priority: 5
-    status: ALLOW
+    status: DENY
 
   - id: 18
     name: /topic_18
+    type: std_msgs/msg/String
     priority: 5
-    status: ALLOW
+    status: DENY
 
   - id: 19
     name: /topic_19
+    type: std_msgs/msg/String
     priority: 5
-    status: ALLOW
+    status: DENY
 
   - id: 20
     name: /topic_20
+    type: std_msgs/msg/String
     priority: 5
-    status: ALLOW
+    status: DENY

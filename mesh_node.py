@@ -44,6 +44,29 @@ from core.network_models import MeshSample
 PEER_CONFIG = "/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5"
 
 
+def get_message_class(type_str: str):
+    """
+    Dynamically imports ROS 2 message class from type string.
+    Examples:
+        'std_msgs/msg/String' -> std_msgs.msg.String
+        'sensor_msgs/msg/Image' -> sensor_msgs.msg.Image
+        'sensor_msgs/msg/CameraInfo' -> sensor_msgs.msg.CameraInfo
+    """
+    try:
+        import importlib
+        parts = type_str.replace('/', '.').split('.')
+        if len(parts) >= 3:
+            pkg = parts[0]
+            sub = parts[1]
+            cls_name = parts[2]
+            mod = importlib.import_module(f"{pkg}.{sub}")
+            return getattr(mod, cls_name)
+    except Exception:
+        pass
+    from std_msgs.msg import String
+    return String
+
+
 class ROSPublisherBridge:
     """
     Native ROS 2 Publisher Bridge.
@@ -62,8 +85,10 @@ class ROSPublisherBridge:
             if not rclpy.ok():
                 rclpy.init()
             self.node = rclpy.create_node("mesh_control_plane_receiver")
-            for topic_name in registry.all_topics().keys():
-                pub = self.node.create_publisher(String, topic_name, 10)
+            for topic_name, topic_info in registry.all_topics().items():
+                type_str = topic_info.get("type", "std_msgs/msg/String")
+                msg_class = get_message_class(type_str)
+                pub = self.node.create_publisher(msg_class, topic_name, 10)
                 self.publishers[topic_name] = pub
 
             # Register native ROS 2 topic /mesh_wifi_telemetry for inter-device radio status broadcast

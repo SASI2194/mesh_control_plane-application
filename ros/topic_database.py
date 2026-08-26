@@ -27,6 +27,7 @@ class TopicRegistry:
             # Store status (ALLOW/DENY) and live measured dynamic metrics
             t_copy = dict(topic)
             t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
+            t_copy["type"] = str(topic.get("type", "std_msgs/msg/String"))
             t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))
             t_copy["measured_bandwidth"] = 0.0  # 0.0 Mbps until samples enter mesh
             t_copy["hz"] = 0.0
