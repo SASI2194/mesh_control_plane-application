@@ -50,21 +50,29 @@ class KeyMapper:
 
     def zenoh_to_ros(self, zenoh_key: str) -> str:
         """
-        Convert
-
-            40/topic_01/sensor_msgs::...  OR  filtered/topic_01
-
-        into
-
-            /topic_01
+        Convert Zenoh transport key (e.g. 'filtered/camera/camera/color/image_raw'
+        or '55/camera/camera/color/image_raw/**') into clean ROS 2 topic name (e.g. '/camera/camera/color/image_raw').
         """
+        if not zenoh_key:
+            return ""
 
-        parts = zenoh_key.split("/")
-        for part in parts:
-            if part.startswith("topic_"):
-                return "/" + part
+        clean_key = zenoh_key
+        if clean_key.startswith("filtered/"):
+            clean_key = clean_key[len("filtered/"):]
+        elif "/" in clean_key:
+            parts = clean_key.split("/", 1)
+            if parts[0].isdigit():
+                clean_key = parts[1]
 
-        return ""
+        if clean_key.endswith("/**"):
+            clean_key = clean_key[:-3]
+        elif clean_key.endswith("/*"):
+            clean_key = clean_key[:-2]
+
+        if not clean_key.startswith("/"):
+            clean_key = "/" + clean_key
+
+        return clean_key
 
     #####################################################################
 

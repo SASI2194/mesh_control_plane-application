@@ -4,25 +4,25 @@ topics:
     name: /camera/camera/color/camera_info
     type: sensor_msgs/msg/CameraInfo
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 2
     name: /camera/camera/color/image_raw
     type: sensor_msgs/msg/Image
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 3
     name: /camera/camera/color/image_raw/compressed
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 4
     name: /camera/camera/color/image_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 5
     name: /camera/camera/color/image_raw/theora

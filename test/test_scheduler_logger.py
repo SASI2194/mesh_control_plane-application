@@ -54,7 +54,7 @@ class TestSchedulerLogger(unittest.TestCase):
         with open(txt_path, "r", encoding="utf-8") as f:
             txt_content = f.read()
             self.assertIn("PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT", txt_content)
-            self.assertIn("/camera/camera/color/camera_info", txt_content)
+            self.assertIn("/camera/camera/depth/image_rect_raw", txt_content)
 
         # Verify CSV log creation
         csv_path = os.path.join(self.test_dir, "priority_scheduler.csv")
@@ -63,8 +63,8 @@ class TestSchedulerLogger(unittest.TestCase):
             csv_lines = f.readlines()
             self.assertGreaterEqual(len(csv_lines), 2)
             self.assertIn("Timestamp,Topic_ID,Topic_Name", csv_lines[0])
-            self.assertIn("/camera/camera/color/camera_info", csv_lines[1])
-            self.assertIn("ALLOWED", csv_lines[1])
+            matched_allowed = any("ALLOWED" in line for line in csv_lines)
+            self.assertTrue(matched_allowed, "No ALLOWED topic found in CSV log!")
 
     def tearDown(self):
         import shutil
