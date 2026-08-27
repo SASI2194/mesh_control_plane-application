@@ -147,6 +147,70 @@ class ROSPublisherBridge:
             return (time.time() - last_t) < window_sec
 
 
+class ROSSubscriberBridge:
+    """
+    Native ROS 2 Subscriber Bridge.
+    Subscribes to native ROS 2 topics published by external ROS 2 nodes (e.g. RealSense camera),
+    serializes their payloads, and passes them to mesh_node's on_local_ros_message handler for Zenoh mesh transmission.
+    """
+
+    def __init__(self, registry, on_ros_msg_cb, node=None):
+        self.subscribers = {}
+        self.on_ros_msg_cb = on_ros_msg_cb
+        self.node = node
+        try:
+            import rclpy
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+            from rclpy.serialization import serialize_message
+            self.serialize_message = serialize_message
+
+            if not self.node:
+                if not rclpy.ok():
+                    rclpy.init()
+                self.node = rclpy.create_node("mesh_control_plane_transmitter")
+                self.thread = Thread(target=self._spin_loop, daemon=True)
+                self.thread.start()
+
+            qos_profile = QoSProfile(
+                depth=10,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST
+            )
+
+            for topic_name, topic_info in registry.all_topics().items():
+                type_str = topic_info.get("type", "std_msgs/msg/String")
+                msg_class = get_message_class(type_str)
+
+                def make_cb(t_name):
+                    return lambda msg: self._handle_ros_message(t_name, msg)
+
+                sub = self.node.create_subscription(
+                    msg_class,
+                    topic_name,
+                    make_cb(topic_name),
+                    qos_profile
+                )
+                self.subscribers[topic_name] = sub
+            print("[INFO] ROS 2 Native Subscriber Bridge active (Listening to RealSense & local ROS nodes)")
+        except Exception as e:
+            print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
+
+    def _spin_loop(self):
+        import rclpy
+        try:
+            if self.node:
+                rclpy.spin(self.node)
+        except Exception:
+            pass
+
+    def _handle_ros_message(self, topic_name, msg):
+        try:
+            payload_bytes = self.serialize_message(msg)
+            self.on_ros_msg_cb(topic_name, payload_bytes)
+        except Exception:
+            pass
+
+
 class MeshNode:
 
     #####################################################################
@@ -275,6 +339,7 @@ class MeshNode:
         )
 
         self.receiver.start()
+        self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=self.ros_bridge.node if self.ros_bridge else None)
 
         #
         # Start 1 Hz Control Plane Application Heartbeat Thread
@@ -490,6 +555,37 @@ class MeshNode:
             self.forwarding.forward(
                 mesh_sample
             )
+        else:
+            print(f"[BLOCK ] {mesh_sample.key}")
+
+    def on_local_ros_message(self, ros_topic, payload_bytes):
+        # Ignore local re-published samples received from mesh receiver or ROSPublisherBridge
+        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
+        with self.republished_lock:
+            if payload_hash in self.republished_hashes:
+                self.republished_hashes.remove(payload_hash)
+                return
+
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
+            return
+
+        # Record Publisher (Tx) metrics for local ROS topic sample
+        seq_num = self.bw_monitor.record_tx_sample(ros_topic, len(payload_bytes))
+
+        # Perform Rule 2 Admission Control verification against live scheduler allowed set
+        mesh_sample = MeshSample(
+            key=ros_topic,
+            payload=payload_bytes,
+            allowed=(ros_topic in self.scheduler.allowed_topics),
+            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5
+        )
+
+        # Prepend 20-byte binary header with origin IP
+        mesh_sample.payload = MeshSample.pack_payload(seq_num=seq_num, timestamp=mesh_sample.timestamp, raw_payload=payload_bytes, origin_ip=self.my_ip)
+
+        if mesh_sample.allowed:
+            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
+            self.forwarding.forward(mesh_sample)
         else:
             print(f"[BLOCK ] {mesh_sample.key}")
 
