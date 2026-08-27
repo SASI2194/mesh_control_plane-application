@@ -16,13 +16,13 @@ topics:
     name: /camera/camera/color/image_raw/compressed
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 4
     name: /camera/camera/color/image_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 5
     name: /camera/camera/color/image_raw/theora
@@ -39,25 +39,25 @@ topics:
   - id: 7
     name: /camera/camera/depth/camera_info
     type: sensor_msgs/msg/CameraInfo
-    priority: 2
+    priority: 1
     status: ALLOW
 
   - id: 8
     name: /camera/camera/depth/image_rect_raw
     type: sensor_msgs/msg/Image
-    priority: 4
+    priority: 1
     status: ALLOW
 
   - id: 9
     name: /camera/camera/depth/image_rect_raw/compressed
     type: sensor_msgs/msg/CompressedImage
-    priority: 3
+    priority: 1
     status: ALLOW
 
   - id: 10
     name: /camera/camera/depth/image_rect_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
-    priority: 3
+    priority: 1
     status: ALLOW
 
   - id: 11
@@ -69,13 +69,13 @@ topics:
   - id: 12
     name: /camera/camera/depth/metadata
     type: realsense2_camera_msgs/msg/Metadata
-    priority: 3
+    priority: 2
     status: ALLOW
 
   - id: 13
     name: /camera/camera/extrinsics/depth_to_color
     type: realsense2_camera_msgs/msg/Extrinsics
-    priority: 4
+    priority: 2
     status: ALLOW
 
   - id: 14
