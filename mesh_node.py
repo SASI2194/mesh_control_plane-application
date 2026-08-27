@@ -17,10 +17,9 @@ import socket
 import time
 from threading import Thread, Lock
 
-# Enforce Rule 1: Restrict local ROS 2 DDS middleware to localhost loopback (127.0.0.1)
-# Strictly prevents ROS 2 DDS from leaking multicast traffic onto outer LAN/internet interfaces (eth1 / 192.168.12.x)
-os.environ["ROS_LOCALHOST_ONLY"] = "1"
-os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
+# Respect user environment ROS_LOCALHOST_ONLY setting (defaults to 0 if not set)
+if "ROS_LOCALHOST_ONLY" not in os.environ:
+    os.environ["ROS_LOCALHOST_ONLY"] = "0"
 
 from mesh_transport.zenoh_session import ZenohSession
 from mesh_transport.topic_receiver import TopicReceiver
