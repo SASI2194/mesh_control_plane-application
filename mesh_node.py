@@ -140,11 +140,10 @@ class ROSPublisherBridge:
             msg_class = self.topic_types.get(ros_topic, String)
             try:
                 msg = deserialize_message(raw_payload, msg_class)
-            except Exception:
-                msg = String()
-                msg.data = raw_payload.decode("utf-8", errors="ignore")
-            self.publishers[ros_topic].publish(msg)
-        except Exception:
+                self.publishers[ros_topic].publish(msg)
+            except Exception as ex:
+                print(f"[RE-PUBLISH ERROR] Deserialization failed for {ros_topic} ({msg_class.__name__}): {ex}")
+        except Exception as e:
             pass
 
     def is_recently_republished(self, ros_topic, window_sec=0.2):
