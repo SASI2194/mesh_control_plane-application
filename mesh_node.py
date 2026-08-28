@@ -537,29 +537,19 @@ class MeshNode:
         if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
             return
 
-        # Record Publisher (Tx) metrics for local ROS topic sample
-        seq_num = self.bw_monitor.record_tx_sample(ros_topic, len(payload_bytes))
-
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
         mesh_sample = MeshSample(
             key=ros_topic,
             payload=payload_bytes,
             allowed=(ros_topic in self.scheduler.allowed_topics),
-            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5
+            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5,
+            sequence_number=seq_num,
+            origin_ip=self.my_ip
         )
-
-        # Prepend 20-byte binary header with origin IP
-        mesh_sample.payload = MeshSample.pack_payload(seq_num=seq_num, timestamp=mesh_sample.timestamp, raw_payload=payload_bytes, origin_ip=self.my_ip)
-
-        #
-        # Debug & Forwarding
-        #
 
         if mesh_sample.allowed:
             print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
-            self.forwarding.forward(
-                mesh_sample
-            )
+            self.forwarding.forward(mesh_sample)
         else:
             print(f"[BLOCK ] {mesh_sample.key}")
 
@@ -582,11 +572,10 @@ class MeshNode:
             key=ros_topic,
             payload=payload_bytes,
             allowed=(ros_topic in self.scheduler.allowed_topics),
-            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5
+            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5,
+            sequence_number=seq_num,
+            origin_ip=self.my_ip
         )
-
-        # Prepend 20-byte binary header with origin IP
-        mesh_sample.payload = MeshSample.pack_payload(seq_num=seq_num, timestamp=mesh_sample.timestamp, raw_payload=payload_bytes, origin_ip=self.my_ip)
 
         if mesh_sample.allowed:
             print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
