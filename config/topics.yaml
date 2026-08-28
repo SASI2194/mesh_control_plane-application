@@ -52,7 +52,7 @@ topics:
     name: /camera/camera/depth/image_rect_raw/compressed
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 10
     name: /camera/camera/depth/image_rect_raw/compressedDepth
@@ -64,7 +64,7 @@ topics:
     name: /camera/camera/depth/image_rect_raw/theora
     type: theora_image_transport/msg/Packet
     priority: 2
-    status: ALLOW
+    status: DENY
 
   - id: 12
     name: /camera/camera/depth/metadata
