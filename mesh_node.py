@@ -20,6 +20,8 @@ from threading import Thread, Lock
 # Enforce RULE 1: Exclusive Control Plane Transport Policy (Localhost DDS Isolation)
 os.environ["ROS_LOCALHOST_ONLY"] = "1"
 os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
+if "ROS_DOMAIN_ID" not in os.environ:
+    os.environ["ROS_DOMAIN_ID"] = "55"
 
 from mesh_transport.zenoh_session import ZenohSession
 from mesh_transport.topic_receiver import TopicReceiver
@@ -215,8 +217,8 @@ class ROSSubscriberBridge:
         try:
             payload_bytes = self.serialize_message(msg)
             self.on_ros_msg_cb(topic_name, payload_bytes)
-        except Exception:
-            pass
+        except Exception as ex:
+            print(f"[CAPTURE ERROR] Failed to capture {topic_name}: {ex}")
 
 
 class MeshNode:
