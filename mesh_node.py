@@ -88,8 +88,13 @@ class ROSPublisherBridge:
             if not rclpy.ok():
                 rclpy.init()
             self.node = rclpy.create_node("mesh_control_plane_receiver")
-            from rclpy.qos import qos_profile_sensor_data
-            sensor_qos = qos_profile_sensor_data
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+            sensor_qos = QoSProfile(
+                depth=10,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.VOLATILE,
+                history=HistoryPolicy.KEEP_LAST
+            )
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
