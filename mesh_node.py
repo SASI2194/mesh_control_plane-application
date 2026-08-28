@@ -88,12 +88,8 @@ class ROSPublisherBridge:
             if not rclpy.ok():
                 rclpy.init()
             self.node = rclpy.create_node("mesh_control_plane_receiver")
-            sensor_qos = QoSProfile(
-                depth=10,
-                reliability=ReliabilityPolicy.BEST_EFFORT,
-                durability=DurabilityPolicy.VOLATILE,
-                history=HistoryPolicy.KEEP_LAST
-            )
+            from rclpy.qos import qos_profile_sensor_data
+            sensor_qos = qos_profile_sensor_data
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -178,7 +174,7 @@ class ROSSubscriberBridge:
                 self.thread = Thread(target=self._spin_loop, daemon=True)
                 self.thread.start()
 
-            from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
+            from rclpy.qos import qos_profile_sensor_data
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -186,22 +182,14 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # 1. Best Effort subscriber for streaming sensor topics
-                sub_be = self.node.create_subscription(
+                sub = self.node.create_subscription(
                     msg_class,
                     topic_name,
                     make_cb(topic_name),
                     qos_profile_sensor_data
                 )
-                # 2. Reliable subscriber for control/info topics
-                sub_rel = self.node.create_subscription(
-                    msg_class,
-                    topic_name,
-                    make_cb(topic_name),
-                    QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
-                )
-                self.subscribers[topic_name] = (sub_be, sub_rel)
-            print("[INFO] ROS 2 Native Subscriber Bridge active (Dual-QoS Listening: Best Effort & Reliable)")
+                self.subscribers[topic_name] = sub
+            print("[INFO] ROS 2 Native Subscriber Bridge active (Listening with qos_profile_sensor_data)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
