@@ -68,10 +68,6 @@ def get_message_class(type_str: str):
     return String
 
 
-class ROSPublisherBridge:
-    """
-    Native ROS 2 Publisher Bridge.
-    Declares native ROS 2 publishers for all admitted topics so they are registered in the ROS 2 node graph,
 IP_TO_NAMESPACE = {
     "192.168.3.65": "ugv01",
     "192.168.3.66": "ugv02",
