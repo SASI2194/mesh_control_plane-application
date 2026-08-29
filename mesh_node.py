@@ -72,7 +72,28 @@ class ROSPublisherBridge:
     """
     Native ROS 2 Publisher Bridge.
     Declares native ROS 2 publishers for all admitted topics so they are registered in the ROS 2 node graph,
-    visible in 'ros2 topic list', and receivable by any local ROS 2 subscriber node.
+IP_TO_NAMESPACE = {
+    "192.168.3.65": "ugv01",
+    "192.168.3.66": "ugv02",
+    "192.168.3.67": "ugv03",
+    "192.168.3.68": "ugv04",
+    "192.168.3.69": "ugv05",
+    "192.168.3.70": "ugv06",
+    "192.168.3.71": "gcs01",
+    "192.168.3.72": "gcs02",
+    "192.168.3.73": "gcs03",
+}
+
+def get_device_namespace(ip_str):
+    if not ip_str:
+        return None
+    return IP_TO_NAMESPACE.get(ip_str.strip())
+
+
+class ROSPublisherBridge:
+    """
+    Native ROS 2 Publisher Bridge.
+    Subscribes to Zenoh mesh transport topics and re-publishes incoming payloads onto local ROS 2 DDS graph.
     """
 
     def __init__(self, registry):
@@ -88,7 +109,6 @@ class ROSPublisherBridge:
             if not rclpy.ok():
                 rclpy.init()
             self.node = rclpy.create_node("mesh_control_plane_receiver")
-            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
             sensor_qos = QoSProfile(
                 depth=10,
                 reliability=ReliabilityPolicy.RELIABLE,
@@ -98,9 +118,17 @@ class ROSPublisherBridge:
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
+                # Base un-namespaced publisher
                 pub = self.node.create_publisher(msg_class, topic_name, sensor_qos)
                 self.publishers[topic_name] = pub
                 self.topic_types[topic_name] = msg_class
+
+                # Pre-register device-namespaced publishers for all fleet devices (e.g. /ugv01/camera/...)
+                for ns in IP_TO_NAMESPACE.values():
+                    ns_topic = f"/{ns}{topic_name}"
+                    ns_pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                    self.publishers[ns_topic] = ns_pub
+                    self.topic_types[ns_topic] = msg_class
 
             # Register native ROS 2 topic /mesh_wifi_telemetry for inter-device radio status broadcast
             self.telemetry_pub = self.node.create_publisher(String, "/mesh_wifi_telemetry", 10)
@@ -109,7 +137,7 @@ class ROSPublisherBridge:
 
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
-            print("[INFO] ROS 2 Native Publisher Bridge active (/mesh_control_plane_receiver & /mesh_wifi_telemetry)")
+            print("[INFO] ROS 2 Native Publisher Bridge active (Pre-registered fleet device namespaces: ugv01..ugv06, gcs01..gcs03)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 
@@ -132,60 +160,31 @@ class ROSPublisherBridge:
         except Exception:
             pass
 
-IP_TO_NAMESPACE = {
-    "192.168.3.65": "ugv01",
-    "192.168.3.66": "ugv02",
-    "192.168.3.67": "ugv03",
-    "192.168.3.68": "ugv04",
-    "192.168.3.69": "ugv05",
-    "192.168.3.70": "ugv06",
-    "192.168.3.71": "gcs01",
-    "192.168.3.72": "gcs02",
-    "192.168.3.73": "gcs03",
-}
-
-def get_device_namespace(ip_str):
-    if not ip_str:
-        return None
-    return IP_TO_NAMESPACE.get(ip_str.strip())
-
-
     def publish_message(self, ros_topic, raw_payload, origin_ip=None):
         if not self.node:
             return
         try:
-            with self.republished_lock:
-                self.last_republished_time[ros_topic] = time.time()
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
             msg_class = self.topic_types.get(ros_topic, String)
             msg = deserialize_message(raw_payload, msg_class)
 
-            # 1. Publish on base topic
-            if ros_topic in self.publishers:
-                self.publishers[ros_topic].publish(msg)
-
-            # 2. Automatically publish on Device Namespaced topic if origin_ip is provided
+            # Automatically publish on Device Namespaced topic if origin_ip is provided
             if origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
                     ns_topic = f"/{ns}{ros_topic}"
-                    if ns_topic not in self.publishers:
-                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-                        sensor_qos = QoSProfile(
-                            depth=10,
-                            reliability=ReliabilityPolicy.RELIABLE,
-                            durability=DurabilityPolicy.VOLATILE,
-                            history=HistoryPolicy.KEEP_LAST
-                        )
-                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
-                        self.publishers[ns_topic] = pub
-                        self.topic_types[ns_topic] = msg_class
-                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
+                    if ns_topic in self.publishers:
+                        self.publishers[ns_topic].publish(msg)
+                        with self.republished_lock:
+                            self.last_republished_time[ns_topic] = time.time()
+                    return
 
-                    self.publishers[ns_topic].publish(msg)
-                    with self.republished_lock:
-                        self.last_republished_time[ns_topic] = time.time()
+            # Fallback publish on base topic if no origin_ip
+            if ros_topic in self.publishers:
+                self.publishers[ros_topic].publish(msg)
+                with self.republished_lock:
+                    self.last_republished_time[ros_topic] = time.time()
         except Exception as ex:
             pass
 
