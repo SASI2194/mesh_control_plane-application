@@ -132,8 +132,26 @@ class ROSPublisherBridge:
         except Exception:
             pass
 
-    def publish_message(self, ros_topic, raw_payload):
-        if not self.node or ros_topic not in self.publishers:
+IP_TO_NAMESPACE = {
+    "192.168.3.65": "ugv01",
+    "192.168.3.66": "ugv02",
+    "192.168.3.67": "ugv03",
+    "192.168.3.68": "ugv04",
+    "192.168.3.69": "ugv05",
+    "192.168.3.70": "ugv06",
+    "192.168.3.71": "gcs01",
+    "192.168.3.72": "gcs02",
+    "192.168.3.73": "gcs03",
+}
+
+def get_device_namespace(ip_str):
+    if not ip_str:
+        return None
+    return IP_TO_NAMESPACE.get(ip_str.strip())
+
+
+    def publish_message(self, ros_topic, raw_payload, origin_ip=None):
+        if not self.node:
             return
         try:
             with self.republished_lock:
@@ -141,12 +159,34 @@ class ROSPublisherBridge:
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
             msg_class = self.topic_types.get(ros_topic, String)
-            try:
-                msg = deserialize_message(raw_payload, msg_class)
+            msg = deserialize_message(raw_payload, msg_class)
+
+            # 1. Publish on base topic
+            if ros_topic in self.publishers:
                 self.publishers[ros_topic].publish(msg)
-            except Exception as ex:
-                print(f"[RE-PUBLISH ERROR] Deserialization failed for {ros_topic} ({msg_class.__name__}): {ex}")
-        except Exception as e:
+
+            # 2. Automatically publish on Device Namespaced topic if origin_ip is provided
+            if origin_ip:
+                ns = get_device_namespace(origin_ip)
+                if ns:
+                    ns_topic = f"/{ns}{ros_topic}"
+                    if ns_topic not in self.publishers:
+                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+                        sensor_qos = QoSProfile(
+                            depth=10,
+                            reliability=ReliabilityPolicy.RELIABLE,
+                            durability=DurabilityPolicy.VOLATILE,
+                            history=HistoryPolicy.KEEP_LAST
+                        )
+                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                        self.publishers[ns_topic] = pub
+                        self.topic_types[ns_topic] = msg_class
+                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
+
+                    self.publishers[ns_topic].publish(msg)
+                    with self.republished_lock:
+                        self.last_republished_time[ns_topic] = time.time()
+        except Exception as ex:
             pass
 
     def is_recently_republished(self, ros_topic, window_sec=0.2):
@@ -510,7 +550,7 @@ class MeshNode:
             try:
                 self.forward_session.session.put(local_key, raw_payload)
                 if self.ros_bridge and ros_topic:
-                    self.ros_bridge.publish_message(ros_topic, raw_payload)
+                    self.ros_bridge.publish_message(ros_topic, raw_payload, origin_ip=origin_ip)
             except Exception:
                 pass
 
