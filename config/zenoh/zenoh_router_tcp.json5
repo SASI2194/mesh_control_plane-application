@@ -60,12 +60,22 @@
         "key_exprs": [
           "mesh/**"
         ]
+      },
+      {
+        "id": "allow_ros2_node_discovery",
+        "permission": "allow",
+        "messages": ["put", "declare_subscriber"],
+        "flows": ["egress", "ingress"],
+        "key_exprs": [
+          "@ros2/**",
+          "ros2/**"
+        ]
       }
     ],
     "subjects": [{ "id": "all" }],
     "policies": [
       {
-        "rules": ["allow_filtered_topics", "allow_mesh_control"],
+        "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros2_node_discovery"],
         "subjects": ["all"]
       }
     ]
