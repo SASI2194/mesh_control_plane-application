@@ -92,7 +92,7 @@ class ROSPublisherBridge:
     Subscribes to Zenoh mesh transport topics and re-publishes incoming payloads onto local ROS 2 DDS graph.
     """
 
-    def __init__(self, registry):
+    def __init__(self, registry, device_ns=None):
         self.publishers = {}
         self.topic_types = {}
         self.node = None
@@ -104,7 +104,8 @@ class ROSPublisherBridge:
             from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
             if not rclpy.ok():
                 rclpy.init()
-            self.node = rclpy.create_node("mesh_control_plane_receiver")
+            node_name = f"mesh_control_plane_receiver_{device_ns}" if device_ns else "mesh_control_plane_receiver"
+            self.node = rclpy.create_node(node_name)
             sensor_qos = QoSProfile(
                 depth=10,
                 reliability=ReliabilityPolicy.RELIABLE,
@@ -202,7 +203,7 @@ class ROSSubscriberBridge:
     serializes their payloads, and passes them to mesh_node's on_local_ros_message handler for Zenoh mesh transmission.
     """
 
-    def __init__(self, registry, on_ros_msg_cb, node=None):
+    def __init__(self, registry, on_ros_msg_cb, node=None, device_ns=None):
         self.subscribers = {}
         self.on_ros_msg_cb = on_ros_msg_cb
         self.node = node
@@ -215,7 +216,8 @@ class ROSSubscriberBridge:
             if not self.node:
                 if not rclpy.ok():
                     rclpy.init()
-                self.node = rclpy.create_node("mesh_control_plane_transmitter")
+                node_name = f"mesh_control_plane_transmitter_{device_ns}" if device_ns else "mesh_control_plane_transmitter"
+                self.node = rclpy.create_node(node_name)
                 self.thread = Thread(target=self._spin_loop, daemon=True)
                 self.thread.start()
 
@@ -303,9 +305,10 @@ class MeshNode:
         # Topic Registry
         #
 
+        my_dev_ns = get_device_namespace(self.my_ip)
         self.registry = TopicRegistry()
         self.registry.print_topics()
-        self.ros_bridge = ROSPublisherBridge(self.registry)
+        self.ros_bridge = ROSPublisherBridge(self.registry, device_ns=my_dev_ns)
 
         #
         # Configuration
@@ -382,7 +385,7 @@ class MeshNode:
         )
 
         self.receiver.start()
-        self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=self.ros_bridge.node if self.ros_bridge else None)
+        self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=self.ros_bridge.node if self.ros_bridge else None, device_ns=my_dev_ns)
 
         #
         # Start 1 Hz Control Plane Application Heartbeat Thread
