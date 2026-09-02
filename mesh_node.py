@@ -163,29 +163,23 @@ class ROSPublisherBridge:
             if origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
-                    ns_targets = [f"/{ns}{ros_topic}"]
-                    if "ugv0" in ns:
-                        ns_targets.append(f"/{ns.replace('ugv0', 'ugv_0')}{ros_topic}")
-                    if "gcs0" in ns:
-                        ns_targets.append(f"/{ns.replace('gcs0', 'gcs_0')}{ros_topic}")
+                    ns_topic = f"/{ns}{ros_topic}"
+                    if ns_topic not in self.publishers:
+                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+                        sensor_qos = QoSProfile(
+                            depth=10,
+                            reliability=ReliabilityPolicy.RELIABLE,
+                            durability=DurabilityPolicy.VOLATILE,
+                            history=HistoryPolicy.KEEP_LAST
+                        )
+                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                        self.publishers[ns_topic] = pub
+                        self.topic_types[ns_topic] = msg_class
+                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
 
-                    for ns_topic in set(ns_targets):
-                        if ns_topic not in self.publishers:
-                            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-                            sensor_qos = QoSProfile(
-                                depth=10,
-                                reliability=ReliabilityPolicy.RELIABLE,
-                                durability=DurabilityPolicy.VOLATILE,
-                                history=HistoryPolicy.KEEP_LAST
-                            )
-                            pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
-                            self.publishers[ns_topic] = pub
-                            self.topic_types[ns_topic] = msg_class
-                            print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
-
-                        self.publishers[ns_topic].publish(msg)
-                        with self.republished_lock:
-                            self.last_republished_time[ns_topic] = time.time()
+                    self.publishers[ns_topic].publish(msg)
+                    with self.republished_lock:
+                        self.last_republished_time[ns_topic] = time.time()
                     return
 
             # Fallback publish on base topic if no origin_ip
@@ -235,32 +229,40 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # Base topic subscription (e.g. /camera/camera/color/camera_info)
-                sub = self.node.create_subscription(
-                    msg_class,
-                    topic_name,
-                    make_cb(topic_name),
-                    qos_profile_sensor_data
-                )
-                self.subscribers[topic_name] = sub
+                base_candidates = [topic_name]
+                if topic_name.startswith("/camera/camera/"):
+                    base_candidates.append(topic_name.replace("/camera/camera/", "/camera/"))
 
-                # Automatic Device-Namespaced topic subscriptions (e.g. /ugv01/camera/..., /ugv_01/camera/...)
-                if device_ns:
-                    ns_candidates = [
-                        f"/{device_ns}{topic_name}",
-                        f"/{device_ns.replace('ugv0', 'ugv_0')}{topic_name}",
-                        f"/{device_ns.replace('gcs0', 'gcs_0')}{topic_name}"
-                    ]
-                    for ns_topic in set(ns_candidates):
-                        if ns_topic != topic_name and ns_topic not in self.subscribers:
-                            ns_sub = self.node.create_subscription(
-                                msg_class,
-                                ns_topic,
-                                make_cb(topic_name),
-                                qos_profile_sensor_data
-                            )
-                            self.subscribers[ns_topic] = ns_sub
-            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening on base topics & device namespace variants: /{device_ns}/...)")
+                for base_t in set(base_candidates):
+                    # Base topic subscription
+                    if base_t not in self.subscribers:
+                        sub = self.node.create_subscription(
+                            msg_class,
+                            base_t,
+                            make_cb(topic_name),
+                            qos_profile_sensor_data
+                        )
+                        self.subscribers[base_t] = sub
+
+                    # Automatic Device-Namespaced topic subscription
+                    if device_ns:
+                        ns_list = [device_ns]
+                        if "ugv0" in device_ns:
+                            ns_list.append(device_ns.replace("ugv0", "ugv_0"))
+                        if "gcs0" in device_ns:
+                            ns_list.append(device_ns.replace("gcs0", "gcs_0"))
+
+                        for ns_item in set(ns_list):
+                            ns_topic = f"/{ns_item}{base_t}"
+                            if ns_topic != topic_name and ns_topic not in self.subscribers:
+                                ns_sub = self.node.create_subscription(
+                                    msg_class,
+                                    ns_topic,
+                                    make_cb(topic_name),
+                                    qos_profile_sensor_data
+                                )
+                                self.subscribers[ns_topic] = ns_sub
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening on base topics & device namespace: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
