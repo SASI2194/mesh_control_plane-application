@@ -229,6 +229,7 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
+                # Base topic subscription (e.g. /camera/camera/color/camera_info)
                 sub = self.node.create_subscription(
                     msg_class,
                     topic_name,
@@ -236,7 +237,24 @@ class ROSSubscriberBridge:
                     qos_profile_sensor_data
                 )
                 self.subscribers[topic_name] = sub
-            print("[INFO] ROS 2 Native Subscriber Bridge active (Listening with qos_profile_sensor_data)")
+
+                # Automatic Device-Namespaced topic subscriptions (e.g. /ugv01/camera/..., /ugv_01/camera/...)
+                if device_ns:
+                    ns_candidates = [
+                        f"/{device_ns}{topic_name}",
+                        f"/{device_ns.replace('ugv0', 'ugv_0')}{topic_name}",
+                        f"/{device_ns.replace('gcs0', 'gcs_0')}{topic_name}"
+                    ]
+                    for ns_topic in set(ns_candidates):
+                        if ns_topic != topic_name and ns_topic not in self.subscribers:
+                            ns_sub = self.node.create_subscription(
+                                msg_class,
+                                ns_topic,
+                                make_cb(topic_name),
+                                qos_profile_sensor_data
+                            )
+                            self.subscribers[ns_topic] = ns_sub
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening on base topics & device namespace variants: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
