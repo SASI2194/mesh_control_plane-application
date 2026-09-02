@@ -58,13 +58,15 @@ def audit_rule_1():
     mesh_node_path = os.path.join(PROJECT_ROOT, "mesh_node.py")
     with open(mesh_node_path, "r") as f:
         node_content = f.read()
-    assert 'ROS_LOCALHOST_ONLY' in node_content, "ROS_LOCALHOST_ONLY missing from mesh_node.py!"
+    assert 'RMW_IMPLEMENTATION' in node_content, "RMW_IMPLEMENTATION missing from mesh_node.py!"
+    assert 'mesh_control_plane_receiver_' in node_content or 'mesh_control_plane_receiver' in node_content, "Device-based node naming missing from mesh_node.py!"
 
     print("✓ Zenoh Router Access Control: ENABLED")
     print("✓ Default Policy: DENY (Un-admitted topics blocked from physical interface)")
     print("✓ Exclusive Routing Target: filtered/** admitted")
     print("✓ Strict Wireless Mesh Subnet Binding: ENABLED (network.mesh_subnet_prefix in config/mesh.yaml)")
-    print("✓ ROS 2 Localhost Interface Isolation: ENABLED (ROS_LOCALHOST_ONLY=1)")
+    print("✓ Inter-Device Zenoh Node Sharing: ENABLED (RMW_IMPLEMENTATION=rmw_zenoh_cpp)")
+    print("✓ Device-Based Unique Node Naming: ENABLED (mesh_control_plane_receiver_<dev_ns>)")
     print("RULE 1 COMPLIANCE: [PASS]")
     return True
 

@@ -7,14 +7,14 @@
 
 ---
 
-## RULE 1: Exclusive Control Plane Transport Policy
+## RULE 1: Exclusive Control Plane Transport Policy & Inter-Device Zenoh Node Sharing
 > **Data traveling from ROS 2 to Zenoh MUST travel ONLY through this Mesh Control Plane application.**
 > 
-> - **Direct Transport Prohibition**: Direct bypass of raw ROS 2 DDS topics across physical network interfaces without passing through `mesh_node.py` is strictly forbidden.
+> - **Direct Transport Prohibition**: Direct bypass of raw ROS 2 topics across physical network interfaces without passing through `mesh_node.py` is strictly forbidden.
 > - **Filtered Key Mapping**: All inter-device topic traffic must be intercepted by `mesh_node.py`, sequence-tagged, scheduled according to priority (P1–P5), and forwarded exclusively over control plane keys (`filtered/**`).
 > - **Access Control Enforcement**: Zenoh configuration (`zenoh_router_tcp.json5`) must enforce `"default_permission": "deny"` for un-admitted direct topic paths across physical interfaces.
 > - **Strict Wireless Mesh Subnet Binding**: All inter-device control plane transport MUST strictly bind to the dedicated wireless mesh subnet (`192.168.3.0/24`, configured via `network.mesh_subnet_prefix` in `config/mesh.yaml`). Transport across secondary LAN/internet subnets (`192.168.12.x`) is strictly forbidden. If the wireless mesh interface is inactive, inter-device transmission MUST be held/discarded until the wireless link is established.
-> - **ROS 2 Localhost Interface Isolation**: All local ROS 2 node graph communication MUST set `ROS_LOCALHOST_ONLY=1` and `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` to restrict DDS topic ingress exclusively to `127.0.0.1` (`lo`). Spilling raw ROS 2 DDS multicast traffic onto outer LAN/internet interfaces (`eth1` / `192.168.12.x`) is strictly forbidden.
+> - **Zenoh RMW & Device-Based Node Naming Integration**: ROS 2 execution uses `RMW_IMPLEMENTATION=rmw_zenoh_cpp` with `ROS_LOCALHOST_ONLY=0`. Each Mesh Control Plane Application node MUST declare an explicit, unique device-namespaced node name (e.g. `mesh_control_plane_receiver_ugv01`, `mesh_control_plane_transmitter_ugv01`) matching its assigned fleet device identity to enable inter-device Zenoh node discovery without node collision or FastDDS memory crash issues.
 
 ---
 

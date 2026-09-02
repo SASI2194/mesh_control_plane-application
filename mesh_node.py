@@ -17,9 +17,9 @@ import socket
 import time
 from threading import Thread, Lock
 
-# Enforce RULE 1: Exclusive Control Plane Transport Policy (Localhost DDS Isolation)
-os.environ["ROS_LOCALHOST_ONLY"] = "1"
-os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
+# Enforce RULE 1: Inter-Device Zenoh Transport Policy with Zenoh RMW & Device-Based Node Sharing
+os.environ["ROS_LOCALHOST_ONLY"] = "0"
+os.environ["RMW_IMPLEMENTATION"] = "rmw_zenoh_cpp"
 if "ROS_DOMAIN_ID" not in os.environ:
     os.environ["ROS_DOMAIN_ID"] = "55"
 
