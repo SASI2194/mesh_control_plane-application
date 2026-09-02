@@ -163,23 +163,29 @@ class ROSPublisherBridge:
             if origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
-                    ns_topic = f"/{ns}{ros_topic}"
-                    if ns_topic not in self.publishers:
-                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-                        sensor_qos = QoSProfile(
-                            depth=10,
-                            reliability=ReliabilityPolicy.RELIABLE,
-                            durability=DurabilityPolicy.VOLATILE,
-                            history=HistoryPolicy.KEEP_LAST
-                        )
-                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
-                        self.publishers[ns_topic] = pub
-                        self.topic_types[ns_topic] = msg_class
-                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
+                    ns_targets = [f"/{ns}{ros_topic}"]
+                    if "ugv0" in ns:
+                        ns_targets.append(f"/{ns.replace('ugv0', 'ugv_0')}{ros_topic}")
+                    if "gcs0" in ns:
+                        ns_targets.append(f"/{ns.replace('gcs0', 'gcs_0')}{ros_topic}")
 
-                    self.publishers[ns_topic].publish(msg)
-                    with self.republished_lock:
-                        self.last_republished_time[ns_topic] = time.time()
+                    for ns_topic in set(ns_targets):
+                        if ns_topic not in self.publishers:
+                            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+                            sensor_qos = QoSProfile(
+                                depth=10,
+                                reliability=ReliabilityPolicy.RELIABLE,
+                                durability=DurabilityPolicy.VOLATILE,
+                                history=HistoryPolicy.KEEP_LAST
+                            )
+                            pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                            self.publishers[ns_topic] = pub
+                            self.topic_types[ns_topic] = msg_class
+                            print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
+
+                        self.publishers[ns_topic].publish(msg)
+                        with self.republished_lock:
+                            self.last_republished_time[ns_topic] = time.time()
                     return
 
             # Fallback publish on base topic if no origin_ip
