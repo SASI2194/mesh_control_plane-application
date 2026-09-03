@@ -225,28 +225,17 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # Base topic subscription (e.g. /camera/color/image_raw)
-                if topic_name not in self.subscribers:
+                # Subscribe exclusively to device-namespaced topic if device_ns is provided (e.g. /ugv_01/camera/color/image_raw)
+                target_topic = f"/{device_ns}{topic_name}" if device_ns else topic_name
+                if target_topic not in self.subscribers:
                     sub = self.node.create_subscription(
                         msg_class,
-                        topic_name,
+                        target_topic,
                         make_cb(topic_name),
                         qos_profile_sensor_data
                     )
-                    self.subscribers[topic_name] = sub
-
-                # Automatic Device-Namespaced topic subscription (e.g. /ugv_01/camera/color/image_raw)
-                if device_ns:
-                    ns_topic = f"/{device_ns}{topic_name}"
-                    if ns_topic != topic_name and ns_topic not in self.subscribers:
-                        ns_sub = self.node.create_subscription(
-                            msg_class,
-                            ns_topic,
-                            make_cb(topic_name),
-                            qos_profile_sensor_data
-                        )
-                        self.subscribers[ns_topic] = ns_sub
-            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening on base topics & device namespace: /{device_ns}/...)")
+                    self.subscribers[target_topic] = sub
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on device namespace topics: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
