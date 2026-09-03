@@ -42,19 +42,19 @@
     "timeout": 3000,
     "delay": 500,
     "multicast": {
-      "enabled": false,
+      "enabled": true,
       "address": "224.0.0.224:7446",
-      "interface": "127.0.0.1",
+      "interface": "auto",
       "ttl": 1,
       "autoconnect": {
         "router": [],
-        "peer": ["router"],
+        "peer": ["router", "peer"],
         "client": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "never"
+          "to_peer": "greater-zid"
         }
       },
       "listen": true
@@ -68,12 +68,12 @@
       },
       "autoconnect": {
         "router": [],
-        "peer": ["router"]
+        "peer": ["router", "peer"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "never"
+          "to_peer": "greater-zid"
         }
       }
     }
