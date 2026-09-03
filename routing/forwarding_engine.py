@@ -46,6 +46,15 @@ class ForwardingEngine:
 
     #####################################################################
 
+    def has_subscribers(self, ros_topic: str) -> bool:
+        topic_name = ros_topic.lstrip("/")
+        output_key = f"filtered/{topic_name}"
+        if hasattr(self.session, "has_matching_subscribers"):
+            return self.session.has_matching_subscribers(output_key)
+        return True
+
+    #####################################################################
+
     def forward(self, sample: MeshSample):
 
         """
@@ -63,6 +72,17 @@ class ForwardingEngine:
         #################################################################
 
         topic_name = sample.key.lstrip("/")
+        output_key = f"filtered/{topic_name}"
+
+        #################################################################
+        # Demand-Driven Check: Skip egress if zero remote subscribers match
+        #################################################################
+
+        if hasattr(self.session, "has_matching_subscribers"):
+            if not self.session.has_matching_subscribers(output_key):
+                self.dropped_packets += 1
+                self.dropped_bytes += len(sample.payload)
+                return
 
         #################################################################
         # Mesh output key

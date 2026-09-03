@@ -618,8 +618,11 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
-            self.forwarding.forward(mesh_sample)
+            if hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
+                print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
+            else:
+                print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
+                self.forwarding.forward(mesh_sample)
             if self.ros_bridge:
                 try:
                     self.ros_bridge.publish_message(ros_topic, payload_bytes, origin_ip=self.my_ip)
