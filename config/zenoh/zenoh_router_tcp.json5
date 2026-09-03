@@ -2,7 +2,10 @@
   "id": "6a65616e757673756776000000000065",
   "mode": "router",
   "listen": {
-    "endpoints": ["tcp/192.168.3.65:7447"]
+    "endpoints": [
+      "tcp/127.0.0.1:7447",
+      "tcp/192.168.3.65:7447"
+    ]
   },
   "connect": {
     "timeout_ms": {
@@ -64,7 +67,7 @@
       {
         "id": "allow_ros2_node_discovery",
         "permission": "allow",
-        "messages": ["put", "declare_subscriber"],
+        "messages": ["put", "declare_subscriber", "query", "reply"],
         "flows": ["egress", "ingress"],
         "key_exprs": [
           "@ros2/**",
