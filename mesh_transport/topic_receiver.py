@@ -42,13 +42,19 @@ class TopicReceiver:
         print("Starting Topic Receiver (Local & Inter-Device Control Plane)")
         print("======================================================")
 
-        # 1. Subscribe to inter-device Control Plane topics (filtered/**)
-        filtered_sub = self.peer.subscribe(
-            "filtered/**",
+        # 1. Subscribe to inter-device Control Plane heartbeats & telemetry
+        hb_sub = self.peer.subscribe(
+            "filtered/_mesh_heartbeat/*",
             self.callback
         )
-        self.subscribers.append(filtered_sub)
-        print("[SUBSCRIBE] filtered/** (Inter-Device Mesh Control Plane)")
+        self.subscribers.append(hb_sub)
+
+        wifi_sub = self.peer.subscribe(
+            "filtered/_mesh_wifi_telemetry/*",
+            self.callback
+        )
+        self.subscribers.append(wifi_sub)
+        print("[SUBSCRIBE] Control Plane Heartbeat & Telemetry Channels")
 
         # 2. Subscribe to local ROS deployment topics
         for topic in self.registry.all_topics().values():
