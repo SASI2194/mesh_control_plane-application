@@ -1,0 +1,78 @@
+[0.826s] Invoking command in '/home/nvidia/meshcontrolplane': PYTHONPATH=/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/meshcontrolplanev2 build --build-base /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build install --record /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log --single-version-externally-managed
+[1.131s] running egg_info
+[1.132s] creating build/meshcontrolplanev2/meshcontrolplanev2.egg-info
+[1.132s] writing build/meshcontrolplanev2/meshcontrolplanev2.egg-info/PKG-INFO
+[1.132s] writing dependency_links to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/dependency_links.txt
+[1.133s] writing top-level names to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/top_level.txt
+[1.133s] writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+[1.142s] reading manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+[1.143s] writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+[1.143s] running build
+[1.143s] running build_py
+[1.144s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build
+[1.144s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib
+[1.144s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.144s] copying routing/forwarding_engine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.144s] copying routing/neighbor_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] copying routing/duplicate_filter.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] copying routing/batman_metric.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] copying routing/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] copying routing/router_election.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] copying routing/routing_table.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+[1.145s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+[1.145s] copying monitoring/link_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+[1.146s] copying monitoring/bandwidth_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+[1.146s] copying monitoring/statistics.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+[1.146s] copying monitoring/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+[1.146s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+[1.147s] copying mesh_transport/key_mapper.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+[1.147s] copying mesh_transport/zenoh_session.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+[1.147s] copying mesh_transport/topic_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+[1.147s] copying mesh_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+[1.148s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages
+[1.148s] copying messages/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages
+[1.148s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+[1.148s] copying ros/topic_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+[1.148s] copying ros/qos_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+[1.149s] copying ros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+[1.149s] copying ros/topic_capture.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+[1.149s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+[1.149s] copying hardware/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+[1.150s] copying hardware/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+[1.150s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+[1.150s] copying ros_transport/ros_transport.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+[1.151s] copying ros_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+[1.151s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+[1.151s] copying routeros/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+[1.151s] copying routeros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+[1.151s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.151s] copying core/logger.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.152s] copying core/state_machine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.152s] copying core/config_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.152s] copying core/network_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.152s] copying core/network_models.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.153s] copying core/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.153s] copying core/constants.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+[1.153s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.153s] copying scheduler/admission_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.153s] copying scheduler/congestion_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.154s] copying scheduler/bandwidth_scheduler.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.154s] copying scheduler/priority_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.155s] copying scheduler/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+[1.155s] creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.155s] copying scripts/manage_rules.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.155s] copying scripts/run_forwarding_demo.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.156s] copying scripts/run_bridge.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.156s] copying scripts/mesh_verification.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.157s] copying scripts/verify_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.157s] copying scripts/discover_keys.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.157s] copying scripts/run_dashboard.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.157s] copying scripts/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+[1.159s] running install
+[1.159s] running install_lib
+[1.166s] running install_egg_info
+[1.168s] removing '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info' (and everything under it)
+[1.169s] Copying build/meshcontrolplanev2/meshcontrolplanev2.egg-info to /home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info
+[1.170s] running install_scripts
+[1.199s] writing list of installed files to '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log'
+[1.245s] Invoked command in '/home/nvidia/meshcontrolplane' returned '0': PYTHONPATH=/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/meshcontrolplanev2 build --build-base /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build install --record /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log --single-version-externally-managed

@@ -1,0 +1,95 @@
+[0.000000] (-) TimerEvent: {}
+[0.000466] (meshcontrolplanev2) JobQueued: {'identifier': 'meshcontrolplanev2', 'dependencies': OrderedDict()}
+[0.000811] (meshcontrolplanev2) JobStarted: {'identifier': 'meshcontrolplanev2'}
+[0.099565] (-) TimerEvent: {}
+[0.199908] (-) TimerEvent: {}
+[0.300272] (-) TimerEvent: {}
+[0.400596] (-) TimerEvent: {}
+[0.501004] (-) TimerEvent: {}
+[0.601328] (-) TimerEvent: {}
+[0.701651] (-) TimerEvent: {}
+[0.801986] (-) TimerEvent: {}
+[0.825463] (meshcontrolplanev2) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'egg_info', '--egg-base', 'build/meshcontrolplanev2', 'build', '--build-base', '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build', 'install', '--record', '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log', '--single-version-externally-managed'], 'cwd': '/home/nvidia/meshcontrolplane', 'env': {'LESSOPEN': '| /usr/bin/lesspipe %s', 'USER': 'nvidia', 'XDG_SESSION_TYPE': 'x11', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/nvidia/ws_rmw_zenoh/install/rmw_zenoh_cpp/lib:/home/nvidia/ws_rmw_zenoh/install/zenoh_cpp_vendor/opt/zenoh_cpp_vendor/lib:/home/nvidia/ws_rmw_zenoh_1/install/rmw_zenoh_cpp/lib:/home/nvidia/ws_rmw_zenoh_1/install/zenoh_cpp_vendor/opt/zenoh_cpp_vendor/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib', 'HOME': '/home/nvidia', 'OLDPWD': '/home/nvidia', 'DESKTOP_SESSION': 'ubuntu', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'gail:atk-bridge', 'MANAGERPID': '2055', 'SYSTEMD_EXEC_PID': '2658', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'COLORTERM': 'truecolor', 'TERMINATOR_DBUS_NAME': 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873', 'GIO_LAUNCHED_DESKTOP_FILE_PID': '3667', 'IM_CONFIG_PHASE': '1', 'COLCON_PREFIX_PATH': '/home/nvidia/ws_rmw_zenoh/install:/home/nvidia/ws_rmw_zenoh_1/install', 'ROS_DISTRO': 'humble', 'GTK_IM_MODULE': 'ibus', 'LOGNAME': 'nvidia', 'JOURNAL_STREAM': '8:50656', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'XDG_SESSION_CLASS': 'user', 'USERNAME': 'nvidia', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'ROS_LOCALHOST_ONLY': '0', 'WINDOWPATH': '2', 'PATH': '/home/nvidia/.local/bin:/opt/ros/humble/bin:/home/nvidia/.local/bin:/home/nvidia/.cargo/bin:/home/nvidia/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin', 'SESSION_MANAGER': 'local/nvDesktop:@/tmp/.ICE-unix/2456,unix/nvDesktop:/tmp/.ICE-unix/2456', 'INVOCATION_ID': 'f7cc217f715747ac87c92de6d5ad341f', 'XDG_MENU_PREFIX': 'gnome-', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'TERMINATOR_DBUS_PATH': '/net/tenshu/Terminator2', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'IBUS_DISABLE_SNOOPER': '1', 'ZENOH_SESSION_CONFIG_URI': '/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5', 'RMW_IMPLEMENTATION': 'rmw_zenoh_cpp', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu', 'XAUTHORITY': '/run/user/1000/gdm/Xauthority', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'SSH_AGENT_LAUNCHER': 'gnome-keyring', 'SSH_AUTH_SOCK': '/run/user/1000/keyring/ssh', 'ROS_DOMAIN_ID': '55', 'AMENT_PREFIX_PATH': '/home/nvidia/ws_rmw_zenoh/install/zenoh_security_tools:/home/nvidia/ws_rmw_zenoh/install/rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh/install/zenoh_cpp_vendor:/home/nvidia/ws_rmw_zenoh/install/test_rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh_1/install/zenoh_security_tools:/home/nvidia/ws_rmw_zenoh_1/install/rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh_1/install/zenoh_cpp_vendor:/home/nvidia/ws_rmw_zenoh_1/install/test_rmw_zenoh_cpp:/opt/ros/humble', 'SHELL': '/bin/bash', 'TERMINATOR_UUID': 'urn:uuid:ff6fdf89-ede9-45da-9175-5af319ae581c', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GPG_AGENT_INFO': '/run/user/1000/gnupg/S.gpg-agent:0:1', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2', 'LC_ALL': 'en_US.UTF-8', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu:/usr/share/gnome:/home/nvidia/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages', 'ZENOH_ROUTER_CONFIG_URI': '/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_router_tcp.json5', 'COLCON': '1', 'VTE_VERSION': '6800', 'CMAKE_PREFIX_PATH': '/home/nvidia/ws_rmw_zenoh/install/zenoh_security_tools:/home/nvidia/ws_rmw_zenoh/install/rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh/install/zenoh_cpp_vendor:/home/nvidia/ws_rmw_zenoh/install/test_rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh_1/install/zenoh_security_tools:/home/nvidia/ws_rmw_zenoh_1/install/rmw_zenoh_cpp:/home/nvidia/ws_rmw_zenoh_1/install/zenoh_cpp_vendor:/home/nvidia/ws_rmw_zenoh_1/install/test_rmw_zenoh_cpp'}, 'shell': False}
+[0.902087] (-) TimerEvent: {}
+[1.002443] (-) TimerEvent: {}
+[1.102768] (-) TimerEvent: {}
+[1.131580] (meshcontrolplanev2) StdoutLine: {'line': b'running egg_info\n'}
+[1.132420] (meshcontrolplanev2) StdoutLine: {'line': b'creating build/meshcontrolplanev2/meshcontrolplanev2.egg-info\n'}
+[1.132697] (meshcontrolplanev2) StdoutLine: {'line': b'writing build/meshcontrolplanev2/meshcontrolplanev2.egg-info/PKG-INFO\n'}
+[1.132984] (meshcontrolplanev2) StdoutLine: {'line': b'writing dependency_links to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/dependency_links.txt\n'}
+[1.133626] (meshcontrolplanev2) StdoutLine: {'line': b'writing top-level names to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/top_level.txt\n'}
+[1.133911] (meshcontrolplanev2) StdoutLine: {'line': b"writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'\n"}
+[1.142723] (meshcontrolplanev2) StdoutLine: {'line': b"reading manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'\n"}
+[1.143977] (meshcontrolplanev2) StdoutLine: {'line': b"writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'\n"}
+[1.144158] (meshcontrolplanev2) StdoutLine: {'line': b'running build\n'}
+[1.144279] (meshcontrolplanev2) StdoutLine: {'line': b'running build_py\n'}
+[1.144427] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build\n'}
+[1.144568] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib\n'}
+[1.144680] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.144790] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/forwarding_engine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145274] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/neighbor_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145423] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/duplicate_filter.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145565] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/batman_metric.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145703] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145842] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/router_election.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.145980] (meshcontrolplanev2) StdoutLine: {'line': b'copying routing/routing_table.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing\n'}
+[1.146227] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring\n'}
+[1.146344] (meshcontrolplanev2) StdoutLine: {'line': b'copying monitoring/link_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring\n'}
+[1.146605] (meshcontrolplanev2) StdoutLine: {'line': b'copying monitoring/bandwidth_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring\n'}
+[1.146910] (meshcontrolplanev2) StdoutLine: {'line': b'copying monitoring/statistics.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring\n'}
+[1.147049] (meshcontrolplanev2) StdoutLine: {'line': b'copying monitoring/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring\n'}
+[1.147291] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport\n'}
+[1.147407] (meshcontrolplanev2) StdoutLine: {'line': b'copying mesh_transport/key_mapper.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport\n'}
+[1.147761] (meshcontrolplanev2) StdoutLine: {'line': b'copying mesh_transport/zenoh_session.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport\n'}
+[1.148013] (meshcontrolplanev2) StdoutLine: {'line': b'copying mesh_transport/topic_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport\n'}
+[1.148385] (meshcontrolplanev2) StdoutLine: {'line': b'copying mesh_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport\n'}
+[1.148599] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages\n'}
+[1.148721] (meshcontrolplanev2) StdoutLine: {'line': b'copying messages/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages\n'}
+[1.148942] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros\n'}
+[1.149058] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros/topic_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros\n'}
+[1.149363] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros/qos_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros\n'}
+[1.149502] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros\n'}
+[1.149653] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros/topic_capture.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros\n'}
+[1.150005] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware\n'}
+[1.150123] (meshcontrolplanev2) StdoutLine: {'line': b'copying hardware/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware\n'}
+[1.150931] (meshcontrolplanev2) StdoutLine: {'line': b'copying hardware/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware\n'}
+[1.151162] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport\n'}
+[1.151269] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros_transport/ros_transport.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport\n'}
+[1.151524] (meshcontrolplanev2) StdoutLine: {'line': b'copying ros_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport\n'}
+[1.151747] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros\n'}
+[1.151874] (meshcontrolplanev2) StdoutLine: {'line': b'copying routeros/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros\n'}
+[1.151985] (meshcontrolplanev2) StdoutLine: {'line': b'copying routeros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros\n'}
+[1.152268] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.152381] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/logger.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.152504] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/state_machine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.152640] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/config_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.152781] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/network_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.153045] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/network_models.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.153411] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.153548] (meshcontrolplanev2) StdoutLine: {'line': b'copying core/constants.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core\n'}
+[1.153799] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.153906] (meshcontrolplanev2) StdoutLine: {'line': b'copying scheduler/admission_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.154159] (meshcontrolplanev2) StdoutLine: {'line': b'copying scheduler/congestion_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.154940] (meshcontrolplanev2) StdoutLine: {'line': b'copying scheduler/bandwidth_scheduler.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.155331] (meshcontrolplanev2) StdoutLine: {'line': b'copying scheduler/priority_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.155472] (meshcontrolplanev2) StdoutLine: {'line': b'copying scheduler/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler\n'}
+[1.155749] (meshcontrolplanev2) StdoutLine: {'line': b'creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.155870] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/manage_rules.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.156254] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/run_forwarding_demo.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.156561] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/run_bridge.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.156824] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/mesh_verification.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.157411] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/verify_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.157663] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/discover_keys.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.157961] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/run_dashboard.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.158305] (meshcontrolplanev2) StdoutLine: {'line': b'copying scripts/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts\n'}
+[1.159613] (meshcontrolplanev2) StdoutLine: {'line': b'running install\n'}
+[1.160082] (meshcontrolplanev2) StdoutLine: {'line': b'running install_lib\n'}
+[1.166913] (meshcontrolplanev2) StdoutLine: {'line': b'running install_egg_info\n'}
+[1.169332] (meshcontrolplanev2) StdoutLine: {'line': b"removing '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info' (and everything under it)\n"}
+[1.169956] (meshcontrolplanev2) StdoutLine: {'line': b'Copying build/meshcontrolplanev2/meshcontrolplanev2.egg-info to /home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info\n'}
+[1.170803] (meshcontrolplanev2) StdoutLine: {'line': b'running install_scripts\n'}
+[1.200349] (meshcontrolplanev2) StdoutLine: {'line': b"writing list of installed files to '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log'\n"}
+[1.202821] (-) TimerEvent: {}
+[1.245620] (meshcontrolplanev2) CommandEnded: {'returncode': 0}
+[1.262931] (meshcontrolplanev2) JobEnded: {'identifier': 'meshcontrolplanev2', 'rc': 0}
+[1.263979] (-) EventReactorShutdown: {}
