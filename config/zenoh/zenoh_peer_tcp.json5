@@ -44,7 +44,7 @@
     "multicast": {
       "enabled": true,
       "address": "224.0.0.224:7446",
-      "interface": "192.168.3.0/24",
+      "interface": "enP5p1s0f1",
       "ttl": 1,
       "autoconnect": {
         "router": [],
