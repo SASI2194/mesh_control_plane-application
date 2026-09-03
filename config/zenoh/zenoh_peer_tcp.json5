@@ -23,7 +23,8 @@
   "listen": {
     "timeout_ms": 0,
     "endpoints": [
-      "tcp/0.0.0.0:0"
+      "tcp/127.0.0.1:0",
+      "tcp/192.168.3.65:0"
     ],
     "exit_on_failure": true,
     "retry": {
