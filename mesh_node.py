@@ -500,7 +500,7 @@ class MeshNode:
             time.sleep(2.0)
 
     def _demand_monitor_loop(self):
-        """Monitors local ROS 2 node graph for subscriber interest (RViz2, ros2 topic echo) and dynamically declares/undeclares Zenoh subscribers on demand."""
+        """Monitors local ROS 2 node graph for EXTERNAL subscriber interest (RViz2, ros2 topic echo) and dynamically declares/undeclares Zenoh subscribers on demand."""
         while self.running:
             try:
                 if self.ros_bridge and self.ros_bridge.node:
@@ -510,14 +510,16 @@ class MeshNode:
                             base_topic = topic_cfg["name"]
                             ns_topic = f"/{dev_ns}{base_topic}"
 
-                            sub_count = node.count_subscribers(ns_topic)
+                            all_subs = node.get_subscriptions_info_by_topic(ns_topic)
+                            external_subs = [s for s in all_subs if not (s.node_name.startswith("mesh_control_plane") or s.node_name.startswith("_mesh_"))]
+                            sub_count = len(external_subs)
                             zenoh_key = f"filtered/55/{ns_topic.lstrip('/')}"
 
                             if sub_count > 0:
                                 if zenoh_key not in self.active_demand_subs:
                                     zenoh_sub = self.peer.subscribe(zenoh_key, self.callback)
                                     self.active_demand_subs[zenoh_key] = zenoh_sub
-                                    print(f"[DEMAND ACTIVE] Subscribed to {zenoh_key} (ROS 2 Sub Count: {sub_count})")
+                                    print(f"[DEMAND ACTIVE] Subscribed to {zenoh_key} (External ROS 2 Subs: {[s.node_name for s in external_subs]})")
                             else:
                                 if zenoh_key in self.active_demand_subs:
                                     zenoh_sub = self.active_demand_subs.pop(zenoh_key)
@@ -525,7 +527,7 @@ class MeshNode:
                                         zenoh_sub.undeclare()
                                     except Exception:
                                         pass
-                                    print(f"[DEMAND PAUSED] Undeclared {zenoh_key} (0 ROS 2 Subscribers)")
+                                    print(f"[DEMAND PAUSED] Undeclared {zenoh_key} (0 External ROS 2 Subscribers)")
             except Exception:
                 pass
             time.sleep(1.0)
