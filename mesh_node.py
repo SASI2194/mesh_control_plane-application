@@ -69,15 +69,15 @@ def get_message_class(type_str: str):
 
 
 IP_TO_NAMESPACE = {
-    "192.168.3.65": "ugv01",
-    "192.168.3.66": "ugv02",
-    "192.168.3.67": "ugv03",
-    "192.168.3.68": "ugv04",
-    "192.168.3.69": "ugv05",
-    "192.168.3.70": "ugv06",
-    "192.168.3.71": "gcs01",
-    "192.168.3.72": "gcs02",
-    "192.168.3.73": "gcs03",
+    "192.168.3.65": "ugv_01",
+    "192.168.3.66": "ugv_02",
+    "192.168.3.67": "ugv_03",
+    "192.168.3.68": "ugv_04",
+    "192.168.3.69": "ugv_05",
+    "192.168.3.70": "ugv_06",
+    "192.168.3.71": "gcs_01",
+    "192.168.3.72": "gcs_02",
+    "192.168.3.73": "gcs_03",
 }
 
 def get_device_namespace(ip_str):
@@ -112,14 +112,6 @@ class ROSPublisherBridge:
                 durability=DurabilityPolicy.VOLATILE,
                 history=HistoryPolicy.KEEP_LAST
             )
-            for topic_name, topic_info in registry.all_topics().items():
-                type_str = topic_info.get("type", "std_msgs/msg/String")
-                msg_class = get_message_class(type_str)
-                # Base un-namespaced publisher
-                pub = self.node.create_publisher(msg_class, topic_name, sensor_qos)
-                self.publishers[topic_name] = pub
-                self.topic_types[topic_name] = msg_class
-
             # Register native ROS 2 topic /mesh_wifi_telemetry for inter-device radio status broadcast
             self.telemetry_pub = self.node.create_publisher(String, "/mesh_wifi_telemetry", 10)
             self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
@@ -163,7 +155,11 @@ class ROSPublisherBridge:
             if origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
-                    ns_topic = f"/{ns}{ros_topic}"
+                    if ros_topic.startswith(f"/{ns}") or ros_topic.startswith("/ugv_") or ros_topic.startswith("/gcs_"):
+                        ns_topic = ros_topic
+                    else:
+                        ns_topic = f"/{ns}{ros_topic}"
+
                     if ns_topic not in self.publishers:
                         from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
                         sensor_qos = QoSProfile(
@@ -229,39 +225,27 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                base_candidates = [topic_name]
-                if topic_name.startswith("/camera/camera/"):
-                    base_candidates.append(topic_name.replace("/camera/camera/", "/camera/"))
+                # Base topic subscription (e.g. /camera/color/image_raw)
+                if topic_name not in self.subscribers:
+                    sub = self.node.create_subscription(
+                        msg_class,
+                        topic_name,
+                        make_cb(topic_name),
+                        qos_profile_sensor_data
+                    )
+                    self.subscribers[topic_name] = sub
 
-                for base_t in set(base_candidates):
-                    # Base topic subscription
-                    if base_t not in self.subscribers:
-                        sub = self.node.create_subscription(
+                # Automatic Device-Namespaced topic subscription (e.g. /ugv_01/camera/color/image_raw)
+                if device_ns:
+                    ns_topic = f"/{device_ns}{topic_name}"
+                    if ns_topic != topic_name and ns_topic not in self.subscribers:
+                        ns_sub = self.node.create_subscription(
                             msg_class,
-                            base_t,
+                            ns_topic,
                             make_cb(topic_name),
                             qos_profile_sensor_data
                         )
-                        self.subscribers[base_t] = sub
-
-                    # Automatic Device-Namespaced topic subscription
-                    if device_ns:
-                        ns_list = [device_ns]
-                        if "ugv0" in device_ns:
-                            ns_list.append(device_ns.replace("ugv0", "ugv_0"))
-                        if "gcs0" in device_ns:
-                            ns_list.append(device_ns.replace("gcs0", "gcs_0"))
-
-                        for ns_item in set(ns_list):
-                            ns_topic = f"/{ns_item}{base_t}"
-                            if ns_topic != topic_name and ns_topic not in self.subscribers:
-                                ns_sub = self.node.create_subscription(
-                                    msg_class,
-                                    ns_topic,
-                                    make_cb(topic_name),
-                                    qos_profile_sensor_data
-                                )
-                                self.subscribers[ns_topic] = ns_sub
+                        self.subscribers[ns_topic] = ns_sub
             print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening on base topics & device namespace: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")

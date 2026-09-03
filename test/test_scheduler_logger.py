@@ -54,7 +54,7 @@ class TestSchedulerLogger(unittest.TestCase):
         with open(txt_path, "r", encoding="utf-8") as f:
             txt_content = f.read()
             self.assertIn("PRIORITY SCHEDULER & DUAL Tx/Rx DIFFERENTIAL SNAPSHOT", txt_content)
-            self.assertIn("/camera/camera/depth/image_rect_raw", txt_content)
+            self.assertIn("/camera/depth/image_rect_raw", txt_content)
 
         # Verify CSV log creation
         csv_path = os.path.join(self.test_dir, "priority_scheduler.csv")

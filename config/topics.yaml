@@ -1,121 +1,123 @@
 topics:
 
   - id: 1
-    name: /camera/camera/color/camera_info
+    name: /camera/color/camera_info
     type: sensor_msgs/msg/CameraInfo
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 2
-    name: /camera/camera/color/image_raw
+    name: /camera/color/image_raw
     type: sensor_msgs/msg/Image
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 3
-    name: /camera/camera/color/image_raw/compressed
+    name: /camera/color/image_raw/compressed
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 4
-    name: /camera/camera/color/image_raw/compressedDepth
+    name: /camera/color/image_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 5
-    name: /camera/camera/color/image_raw/theora
+    name: /camera/color/image_raw/theora
     type: theora_image_transport/msg/Packet
     priority: 2
     status: DENY
 
   - id: 6
-    name: /camera/camera/color/metadata
+    name: /camera/color/metadata
     type: realsense2_camera_msgs/msg/Metadata
     priority: 2
     status: DENY
 
   - id: 7
-    name: /camera/camera/depth/camera_info
+    name: /camera/depth/camera_info
     type: sensor_msgs/msg/CameraInfo
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 8
-    name: /camera/camera/depth/image_rect_raw
+    name: /camera/depth/image_rect_raw
     type: sensor_msgs/msg/Image
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 9
-    name: /camera/camera/depth/image_rect_raw/compressed
+    name: /camera/depth/image_rect_raw/compressed
+    type: sensor_msgs/msg/CompressedImage
+    priority: 2
+    status: DENY
+
+  - id: 10
+    name: /camera/depth/image_rect_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
     priority: 1
     status: DENY
 
-  - id: 10
-    name: /camera/camera/depth/image_rect_raw/compressedDepth
-    type: sensor_msgs/msg/CompressedImage
-    priority: 1
-    status: ALLOW
-
   - id: 11
-    name: /camera/camera/depth/image_rect_raw/theora
+    name: /camera/depth/image_rect_raw/theora
     type: theora_image_transport/msg/Packet
     priority: 2
     status: DENY
 
   - id: 12
-    name: /camera/camera/depth/metadata
+    name: /camera/depth/metadata
     type: realsense2_camera_msgs/msg/Metadata
-    priority: 2
-    status: ALLOW
+    priority: 1
+    status: DENY
 
   - id: 13
-    name: /camera/camera/extrinsics/depth_to_color
+    name: /camera/extrinsics/depth_to_color
     type: realsense2_camera_msgs/msg/Extrinsics
-    priority: 2
-    status: ALLOW
+    priority: 1
+    status: DENY
 
   - id: 14
     name: /topic_14
     type: std_msgs/msg/String
-    priority: 4
-    status: DENY
+    priority: 3
+    status: ALLOW
 
   - id: 15
     name: /topic_15
     type: std_msgs/msg/String
-    priority: 4
-    status: DENY
+    priority: 3
+    status: ALLOW
 
   - id: 16
     name: /topic_16
     type: std_msgs/msg/String
     priority: 4
-    status: DENY
+    status: ALLOW
 
   - id: 17
     name: /topic_17
     type: std_msgs/msg/String
-    priority: 5
-    status: DENY
+    priority: 4
+    status: ALLOW
 
   - id: 18
     name: /topic_18
     type: std_msgs/msg/String
     priority: 5
-    status: DENY
+    status: ALLOW
 
   - id: 19
     name: /topic_19
     type: std_msgs/msg/String
     priority: 5
-    status: DENY
+    status: ALLOW
 
   - id: 20
     name: /topic_20
     type: std_msgs/msg/String
     priority: 5
-    status: DENY
+    status: ALLOW
+
+
