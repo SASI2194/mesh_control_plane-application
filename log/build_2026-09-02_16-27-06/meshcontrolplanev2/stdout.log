@@ -1,0 +1,76 @@
+running egg_info
+creating build/meshcontrolplanev2/meshcontrolplanev2.egg-info
+writing build/meshcontrolplanev2/meshcontrolplanev2.egg-info/PKG-INFO
+writing dependency_links to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/dependency_links.txt
+writing top-level names to build/meshcontrolplanev2/meshcontrolplanev2.egg-info/top_level.txt
+writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+reading manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+writing manifest file 'build/meshcontrolplanev2/meshcontrolplanev2.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/forwarding_engine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/neighbor_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/duplicate_filter.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/batman_metric.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/router_election.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+copying routing/routing_table.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routing
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+copying monitoring/link_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+copying monitoring/bandwidth_monitor.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+copying monitoring/statistics.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+copying monitoring/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/monitoring
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+copying mesh_transport/key_mapper.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+copying mesh_transport/zenoh_session.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+copying mesh_transport/topic_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+copying mesh_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/mesh_transport
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages
+copying messages/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/messages
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+copying ros/topic_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+copying ros/qos_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+copying ros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+copying ros/topic_capture.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+copying hardware/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+copying hardware/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/hardware
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+copying ros_transport/ros_transport.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+copying ros_transport/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/ros_transport
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+copying routeros/routeros_client.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+copying routeros/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/routeros
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/logger.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/state_machine.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/config_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/network_database.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/network_models.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+copying core/constants.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/core
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+copying scheduler/admission_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+copying scheduler/congestion_controller.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+copying scheduler/bandwidth_scheduler.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+copying scheduler/priority_manager.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+copying scheduler/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scheduler
+creating /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/manage_rules.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/run_forwarding_demo.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/run_bridge.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/mesh_verification.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/verify_receiver.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/discover_keys.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/run_dashboard.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+copying scripts/__init__.py -> /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build/lib/scripts
+running install
+running install_lib
+running install_egg_info
+removing '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info' (and everything under it)
+Copying build/meshcontrolplanev2/meshcontrolplanev2.egg-info to /home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages/meshcontrolplanev2-0.1.0-py3.10.egg-info
+running install_scripts
+writing list of installed files to '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log'

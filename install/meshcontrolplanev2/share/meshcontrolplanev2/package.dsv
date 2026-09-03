@@ -1,0 +1,3 @@
+source;share/meshcontrolplanev2/hook/pythonpath.ps1
+source;share/meshcontrolplanev2/hook/pythonpath.dsv
+source;share/meshcontrolplanev2/hook/pythonpath.sh

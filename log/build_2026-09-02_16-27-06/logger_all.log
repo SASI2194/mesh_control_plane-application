@@ -1,0 +1,89 @@
+[0.146s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--parallel-workers', '12']
+[0.147s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=12, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0xffffb1c8abc0>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0xffffb1dd4310>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0xffffb1dd4310>>)
+[0.361s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.362s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.362s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.362s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.362s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.362s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.362s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/nvidia/meshcontrolplane'
+[0.362s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.362s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.362s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.362s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.363s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.363s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.363s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.363s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.363s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.723s] DEBUG:colcon.colcon_core.package_identification:Package '.' with type 'python' and name 'meshcontrolplanev2'
+[0.723s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.724s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.724s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.724s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.724s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.751s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.751s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.754s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 4 installed packages in /home/nvidia/ws_rmw_zenoh/install
+[0.755s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 224 installed packages in /opt/ros/humble
+[0.757s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_args' from command line to 'None'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_target' from command line to 'None'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_clean_cache' from command line to 'False'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_clean_first' from command line to 'False'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'cmake_force_configure' from command line to 'False'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'ament_cmake_args' from command line to 'None'
+[0.818s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'catkin_cmake_args' from command line to 'None'
+[0.819s] Level 5:colcon.colcon_core.verb:set package 'meshcontrolplanev2' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.819s] DEBUG:colcon.colcon_core.verb:Building package 'meshcontrolplanev2' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/nvidia/meshcontrolplane/build/meshcontrolplanev2', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2', 'merge_install': False, 'path': '/home/nvidia/meshcontrolplane', 'symlink_install': False, 'test_result_base': None}
+[0.819s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.820s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.821s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/nvidia/meshcontrolplane'
+[0.823s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.824s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.824s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.648s] DEBUG:colcon.colcon_core.task.python.build:Available setuptools commands: bdist_rpm, clean, build_scripts, bdist_dumb, install, develop, install_scripts, dist_info, install_data, build_ext, bdist, bdist_wheel, easy_install, build_clib, install_lib, install_headers, install_egg_info, upload, check, alias, upload_docs, build_py, rotate, setopt, register, egg_info, bdist_egg, symlink_data, saveopts, sdist, test, build
+[1.650s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/nvidia/meshcontrolplane': PYTHONPATH=/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/meshcontrolplanev2 build --build-base /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build install --record /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log --single-version-externally-managed
+[2.063s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/nvidia/meshcontrolplane' returned '0': PYTHONPATH=/home/nvidia/meshcontrolplane/build/meshcontrolplanev2/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/meshcontrolplanev2 build --build-base /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/build install --record /home/nvidia/meshcontrolplane/build/meshcontrolplanev2/install.log --single-version-externally-managed
+[2.067s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2' for CMake module files
+[2.068s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2' for CMake config files
+[2.070s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib'
+[2.070s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/bin'
+[2.070s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/pkgconfig/meshcontrolplanev2.pc'
+[2.071s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/lib/python3.10/site-packages'
+[2.071s] Level 1:colcon.colcon_core.shell:create_environment_hook('meshcontrolplanev2', 'pythonpath')
+[2.071s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/hook/pythonpath.ps1'
+[2.072s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/hook/pythonpath.dsv'
+[2.073s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/hook/pythonpath.sh'
+[2.074s] Level 1:colcon.colcon_core.environment:checking '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/bin'
+[2.074s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(meshcontrolplanev2)
+[2.074s] INFO:colcon.colcon_core.shell:Creating package script '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/package.ps1'
+[2.076s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/package.dsv'
+[2.077s] INFO:colcon.colcon_core.shell:Creating package script '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/package.sh'
+[2.077s] INFO:colcon.colcon_core.shell:Creating package script '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/package.bash'
+[2.078s] INFO:colcon.colcon_core.shell:Creating package script '/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/meshcontrolplanev2/package.zsh'
+[2.079s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/nvidia/meshcontrolplane/install/meshcontrolplanev2/share/colcon-core/packages/meshcontrolplanev2)
+[2.080s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[2.080s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[2.080s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[2.080s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[2.087s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[2.087s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[2.087s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[2.107s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[2.107s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nvidia/meshcontrolplane/install/local_setup.ps1'
+[2.109s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/nvidia/meshcontrolplane/install/_local_setup_util_ps1.py'
+[2.111s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nvidia/meshcontrolplane/install/setup.ps1'
+[2.113s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nvidia/meshcontrolplane/install/local_setup.sh'
+[2.114s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/nvidia/meshcontrolplane/install/_local_setup_util_sh.py'
+[2.115s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nvidia/meshcontrolplane/install/setup.sh'
+[2.116s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nvidia/meshcontrolplane/install/local_setup.bash'
+[2.117s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nvidia/meshcontrolplane/install/setup.bash'
+[2.118s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nvidia/meshcontrolplane/install/local_setup.zsh'
+[2.119s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nvidia/meshcontrolplane/install/setup.zsh'
