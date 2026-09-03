@@ -7,7 +7,7 @@
       "client": 0
     },
     "endpoints": [
-      "tcp/192.168.3.65:7447"
+      "tcp/127.0.0.1:7447"
     ],
     "exit_on_failure": {
       "router": false,
@@ -44,17 +44,17 @@
     "multicast": {
       "enabled": false,
       "address": "224.0.0.224:7446",
-      "interface": "auto",
+      "interface": "127.0.0.1",
       "ttl": 1,
       "autoconnect": {
         "router": [],
-        "peer": ["router", "peer"],
+        "peer": ["router"],
         "client": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "greater-zid"
+          "to_peer": "never"
         }
       },
       "listen": true
@@ -68,12 +68,12 @@
       },
       "autoconnect": {
         "router": [],
-        "peer": ["router", "peer"]
+        "peer": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "greater-zid"
+          "to_peer": "never"
         }
       }
     }
