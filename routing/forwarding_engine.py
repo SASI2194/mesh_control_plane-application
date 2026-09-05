@@ -46,9 +46,16 @@ class ForwardingEngine:
 
     #####################################################################
 
-    def has_subscribers(self, ros_topic: str) -> bool:
+    def _format_key(self, ros_topic: str) -> str:
         topic_name = ros_topic.lstrip("/")
-        output_key = f"filtered/{topic_name}"
+        if topic_name.startswith("filtered/"):
+            return topic_name
+        if topic_name.startswith("55/"):
+            return f"filtered/{topic_name}"
+        return f"filtered/55/{topic_name}"
+
+    def has_subscribers(self, ros_topic: str) -> bool:
+        output_key = self._format_key(ros_topic)
         if hasattr(self.session, "has_matching_subscribers"):
             return self.session.has_matching_subscribers(output_key)
         return True
@@ -68,11 +75,10 @@ class ForwardingEngine:
             return
 
         #################################################################
-        # Format Zenoh Key
+        # Format Zenoh Key with Domain ID 55
         #################################################################
 
-        topic_name = sample.key.lstrip("/")
-        output_key = f"filtered/{topic_name}"
+        output_key = self._format_key(sample.key)
 
         #################################################################
         # Demand-Driven Check: Skip egress if zero remote subscribers match
@@ -83,12 +89,6 @@ class ForwardingEngine:
                 self.dropped_packets += 1
                 self.dropped_bytes += len(sample.payload)
                 return
-
-        #################################################################
-        # Mesh output key
-        #################################################################
-
-        output_key = f"filtered/{topic_name}"
 
         #################################################################
         # Pack payload with sequence metadata header & origin IP

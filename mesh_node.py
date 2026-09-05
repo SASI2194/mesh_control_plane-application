@@ -629,8 +629,11 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
-            self.forwarding.forward(mesh_sample)
+            if hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
+                print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
+            else:
+                print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
+                self.forwarding.forward(mesh_sample)
         else:
             print(f"[BLOCK ] {mesh_sample.key}")
 
