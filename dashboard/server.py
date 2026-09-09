@@ -280,6 +280,14 @@ class TelemetryDataProvider:
                 for node in self.nodes:
                     ip = node["ip"]
 
+                    # If node is disabled in fleet config, mark as DISABLED
+                    enabled_ids, _ = self._get_enabled_node_ids()
+                    if node["id"] not in enabled_ids:
+                        node["status"] = "DISABLED"
+                        node["latency"] = 0.0
+                        node["rssi"] = -95
+                        continue
+
                     # If local mesh_node.py application is NOT running, ALL nodes are OFFLINE
                     if not self.mesh_node_running:
                         node["status"] = "OFFLINE"
@@ -308,6 +316,25 @@ class TelemetryDataProvider:
                         node["rssi"] = -95
 
             time.sleep(1.0)
+
+    def _get_enabled_node_ids(self):
+        """Returns set of enabled device IDs and configured active device count from failover.yaml."""
+        try:
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            failover_cfg = cm.get_failover() or {}
+            f_info = failover_cfg.get("failover", {})
+            active_count = f_info.get("active_device_count", 9)
+            device_nodes = f_info.get("device_nodes", {})
+            enabled_ids = set()
+            for dev_id, dev_info in device_nodes.items():
+                if isinstance(dev_info, dict) and dev_info.get("enabled", True):
+                    enabled_ids.add(dev_id)
+            if not enabled_ids:
+                enabled_ids = {n["id"] for n in self.nodes}
+            return enabled_ids, active_count
+        except Exception:
+            return {n["id"] for n in self.nodes}, 9
 
     def _get_node_offline_timeout(self):
         """Loads node_offline_timeout_seconds from config/failover.yaml (default: 60.0s)."""
@@ -714,23 +741,29 @@ class TelemetryDataProvider:
         with self.lock:
             local_ips = self._get_local_ips()
             target_ip = getattr(self, "local_ip", None)
-            online_count = sum(1 for n in self.nodes if n["status"] == "ONLINE")
-            ugv_count = sum(1 for n in self.nodes if n["type"] == "UGV" and n["status"] == "ONLINE")
-            gcs_count = sum(1 for n in self.nodes if n["type"] == "GCS" and n["status"] == "ONLINE")
+            enabled_ids, active_count = self._get_enabled_node_ids()
+
+            enabled_nodes = [n for n in self.nodes if n["id"] in enabled_ids]
+            active_total = len(enabled_nodes)
+
+            online_count = sum(1 for n in enabled_nodes if n["status"] == "ONLINE")
+            ugv_online = sum(1 for n in enabled_nodes if n["type"] == "UGV" and n["status"] == "ONLINE")
+            ugv_total = sum(1 for n in enabled_nodes if n["type"] == "UGV")
+            gcs_online = sum(1 for n in enabled_nodes if n["type"] == "GCS" and n["status"] == "ONLINE")
+            gcs_total = sum(1 for n in enabled_nodes if n["type"] == "GCS")
 
             if target_ip:
-                local_node = next((n for n in self.nodes if n["ip"] == target_ip), None)
+                local_node = next((n for n in enabled_nodes if n["ip"] == target_ip), None)
             else:
-                local_node = next((n for n in self.nodes if n["ip"] in local_ips), None)
+                local_node = next((n for n in enabled_nodes if n["ip"] in local_ips), None)
+            if not local_node and self.nodes:
+                local_node = next((n for n in self.nodes if n["ip"] in local_ips), self.nodes[0])
 
             local_id = local_node["id"] if local_node else "LOCAL"
             local_name = local_node["name"] if local_node else "Local Node Host"
             local_ip = local_node["ip"] if local_node else (target_ip or next((ip for ip in local_ips if not ip.startswith("127.")), "127.0.0.1"))
 
-            # Inter-System Mesh Bandwidth Capacity Governance:
-            # Active mesh bandwidth capacity measures inter-system data transfer across the mesh.
-            # If 0 remote subscriber nodes are active (isolated local host), inter-system mesh throughput is 0.0 Mbps.
-            remote_nodes_online = any(n["status"] == "ONLINE" and not n.get("is_local") for n in self.nodes)
+            remote_nodes_online = any(n["status"] == "ONLINE" and not n.get("is_local") for n in enabled_nodes)
 
             allowed = self.scheduler.allowed_topics
             live_used_bw = 0.0
@@ -742,19 +775,25 @@ class TelemetryDataProvider:
                         bw = tx_mbps if tx_mbps > 0.0 else rx_mbps
                         live_used_bw += bw
 
+            active_ugv_count = sum(1 for n in enabled_nodes if n["type"] == "UGV")
+            active_gcs_count = sum(1 for n in enabled_nodes if n["type"] == "GCS")
+
             return {
                 "timestamp": time.time(),
                 "total_nodes": len(self.nodes),
+                "active_device_count": active_total,
+                "active_ugv_count": active_ugv_count,
+                "active_gcs_count": active_gcs_count,
                 "online_nodes": online_count,
-                "ugv_online": ugv_count,
+                "ugv_online": ugv_online,
                 "ugv_total": 6,
-                "gcs_online": gcs_count,
+                "gcs_online": gcs_online,
                 "gcs_total": 3,
-                "wireless_radios": 7,  # 7-Sided Polygon (Heptagon)
+                "wireless_radios": active_total,
                 "max_bandwidth_mbps": self.max_bw,
                 "used_bandwidth_mbps": round(live_used_bw, 1),
                 "loss_tolerance_percent": self.loss_tolerance,
-                "system_health": "OPTIMAL" if online_count >= 8 else "DEGRADED",
+                "system_health": "OPTIMAL" if (active_total > 0 and online_count >= active_total) else ("DEGRADED" if online_count > 0 else "OFFLINE"),
                 "local_node_id": local_id,
                 "local_node_name": local_name,
                 "local_node_ip": local_ip,
@@ -765,17 +804,26 @@ class TelemetryDataProvider:
         with self.lock:
             local_ips = self._get_local_ips()
             target_ip = getattr(self, "local_ip", None)
+            enabled_ids, active_count = self._get_enabled_node_ids()
+
             nodes_copy = []
             for n in self.nodes:
                 c = dict(n)
+                is_enabled = n["id"] in enabled_ids
+                c["enabled"] = is_enabled
+                if not is_enabled:
+                    c["status"] = "DISABLED"
+                    c["rssi"] = -95
+                    c["latency"] = 0.0
+                    c["loss"] = 0.0
+
                 if target_ip:
                     c["is_local"] = n["ip"] == target_ip
                 else:
                     c["is_local"] = n["ip"] in local_ips
 
-                # Determine if node is acting as Master Access Point (Master AP) dynamically based on live wifi2 hardware mode
                 is_master = False
-                if n.get("status") == "ONLINE":
+                if c.get("status") == "ONLINE":
                     wifi_det = n.get("wifi_details")
                     wifi2_mode = None
                     if wifi_det and isinstance(wifi_det, dict):
@@ -797,15 +845,15 @@ class TelemetryDataProvider:
             return nodes_copy
 
     def get_topology(self):
-        """Generates 7-Sided Polygon (Heptagon) Wireless Interconnection Links."""
+        """Generates Wireless Interconnection Links for active fleet devices."""
         with self.lock:
-            links = []
-            radio_endpoints = [
-                "UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06", "GCS-RADIO"
-            ]
+            enabled_ids, _ = self._get_enabled_node_ids()
+            enabled_nodes = [n for n in self.nodes if n["id"] in enabled_ids]
+            node_dict = {n["id"]: n for n in enabled_nodes}
 
+            radio_endpoints = [nid for nid in ["UGV-01", "UGV-02", "UGV-03", "UGV-04", "UGV-05", "UGV-06", "GCS-01", "GCS-02", "GCS-03"] if nid in node_dict]
+            links = []
             n = len(radio_endpoints)
-            node_dict = {n["id"]: n for n in self.nodes}
 
             for i in range(n):
                 for j in range(i + 1, n):
@@ -815,8 +863,8 @@ class TelemetryDataProvider:
                     n1 = node_dict.get(r1, {"rssi": -65, "latency": 5.0})
                     n2 = node_dict.get(r2, {"rssi": -65, "latency": 5.0})
 
-                    worst_rssi = min(n1["rssi"], n2["rssi"])
-                    worst_lat = round(max(n1["latency"], n2["latency"]), 1)
+                    worst_rssi = min(n1.get("rssi", -65), n2.get("rssi", -65))
+                    worst_lat = round(max(n1.get("latency", 5.0), n2.get("latency", 5.0)), 1)
 
                     links.append({
                         "source": r1,
@@ -827,8 +875,8 @@ class TelemetryDataProvider:
                     })
 
             return {
-                "radios": 7,
-                "nodes": list(self.nodes),
+                "radios": len(enabled_nodes),
+                "nodes": enabled_nodes,
                 "links": links
             }
 
@@ -911,6 +959,58 @@ class TelemetryDataProvider:
             return sorted(result, key=lambda x: (x["priority"], x["id"]))
 
 
+    def get_fleet_config(self):
+        try:
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            failover_cfg = cm.get_failover() or {}
+            f_info = failover_cfg.get("failover", {})
+            active_count = f_info.get("active_device_count", 9)
+            device_nodes = f_info.get("device_nodes", {})
+            devices = []
+            for dev_id, dev_info in device_nodes.items():
+                devices.append({
+                    "id": dev_id,
+                    "name": dev_info.get("name", dev_id),
+                    "type": dev_info.get("type", "UGV"),
+                    "host_ip": dev_info.get("host_ip", ""),
+                    "radio_ip": dev_info.get("radio_ip", ""),
+                    "enabled": dev_info.get("enabled", True)
+                })
+            return {
+                "active_device_count": active_count,
+                "devices": devices
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def update_fleet_config(self, payload):
+        try:
+            import yaml
+            from utils.config_manager import ConfigManager
+            cm = ConfigManager()
+            failover_path = "/home/nvidia/meshcontrolplane/config/failover.yaml"
+            with open(failover_path, "r") as f:
+                raw_cfg = yaml.safe_load(f) or {}
+
+            failover_sec = raw_cfg.setdefault("failover", {})
+            if "active_device_count" in payload:
+                failover_sec["active_device_count"] = int(payload["active_device_count"])
+
+            if "enabled_devices" in payload and isinstance(payload["enabled_devices"], list):
+                enabled_set = set(payload["enabled_devices"])
+                dev_nodes = failover_sec.setdefault("device_nodes", {})
+                for dev_id in dev_nodes.keys():
+                    dev_nodes[dev_id]["enabled"] = (dev_id in enabled_set)
+
+            with open(failover_path, "w") as f:
+                yaml.safe_dump(raw_cfg, f, default_flow_style=False, sort_keys=False)
+
+            cm.load()
+            return {"status": "success", "message": "Fleet device configuration updated successfully."}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
 DATA_PROVIDER = TelemetryDataProvider()
 
 
@@ -939,6 +1039,27 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def do_POST(self):
+        if self.path == "/api/config/fleet":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode('utf-8'))
+                res = DATA_PROVIDER.update_fleet_config(payload)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(res).encode("utf-8"))
+                return
+            except Exception as e:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+                return
+        super().do_POST()
+
     def _send_api_response(self):
         try:
             if self.path == "/api/summary":
@@ -949,12 +1070,15 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
                 data = DATA_PROVIDER.get_topology()
             elif self.path == "/api/topics":
                 data = DATA_PROVIDER.get_topics()
+            elif self.path == "/api/config/fleet":
+                data = DATA_PROVIDER.get_fleet_config()
             elif self.path == "/api/all":
                 data = {
                     "summary": DATA_PROVIDER.get_system_summary(),
                     "nodes": DATA_PROVIDER.get_nodes(),
                     "topology": DATA_PROVIDER.get_topology(),
-                    "topics": DATA_PROVIDER.get_topics()
+                    "topics": DATA_PROVIDER.get_topics(),
+                    "fleet_config": DATA_PROVIDER.get_fleet_config()
                 }
             else:
                 data = {"error": "Endpoint not found"}

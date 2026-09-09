@@ -17,6 +17,7 @@ let cachedData = null;
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', () => {
     setupFilterListeners();
+    setupFleetModalListeners();
     fetchTelemetryData();
     setInterval(fetchTelemetryData, 500); // Poll every 500ms (2 Hz live updates)
 });
@@ -33,6 +34,72 @@ function setupFilterListeners() {
                 renderDeviceCards(cachedData.nodes);
             }
         });
+    });
+}
+
+// Setup Fleet Device Count Configuration Modal
+function setupFleetModalListeners() {
+    const btnOpen = document.getElementById('btn-open-fleet-config');
+    const btnClose = document.getElementById('btn-close-fleet-modal');
+    const btnCancel = document.getElementById('btn-cancel-fleet');
+    const btnSave = document.getElementById('btn-save-fleet');
+    const modal = document.getElementById('fleet-modal');
+    const selectCount = document.getElementById('fleet-count-select');
+    const listContainer = document.getElementById('fleet-checkbox-list');
+
+    if (!btnOpen || !modal) return;
+
+    btnOpen.addEventListener('click', async () => {
+        modal.style.display = 'flex';
+        try {
+            const res = await fetch('/api/config/fleet');
+            if (res.ok) {
+                const data = await res.json();
+                selectCount.value = data.active_device_count || 9;
+                listContainer.innerHTML = '';
+                (data.devices || []).forEach(dev => {
+                    const label = document.createElement('label');
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.gap = '6px';
+                    label.style.fontSize = '12px';
+                    label.style.color = '#cbd5e1';
+                    label.style.cursor = 'pointer';
+                    label.innerHTML = `<input type="checkbox" value="${dev.id}" ${dev.enabled ? 'checked' : ''} style="accent-color: #0284c7;"> <span style="font-weight: 600; color: ${dev.type === 'GCS' ? '#38bdf8' : '#e2e8f0'};">${dev.id}</span> (${dev.type})`;
+                    listContainer.appendChild(label);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load fleet config:', e);
+        }
+    });
+
+    const closeModal = () => { modal.style.display = 'none'; };
+    btnClose.addEventListener('click', closeModal);
+    btnCancel.addEventListener('click', closeModal);
+
+    btnSave.addEventListener('click', async () => {
+        const activeCount = parseInt(selectCount.value, 10);
+        const checkedInputs = listContainer.querySelectorAll('input[type="checkbox"]:checked');
+        const enabledDevices = Array.from(checkedInputs).map(i => i.value);
+
+        try {
+            const res = await fetch('/api/config/fleet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    active_device_count: activeCount,
+                    enabled_devices: enabledDevices
+                })
+            });
+            if (res.ok) {
+                alert(`Fleet Configuration Saved!\nActive Device Count: ${activeCount}\nEnabled Devices: ${enabledDevices.join(', ')}`);
+                closeModal();
+                fetchTelemetryData();
+            }
+        } catch (e) {
+            alert('Failed to save fleet config: ' + e);
+        }
     });
 }
 
@@ -57,10 +124,22 @@ async function fetchTelemetryData() {
 function renderSummary(summary) {
     if (!summary) return;
 
+    const activeCount = summary.active_device_count || summary.total_nodes;
+    const activeUgvs = summary.active_ugv_count !== undefined ? summary.active_ugv_count : 6;
+    const activeGcss = summary.active_gcs_count !== undefined ? summary.active_gcs_count : 3;
+
     // KPI Values
-    document.getElementById('kpi-active-nodes').textContent = `${summary.online_nodes} / ${summary.total_nodes}`;
+    document.getElementById('kpi-active-nodes').textContent = `${summary.online_nodes} / ${activeCount}`;
     document.getElementById('kpi-bandwidth').textContent = `${summary.used_bandwidth_mbps.toFixed(0)} / ${summary.max_bandwidth_mbps.toFixed(0)} Mbps`;
     document.getElementById('kpi-loss-limit').textContent = `${summary.loss_tolerance_percent.toFixed(1)} %`;
+
+    // Update Filter Pills dynamically
+    const btnAll = document.querySelector('.filter-pills .pill[data-filter="all"]');
+    const btnUGV = document.querySelector('.filter-pills .pill[data-filter="UGV"]');
+    const btnGCS = document.querySelector('.filter-pills .pill[data-filter="GCS"]');
+    if (btnAll) btnAll.textContent = `All Active (${activeCount})`;
+    if (btnUGV) btnUGV.textContent = `UGVs (${activeUgvs})`;
+    if (btnGCS) btnGCS.textContent = `GCSs (${activeGcss})`;
 
     // Progress bar fill
     const pct = Math.min(100, (summary.used_bandwidth_mbps / summary.max_bandwidth_mbps) * 100);
@@ -81,12 +160,12 @@ function renderSummary(summary) {
         led.className = 'status-indicator online';
         title.textContent = 'SYSTEM OPTIMAL';
         title.style.color = 'var(--accent-emerald)';
-        sub.textContent = `${summary.online_nodes} / ${summary.total_nodes} Devices Active`;
+        sub.textContent = `${summary.online_nodes} / ${activeCount} Active Fleet Devices`;
     } else {
         led.className = 'status-indicator degraded';
         title.textContent = 'SYSTEM DEGRADED';
         title.style.color = 'var(--accent-amber)';
-        sub.textContent = `${summary.online_nodes} / ${summary.total_nodes} Devices Active`;
+        sub.textContent = `${summary.online_nodes} / ${activeCount} Active Fleet Devices`;
     }
 
     // Master AP Failover Event Alert Banner
@@ -341,21 +420,27 @@ function renderDeviceCards(nodes) {
     filtered.forEach(dev => {
         const isUGV = dev.type === 'UGV';
         const isOnline = dev.status === 'ONLINE';
+        const isDisabled = dev.enabled === false || dev.status === 'DISABLED';
         const isLocal = dev.is_local;
         const typeClass = isUGV ? 'ugv' : 'gcs';
         let cardClass = isOnline ? 'device-card' : 'device-card offline';
+        if (isDisabled) cardClass += ' disabled-card';
         if (isLocal) cardClass += ' local-host-card';
 
-        const statusBadge = isOnline 
-            ? `<span class="dev-status-badge online">ONLINE</span>`
-            : `<span class="dev-status-badge offline">OFFLINE</span>`;
+        const statusBadge = isDisabled
+            ? `<span class="dev-status-badge" style="background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid #475569; font-weight: 700;">FLEET DISABLED</span>`
+            : (isOnline 
+                ? `<span class="dev-status-badge online">ONLINE</span>`
+                : `<span class="dev-status-badge offline">OFFLINE</span>`);
 
         const localBadge = isLocal 
             ? `<span class="dev-status-badge local-host">THIS DEVICE</span>`
             : '';
 
         let apBadge = `<span class="dev-status-badge" style="background: rgba(14,165,233,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);">🔗 STATION BRIDGE</span>`;
-        if (dev.is_master_ap) {
+        if (isDisabled) {
+            apBadge = `<span class="dev-status-badge" style="background: rgba(71,85,105,0.2); color: #64748b; border: 1px solid #334155;">⛔ INACTIVE</span>`;
+        } else if (dev.is_master_ap) {
             apBadge = `<span class="dev-status-badge" style="background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(217,119,6,0.5)); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 800;">👑 MASTER AP</span>`;
         } else if (dev.ap_role === 'UNKNOWN_AP_AVAILABLE') {
             apBadge = `<span class="dev-status-badge" style="background: rgba(0,229,255,0.15); color: #00e5ff; border: 1px solid rgba(0,229,255,0.4); font-weight: 700;">❓ UNKNOWN AP</span>`;

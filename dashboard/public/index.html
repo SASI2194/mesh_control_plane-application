@@ -32,6 +32,10 @@
 
             <!-- Local Device Identity & Health Status Badges -->
             <div style="display: flex; gap: 12px; align-items: center;">
+                <button id="btn-open-fleet-config" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(14,165,233,0.3); font-size: 13px;">
+                    <span>⚙️</span> FLEET CONFIG
+                </button>
+
                 <div class="local-device-box" id="local-device-box">
                     <div class="local-device-icon">📍</div>
                     <div>
@@ -49,6 +53,39 @@
                 </div>
             </div>
         </header>
+
+        <!-- Fleet Configuration Modal -->
+        <div id="fleet-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center;">
+            <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; width: 520px; max-width: 90vw; padding: 24px; color: #f8fafc; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 12px;">
+                    <h2 style="font-size: 18px; margin: 0; font-weight: 700; color: #38bdf8;">⚙️ Fleet Device Count Governance</h2>
+                    <button id="btn-close-fleet-modal" style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">&times;</button>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Active Fleet Device Count (Range: 2 to 9):</label>
+                    <select id="fleet-count-select" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                        <option value="2">2 Devices (e.g. 1 UGV + 1 GCS)</option>
+                        <option value="3">3 Devices</option>
+                        <option value="4">4 Devices</option>
+                        <option value="5">5 Devices</option>
+                        <option value="6">6 Devices</option>
+                        <option value="7">7 Devices</option>
+                        <option value="8">8 Devices</option>
+                        <option value="9" selected>9 Devices (Full Fleet — 6 UGVs + 3 GCSs)</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; color: #cbd5e1; margin-bottom: 8px; font-weight: 600;">Toggle Active Participating Fleet Devices:</label>
+                    <div id="fleet-checkbox-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 200px; overflow-y: auto; background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid #334155;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button id="btn-cancel-fleet" style="background: #475569; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                    <button id="btn-save-fleet" style="background: #0284c7; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Configuration</button>
+                </div>
+            </div>
+        </div>
 
         <!-- KPI Metrics Ribbon -->
         <section class="kpi-grid">

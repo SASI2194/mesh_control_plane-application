@@ -500,12 +500,30 @@ class MeshNode:
             time.sleep(2.0)
 
     def _demand_monitor_loop(self):
-        """Monitors local ROS 2 node graph for EXTERNAL subscriber interest (RViz2, ros2 topic echo) and dynamically declares/undeclares Zenoh subscribers on demand."""
+        """Monitors local ROS 2 node graph for EXTERNAL subscriber interest (RViz2, ros2 topic echo) and dynamically declares/undeclares Zenoh subscribers on demand for active enabled fleet devices."""
         while self.running:
             try:
+                enabled_namespaces = set(IP_TO_NAMESPACE.values())
+                try:
+                    from utils.config_manager import ConfigManager
+                    cm = ConfigManager()
+                    f_cfg = cm.get_failover() or {}
+                    d_nodes = f_cfg.get("failover", {}).get("device_nodes", {})
+                    if d_nodes:
+                        active_ns = set()
+                        for d_info in d_nodes.values():
+                            if isinstance(d_info, dict) and d_info.get("enabled", True):
+                                h_ip = d_info.get("host_ip")
+                                if h_ip and h_ip in IP_TO_NAMESPACE:
+                                    active_ns.add(IP_TO_NAMESPACE[h_ip])
+                        if active_ns:
+                            enabled_namespaces = active_ns
+                except Exception:
+                    pass
+
                 if self.ros_bridge and self.ros_bridge.node:
                     node = self.ros_bridge.node
-                    for dev_ns in IP_TO_NAMESPACE.values():
+                    for dev_ns in enabled_namespaces:
                         for topic_cfg in self.registry.all_topics().values():
                             base_topic = topic_cfg["name"]
                             ns_topic = f"/{dev_ns}{base_topic}"
