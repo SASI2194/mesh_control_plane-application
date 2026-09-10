@@ -495,6 +495,16 @@ class MeshNode:
                     # 2. Publish to Native ROS 2 Node Graph (/mesh_wifi_telemetry)
                     if getattr(self, "ros_bridge", None):
                         self.ros_bridge.publish_telemetry(json_str)
+
+                    # 3. Broadcast local Peer Table summary over Control Plane Key
+                    peer_table_key = f"filtered/_mesh_peer_table/{self.my_ip}"
+                    peer_nodes = DATA_PROVIDER.get_nodes()
+                    peer_payload = json.dumps({
+                        "sender_ip": self.my_ip,
+                        "timestamp": time.time(),
+                        "peers": {n["id"]: {"rssi": n.get("rssi", -65), "latency": n.get("latency", 5.0), "loss": n.get("loss", 0.0), "role": n.get("neighbor_role", "DISCOVERED_IDLE"), "score": n.get("link_score", 0.0)} for n in peer_nodes}
+                    })
+                    self.forward_session.session.put(peer_table_key, peer_payload.encode("utf-8"))
             except Exception:
                 pass
             time.sleep(2.0)
@@ -729,6 +739,20 @@ class MeshNode:
         #
 
         self.scheduler_logger.log_snapshot(self.registry, self.scheduler, self.congestion)
+
+        #
+        # Broadcast Peer Table & Best 2 Neighbor Selection state over Zenoh Control Plane
+        #
+        try:
+            peer_nodes = DATA_PROVIDER.get_nodes()
+            peer_table_payload = json.dumps({
+                "timestamp": time.time(),
+                "sender_ip": self.my_ip,
+                "nodes": peer_nodes
+            }).encode("utf-8")
+            self.forward_session.put(f"filtered/_mesh_peer_table/{self.my_ip}", peer_table_payload)
+        except Exception:
+            pass
 
     #####################################################################
 

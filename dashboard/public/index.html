@@ -32,8 +32,11 @@
 
             <!-- Local Device Identity & Health Status Badges -->
             <div style="display: flex; gap: 12px; align-items: center;">
-                <button id="btn-open-fleet-config" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(14,165,233,0.3); font-size: 13px;">
+                <button id="btn-open-fleet-config" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(14,165,233,0.3); font-size: 13px;">
                     <span>⚙️</span> FLEET CONFIG
+                </button>
+                <button id="btn-open-neighbor-config" style="background: linear-gradient(135deg, #a855f7, #7e22ce); color: white; border: none; padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(168,85,247,0.3); font-size: 13px;">
+                    <span>⚙️</span> NEIGHBOR CONFIG
                 </button>
 
                 <div class="local-device-box" id="local-device-box">
@@ -83,6 +86,55 @@
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button id="btn-cancel-fleet" style="background: #475569; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
                     <button id="btn-save-fleet" style="background: #0284c7; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Configuration</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Neighbor Selection Formula Modal -->
+        <div id="neighbor-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center;">
+            <div style="background: #1e293b; border: 1px solid #a855f7; border-radius: 12px; width: 560px; max-width: 90vw; padding: 24px; color: #f8fafc; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 12px;">
+                    <h2 style="font-size: 18px; margin: 0; font-weight: 700; color: #c084fc;">⚙️ Best 2 Neighbor Selection Formula</h2>
+                    <button id="btn-close-neighbor-modal" style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">&times;</button>
+                </div>
+                <div style="margin-bottom: 16px; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                    Dynamic scoring formula weights parameters from <code style="color:#c084fc;">config/neighbor_selection.yaml</code>. Evaluates composite Link Score and assigns <strong>PRIMARY_ACTIVE</strong> (Rank #1) and <strong>STANDBY_BACKUP</strong> (Rank #2).
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">RSSI Weight (0.0 - 1.0):</label>
+                        <input id="input-weight-rssi" type="number" step="0.05" min="0" max="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">Latency Weight (0.0 - 1.0):</label>
+                        <input id="input-weight-lat" type="number" step="0.05" min="0" max="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">Packet Loss Weight (0.0 - 1.0):</label>
+                        <input id="input-weight-loss" type="number" step="0.05" min="0" max="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">SNR Weight (0.0 - 1.0):</label>
+                        <input id="input-weight-snr" type="number" step="0.05" min="0" max="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 10px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">Min RSSI (dBm):</label>
+                        <input id="input-bound-rssi" type="number" step="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #f43f5e; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 10px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">Max Latency (ms):</label>
+                        <input id="input-bound-lat" type="number" step="5" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #f43f5e; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 10px; color: #cbd5e1; font-weight: 700; margin-bottom: 4px;">Max Loss (%):</label>
+                        <input id="input-bound-loss" type="number" step="1" style="width: 100%; background: #0f172a; border: 1px solid #475569; color: #f43f5e; padding: 6px 10px; border-radius: 6px; font-weight: 700;">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button id="btn-cancel-neighbor" style="background: #475569; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
+                    <button id="btn-save-neighbor" style="background: #a855f7; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Formula Weights</button>
                 </div>
             </div>
         </div>
@@ -163,6 +215,79 @@
                             </thead>
                             <tbody id="topics-tbody">
                                 <!-- Dynamic Topic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section 1: Network Peer Tables (Raw NetMetal AX Radio Discovery) -->
+                <div class="card glass-card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h2 style="display: flex; align-items: center; gap: 8px;">
+                                <span>📡</span> 1. Network Peer Tables (Raw NetMetal AX Radio Discovery)
+                            </h2>
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                Each active node maintains its own peer table containing all physically reachable Wi-Fi radio peers discovered on the <code style="color:#38bdf8;">wifi2</code> interface, along with their evaluated link quality metrics and raw link quality ranking.
+                            </p>
+                        </div>
+                        <span class="badge badge-cyan">Network-Wide Peer Discovery</span>
+                    </div>
+                    
+                    <div id="network-peer-tables-container" style="display: flex; flex-direction: column; gap: 16px; padding-top: 10px;">
+                        <!-- Dynamic Node Peer Tables Rendered in app.js (UGV-01, UGV-03, UGV-04, UGV-05) -->
+                    </div>
+                </div>
+
+                <!-- Section 2: Neighbour Selection Governance & Network Inclusivity Algorithm -->
+                <div class="card glass-card" style="background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(88,28,135,0.25)); border: 1px solid rgba(168,85,247,0.4);">
+                    <div class="card-header">
+                        <h2 style="display: flex; align-items: center; gap: 8px; color: #c084fc;">
+                            <span>🧠</span> 2. Neighbour Selection Governance &amp; Network Inclusivity Algorithm
+                        </h2>
+                    </div>
+                    <div style="font-size: 12px; color: #e2e8f0; line-height: 1.6; padding: 0 4px 6px 4px;">
+                        <p style="margin-bottom: 8px;">
+                            To prevent <strong>UGV-05</strong> (or any single-peer edge node) from being left out (isolated) from the mesh network, the governance algorithm applies two strict operational rules:
+                        </p>
+                        <ul style="padding-left: 20px; color: #94a3b8; font-size: 11.5px;">
+                            <li style="margin-bottom: 6px;">
+                                <strong style="color: #38bdf8;">Max Neighbor Capacity Rule:</strong> Every node selects a maximum of 2 Active Neighbours (Rank 1 = <span style="color:#34d399; font-weight:700;">⭐ PRIMARY ACTIVE</span>, Rank 2 = <span style="color:#22d3ee; font-weight:700;">🛡️ STANDBY BACKUP / SECONDARY ACTIVE</span>). Bandwidth is dynamically shared (50%/50%) between active links.
+                            </li>
+                            <li>
+                                <strong style="color: #a855f7;">Network Inclusivity (Isolation Prevention) Rule:</strong> If <strong style="color:#f8fafc;">UGV-05</strong> has only 1 peer connection (<strong style="color:#f8fafc;">UGV-01</strong>), purely selecting top quality links (UGV-03 &amp; UGV-04) would disconnect UGV-05. Therefore, <strong style="color:#f8fafc;">UGV-01</strong> reserves its Rank 2 Active Neighbour slot for <strong style="color:#f8fafc;">UGV-05</strong> to guarantee 100% network connectivity, while UGV-04 maintains its active mesh link through UGV-03.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Section 3: Network Neighbour Selection Governance Table (Final Active Mesh Topology) -->
+                <div class="card glass-card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h2 style="display: flex; align-items: center; gap: 8px;">
+                                <span>🏆</span> 3. Network Neighbour Selection Governance Table (Final Active Mesh Topology)
+                            </h2>
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                Resulting Assigned Neighbour Roles for each node across the entire active network (<code style="color:#c084fc;">config/neighbor_selection.yaml</code>)
+                            </p>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Local Node</th>
+                                    <th>Remote Candidate Peer</th>
+                                    <th>Link Score</th>
+                                    <th>Raw Rank</th>
+                                    <th>Inclusivity Priority</th>
+                                    <th>Final Assigned Neighbour Role</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="network-neighbor-tbody">
+                                <!-- Dynamic Network Neighbor Table Rows Rendered in app.js -->
                             </tbody>
                         </table>
                     </div>

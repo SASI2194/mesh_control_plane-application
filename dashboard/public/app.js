@@ -12,12 +12,15 @@
  */
 
 let activeFilter = 'all';
+let neighborFilter = 'all';
 let cachedData = null;
 
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', () => {
     setupFilterListeners();
+    setupNeighborFilterListeners();
     setupFleetModalListeners();
+    setupNeighborModalListeners();
     fetchTelemetryData();
     setInterval(fetchTelemetryData, 500); // Poll every 500ms (2 Hz live updates)
 });
@@ -35,6 +38,101 @@ function setupFilterListeners() {
             }
         });
     });
+}
+
+// Setup Table 2 Neighbor Filter Buttons
+function setupNeighborFilterListeners() {
+    const buttons = document.querySelectorAll('.neighbor-filter-pills .pill');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            neighborFilter = btn.getAttribute('data-neighbor-filter');
+            if (cachedData) {
+                renderNeighbourSelectionTable(cachedData.neighbor_table || cachedData.nodes);
+            }
+        });
+    });
+}
+
+// Setup Neighbor Selection Formula Configuration Modal
+function setupNeighborModalListeners() {
+    const btnOpen = document.getElementById('btn-open-neighbor-config');
+    const btnClose = document.getElementById('btn-close-neighbor-modal');
+    const btnCancel = document.getElementById('btn-cancel-neighbor');
+    const btnSave = document.getElementById('btn-save-neighbor');
+    const modal = document.getElementById('neighbor-modal');
+
+    const inW1 = document.getElementById('input-weight-rssi');
+    const inW2 = document.getElementById('input-weight-lat');
+    const inW3 = document.getElementById('input-weight-loss');
+    const inW4 = document.getElementById('input-weight-snr');
+
+    const inB1 = document.getElementById('input-bound-rssi');
+    const inB2 = document.getElementById('input-bound-lat');
+    const inB3 = document.getElementById('input-bound-loss');
+
+    if (!btnOpen || !modal) return;
+
+    btnOpen.addEventListener('click', async () => {
+        modal.style.display = 'flex';
+        try {
+            const res = await fetch('/api/config/neighbor_selection');
+            if (res.ok) {
+                const data = await res.json();
+                const weights = data.scoring_weights || {};
+                const bounds = data.hard_boundaries || {};
+
+                if (inW1) inW1.value = weights.rssi_weight !== undefined ? weights.rssi_weight : 0.40;
+                if (inW2) inW2.value = weights.latency_weight !== undefined ? weights.latency_weight : 0.35;
+                if (inW3) inW3.value = weights.packet_loss_weight !== undefined ? weights.packet_loss_weight : 0.15;
+                if (inW4) inW4.value = weights.snr_weight !== undefined ? weights.snr_weight : 0.10;
+
+                if (inB1) inB1.value = bounds.min_rssi_dbm !== undefined ? bounds.min_rssi_dbm : -85;
+                if (inB2) inB2.value = bounds.max_latency_ms !== undefined ? bounds.max_latency_ms : 100;
+                if (inB3) inB3.value = bounds.max_packet_loss_percent !== undefined ? bounds.max_packet_loss_percent : 10;
+            }
+        } catch (e) {
+            console.error('Failed to load neighbor config:', e);
+        }
+    });
+
+    const closeModal = () => { modal.style.display = 'none'; };
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+    if (btnSave) {
+        btnSave.addEventListener('click', async () => {
+            const payload = {
+                scoring_weights: {
+                    rssi_weight: parseFloat(inW1.value),
+                    latency_weight: parseFloat(inW2.value),
+                    packet_loss_weight: parseFloat(inW3.value),
+                    snr_weight: parseFloat(inW4.value)
+                },
+                hard_boundaries: {
+                    min_rssi_dbm: parseFloat(inB1.value),
+                    max_latency_ms: parseFloat(inB2.value),
+                    max_packet_loss_percent: parseFloat(inB3.value)
+                }
+            };
+
+            try {
+                const res = await fetch('/api/config/neighbor_selection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert('Neighbor Selection Formula Parameters Saved Successfully!');
+                    closeModal();
+                    fetchTelemetryData();
+                }
+            } catch (e) {
+                alert('Failed to save neighbor config: ' + e);
+            }
+        });
+    }
 }
 
 // Setup Fleet Device Count Configuration Modal
@@ -114,10 +212,120 @@ async function fetchTelemetryData() {
         renderSummary(data.summary);
         renderTopology(data.topology);
         renderTopics(data.topics);
+        renderNetworkPeerTables(data.network_peer_tables || {});
+        renderNetworkNeighborTable(data.network_neighbor_table || []);
         renderDeviceCards(data.nodes);
     } catch (err) {
         console.warn('Telemetry fetch error:', err);
     }
+}
+
+// Section 1: Render Network Peer Tables (Grouped per active node: UGV-01, UGV-03, UGV-04, UGV-05)
+function renderNetworkPeerTables(peerTables) {
+    const container = document.getElementById('network-peer-tables-container');
+    if (!container || !peerTables) return;
+
+    let html = '';
+    const nodeKeys = Object.keys(peerTables);
+
+    nodeKeys.forEach(localId => {
+        const peers = peerTables[localId] || [];
+        const countStr = `${peers.length} Discovered Peer${peers.length !== 1 ? 's' : ''}`;
+
+        html += `
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="font-size: 13px; font-weight: 700; color: #00e5ff; margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <span>📻</span> <strong>${localId} Discovered Peer Table</strong> <small style="color: #94a3b8; font-weight: 500;">(${countStr})</small>
+                    </h3>
+                    <span class="badge badge-cyan" style="font-size: 10px;">${localId} Radio Link Discovery</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 11.5px;">
+                        <thead>
+                            <tr>
+                                <th>Peer Node ID</th>
+                                <th>MAC Address</th>
+                                <th>IP Address</th>
+                                <th>RSSI</th>
+                                <th>Latency</th>
+                                <th>Packet Loss</th>
+                                <th>SNR</th>
+                                <th>Link Score</th>
+                                <th>Raw Link Quality Rank</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${peers.map(p => {
+                                const rssi = p.rssi;
+                                let rssiColor = '#f43f5e';
+                                if (rssi > -65) rssiColor = '#34d399';
+                                else if (rssi > -75) rssiColor = '#fbbf24';
+
+                                return `
+                                    <tr>
+                                        <td><strong style="color:#f8fafc;">${p.id}</strong></td>
+                                        <td><code style="color:#a855f7;">${p.mac}</code></td>
+                                        <td><code style="color:#38bdf8;">${p.ip}</code> <span style="font-size:10px; color:#94a3b8;">(${p.radio_ip ? p.radio_ip : p.ip})</span></td>
+                                        <td><span style="color:${rssiColor}; font-weight:700;">${rssi} dBm</span></td>
+                                        <td><span style="color:#cbd5e1;">${p.latency.toFixed(1)} ms</span></td>
+                                        <td><span style="color:${p.loss > 5 ? '#f43f5e' : '#cbd5e1'};">${p.loss.toFixed(1)}%</span></td>
+                                        <td><span style="color:#cbd5e1;">${p.snr} dB</span></td>
+                                        <td><strong style="color:#c084fc;">${p.score.toFixed(4)}</strong></td>
+                                        <td><span class="role-badge publisher" style="font-size:9.5px;">${p.rank}</span></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Section 3: Render Network-Wide Neighbour Selection Governance Table
+function renderNetworkNeighborTable(neighbors) {
+    const tbody = document.getElementById('network-neighbor-tbody');
+    if (!tbody || !neighbors) return;
+
+    tbody.innerHTML = '';
+
+    neighbors.forEach(item => {
+        const tr = document.createElement('tr');
+
+        const localHtml = `<strong style="color: #38bdf8; font-size:13px;">${item.local_node}</strong>`;
+        const peerHtml = `<strong style="color: #f8fafc; font-size:13px;">${item.peer_node}</strong>`;
+        const scoreHtml = `<strong style="color: #c084fc; font-size:12.5px;">${item.score.toFixed(4)}</strong>`;
+        const rankHtml = `<span style="font-size:11.5px; color:#cbd5e1; font-weight:600;">${item.raw_rank}</span>`;
+        const prioHtml = `<span style="font-size:11.5px; color:#94a3b8;">${item.inclusivity_priority}</span>`;
+
+        const role = item.assigned_role;
+        let roleBadge = '';
+        if (role === 'PRIMARY_ACTIVE' || role === 'ACTIVE_PRIMARY') {
+            roleBadge = `<span class="badge" style="background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.4); font-weight: 700;">⭐ PRIMARY ACTIVE</span>`;
+        } else if (role === 'STANDBY_BACKUP' || role === 'ACTIVE_SECONDARY') {
+            roleBadge = `<span class="badge" style="background: rgba(6,182,212,0.2); color: #22d3ee; border: 1px solid rgba(6,182,212,0.4); font-weight: 700;">🛡️ STANDBY BACKUP</span>`;
+        } else {
+            roleBadge = `<span class="badge" style="background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3);">💤 DISCOVERED IDLE</span>`;
+        }
+
+        let statusBadge = `<span class="status-pill online">ONLINE</span>`;
+
+        tr.innerHTML = `
+            <td>${localHtml}</td>
+            <td>${peerHtml}</td>
+            <td>${scoreHtml}</td>
+            <td>${rankHtml}</td>
+            <td>${prioHtml}</td>
+            <td>${roleBadge}</td>
+            <td>${statusBadge}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
 }
 
 // Render Header Summary & KPI Cards
@@ -448,6 +656,16 @@ function renderDeviceCards(nodes) {
             apBadge = `<span class="dev-status-badge" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); font-weight: 700;">🔍 PROBING</span>`;
         }
 
+        let neighborBadge = '';
+        if (isOnline && !isDisabled && !isLocal) {
+            const nRole = dev.neighbor_role || 'DISCOVERED_IDLE';
+            if (nRole === 'PRIMARY_ACTIVE') {
+                neighborBadge = `<span class="dev-status-badge" style="background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; font-weight: 800;">⭐ PRIMARY NEIGHBOR</span>`;
+            } else if (nRole === 'STANDBY_BACKUP') {
+                neighborBadge = `<span class="dev-status-badge" style="background: rgba(2,132,199,0.2); color: #38bdf8; border: 1px solid #0284c7; font-weight: 800;">🛡️ STANDBY BACKUP</span>`;
+            }
+        }
+
         const signalVal = isOnline ? `${dev.rssi} dBm` : 'N/A';
         const latencyVal = isOnline ? `${dev.latency} ms` : 'Disconnected';
 
@@ -455,8 +673,9 @@ function renderDeviceCards(nodes) {
             <div class="${cardClass}">
                 <div class="device-header">
                     <span class="device-id">${dev.id}</span>
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                         ${localBadge}
+                        ${neighborBadge}
                         ${apBadge}
                         ${statusBadge}
                         <span class="device-type ${typeClass}">${dev.type}</span>

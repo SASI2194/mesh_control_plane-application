@@ -175,44 +175,137 @@ class RouterOSClient:
 
         except Exception as e:
 
-            self.logger.error(e)
-
             return []
 
     ###########################################################################
 
-    def get_registration_table(self):
-
+    def get_ip_neighbors(self):
         """
-        Returns wireless registration table.
-
-        RouterOS v7 WiFi package
+        Retrieves IP neighbor entries from RouterOS (/ip/neighbor).
+        Queries NetMetal AX radio IP addresses (e.g. 192.168.3.2, 192.168.3.3, 192.168.3.5, 192.168.3.6)
+        and MAC addresses to discover active radio peers on wifi2.
         """
+        raw_items = []
+        path = "/ip/neighbor"
 
-        paths = [
-
-            "/interface/wifi/registration-table",
-
-            "/interface/wireless/registration-table",
-
-        ]
-
-        for path in paths:
-
+        if self.api:
             try:
-
                 resource = self.api.get_resource(path)
-
-                result = resource.get()
-
-                if result is not None:
-
-                    return result
-
+                res = resource.get()
+                if res:
+                    raw_items = res
             except Exception:
                 pass
 
-        return []
+        if not raw_items:
+            import urllib.request
+            import json
+            headers = {"Authorization": "Basic YWRtaW46", "Content-Type": "application/json"}
+            try:
+                url = f"http://{self.host}/rest/ip/neighbor"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(data, list):
+                        raw_items = data
+            except Exception:
+                pass
+
+        neighbors = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            mac = item.get("mac-address") or item.get("mac") or ""
+            addr = item.get("address") or item.get("ip") or ""
+            interface = item.get("interface") or ""
+            identity = item.get("identity") or item.get("name") or "MikroTik"
+            board = item.get("board") or item.get("board-name") or "L23UGSR-5HaxD2HaxD"
+            version = item.get("version") or ""
+
+            neighbors.append({
+                "mac": mac,
+                "address": addr,
+                "interface": interface,
+                "identity": identity,
+                "board": board,
+                "version": version
+            })
+
+        return neighbors
+
+    ###########################################################################
+
+    def get_registration_table(self):
+        """
+        Returns parsed wireless registration table from NetMetal AX radio.
+        Supports both RouterOS API (/interface/wifi/registration-table) and REST API (/rest/interface/wifi/registration-table).
+        """
+        raw_items = []
+        paths = ["/interface/wifi/registration-table", "/interface/wireless/registration-table"]
+
+        if self.api:
+            for path in paths:
+                try:
+                    resource = self.api.get_resource(path)
+                    res = resource.get()
+                    if res:
+                        raw_items = res
+                        break
+                except Exception:
+                    pass
+
+        if not raw_items:
+            # Fallback to REST API /rest/interface/wifi/registration-table
+            import urllib.request
+            import json
+            headers = {"Authorization": "Basic YWRtaW46", "Content-Type": "application/json"}
+            for rest_path in ["/rest/interface/wifi/registration-table", "/rest/interface/wireless/registration-table"]:
+                try:
+                    url = f"http://{self.host}{rest_path}"
+                    req = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=2) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        if isinstance(data, list):
+                            raw_items = data
+                            break
+                except Exception:
+                    pass
+
+        peers = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            mac = item.get("mac-address") or item.get("mac") or ""
+            if not mac:
+                continue
+            interface = item.get("interface") or "wifi2"
+            rssi_val = item.get("signal-strength") or item.get("signal") or item.get("rssi") or "-65"
+            try:
+                rssi = float(str(rssi_val).split("d")[0].strip())
+            except Exception:
+                rssi = -65.0
+
+            snr_val = item.get("snr") or item.get("signal-to-noise") or "30"
+            try:
+                snr = float(str(snr_val).split("d")[0].strip())
+            except Exception:
+                snr = 30.0
+
+            tx_rate = item.get("tx-rate") or item.get("tx_rate") or "288.5Mbps-80MHz/2S/SGI"
+            rx_rate = item.get("rx-rate") or item.get("rx_rate") or "288.5Mbps-80MHz/2S/SGI"
+            uptime = item.get("uptime") or item.get("last-seen") or "0s"
+
+            peers.append({
+                "mac": mac,
+                "interface": interface,
+                "rssi": rssi,
+                "snr": snr,
+                "tx_rate": str(tx_rate),
+                "rx_rate": str(rx_rate),
+                "uptime": str(uptime)
+            })
+
+        return peers
 
     ###########################################################################
 

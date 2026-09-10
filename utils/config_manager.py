@@ -34,6 +34,7 @@ class ConfigManager:
             cls._instance.priorities = {}
             cls._instance.routing = {}
             cls._instance.failover = {}
+            cls._instance.neighbor_selection = {}
 
             cls._instance.logger = MeshLogger.get_logger("ConfigManager")
 
@@ -50,6 +51,9 @@ class ConfigManager:
         self.routing = self._load_yaml("config/routing.yaml")
 
         self.failover = self._load_yaml("config/failover.yaml")
+
+        if Path("config/neighbor_selection.yaml").exists():
+            self.neighbor_selection = self._load_yaml("config/neighbor_selection.yaml")
 
         self.logger.info("Configuration loaded successfully.")
 
@@ -93,6 +97,12 @@ class ConfigManager:
 
     ###########################################################################
 
+    def get_neighbor_selection(self):
+
+        return self.neighbor_selection
+
+    ###########################################################################
+
     def get(self, section, key=None):
 
         tables = {
@@ -104,6 +114,8 @@ class ConfigManager:
             "routing": self.routing,
 
             "failover": self.failover,
+
+            "neighbor_selection": self.neighbor_selection,
 
         }
 
@@ -118,3 +130,4 @@ class ConfigManager:
             return table
 
         return table.get(key)
+

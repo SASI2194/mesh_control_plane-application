@@ -53,9 +53,12 @@
 
 ---
 
-## RULE 5: Lossless Payload Sequence Verification
-- **Sequence Header Format**: Every forwarded `MeshSample` payload must be packed with a 16-byte binary header (`!Qd`: 8-byte uint64 sequence number + 8-byte double timestamp).
-- **Receiver Verification**: The receiver monitor (`scripts/mesh_verification.py`) must unpack sequence headers and track sequence gaps to verify 100% full data delivery (`[FULL DATA 100%]`).
+## RULE 5: Neighbour Selection Governance, Network Inclusivity & Dual-Active Bandwidth Sharing Policy
+- **Dual-Active Neighbour Governance**: Every node maintains up to 2 active neighbours: **`ACTIVE_PRIMARY`** (Rank 1 / Best Quality Link) and **`ACTIVE_SECONDARY`** (Rank 2 / Secondary Active Link).
+- **Dual-Active Bandwidth Sharing**: Available network bandwidth capacity is **dynamically shared (50%/50%)** across both active neighbours for multi-path data transport and load balancing.
+- **Network Inclusivity Guarantee ("No Node Left Behind")**: If an edge device (e.g. `UGV-05`) has only 1 reachable peer connection (`UGV-01`), the connecting gateway node (`UGV-01`) **MUST allocate one of its 2 active neighbour slots (`ACTIVE_SECONDARY`) to `UGV-05`**, guaranteeing 100% network topology integration without isolating any active node.
+- **Hot-Standby Backup Idle Peers**: Non-selected peers (Rank 3+) operate as **`DISCOVERED_IDLE`** (Hot Standby Backup) candidates and automatically step in if an active neighbour fails, goes offline, or drops signal below hard boundaries.
+- **Lossless Payload Sequence Verification**: Every forwarded `MeshSample` payload must be packed with a 16-byte binary header (`!Qd`: 8-byte uint64 sequence number + 8-byte double timestamp). The receiver monitor (`scripts/mesh_verification.py`) must unpack sequence headers and track sequence gaps to verify 100% full data delivery (`[FULL DATA 100%]`).
 
 ---
 

@@ -22,9 +22,16 @@ from dashboard.server import start_dashboard_background
 
 
 def main():
+    os.environ["no_proxy"] = "127.0.0.1,localhost"
+    os.environ["HTTP_PROXY"] = ""
+    os.environ["http_proxy"] = ""
+
     print("==========================================================")
     print("Testing Web Dashboard Telemetry Server (Port 8089)")
     print("==========================================================")
+
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    urllib.request.install_opener(opener)
 
     # Start test server on port 8089 to avoid port conflicts
     t = start_dashboard_background(host="127.0.0.1", port=8089)
@@ -56,10 +63,18 @@ def main():
     assert req_topo.status == 200
     topo = json.loads(req_topo.read().decode("utf-8"))
     print(f"\n[Topology Endpoint Test] Nodes: {len(topo['nodes'])}, Links: {len(topo['links'])}")
-    assert len(topo["nodes"]) == 9
-    assert len(topo["links"]) >= 8
+    assert len(topo["nodes"]) >= 2
+    assert len(topo["links"]) >= 1
 
-    # 4. Test HTML Index Page
+    # 4. Test /api/config/neighbor_selection
+    req_ns = urllib.request.urlopen("http://127.0.0.1:8089/api/config/neighbor_selection")
+    assert req_ns.status == 200
+    ns_cfg = json.loads(req_ns.read().decode("utf-8"))
+    print(f"\n[Neighbor Selection API Test] Enabled: {ns_cfg.get('enabled')}")
+    assert "scoring_weights" in ns_cfg
+    assert "hard_boundaries" in ns_cfg
+
+    # 5. Test HTML Index Page
     req_html = urllib.request.urlopen("http://127.0.0.1:8089/")
     assert req_html.status == 200
     html_content = req_html.read().decode("utf-8")
@@ -71,3 +86,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

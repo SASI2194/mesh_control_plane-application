@@ -57,6 +57,11 @@ def compute_file_hash(filepath: str) -> str:
 def set_password(password: str):
     """Saves master password hash to .rules_auth."""
     hashed = hash_password(password)
+    if os.path.exists(AUTH_PATH):
+        try:
+            os.chmod(AUTH_PATH, 0o600)
+        except Exception:
+            pass
     with open(AUTH_PATH, "w") as f:
         f.write(hashed + "\n")
     os.chmod(AUTH_PATH, 0o600)
