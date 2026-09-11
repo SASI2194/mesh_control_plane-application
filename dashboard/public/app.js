@@ -220,7 +220,7 @@ async function fetchTelemetryData() {
     }
 }
 
-// Section 1: Render Network Peer Tables (Grouped per active node: UGV-01, UGV-03, UGV-04, UGV-05)
+// Section 1: Render Network Peer Tables (Grouped per active node)
 function renderNetworkPeerTables(peerTables) {
     const container = document.getElementById('network-peer-tables-container');
     if (!container || !peerTables) return;
@@ -228,15 +228,89 @@ function renderNetworkPeerTables(peerTables) {
     let html = '';
     const nodeKeys = Object.keys(peerTables);
 
+    if (nodeKeys.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #94a3b8; font-size: 13px;">
+                No active network peers discovered on local NetMetal AX interfaces.
+            </div>
+        `;
+        return;
+    }
+
     nodeKeys.forEach(localId => {
-        const peers = peerTables[localId] || [];
+        const rawData = peerTables[localId];
+        let peers = [];
+        let isLocal = false;
+        let apRole = 'STATION_BRIDGE';
+        let wifiStatus = '';
+
+        if (Array.isArray(rawData)) {
+            peers = rawData;
+        } else if (rawData && typeof rawData === 'object') {
+            peers = rawData.peers || [];
+            isLocal = !!rawData.is_local;
+            apRole = rawData.ap_role || 'STATION_BRIDGE';
+            wifiStatus = rawData.wifi_status || '';
+        }
+
         const countStr = `${peers.length} Discovered Peer${peers.length !== 1 ? 's' : ''}`;
+
+        // Header Badges
+        const localBadge = isLocal 
+            ? `<span class="dev-status-badge local-host" style="font-size: 9px; padding: 2px 7px;">📍 THIS DEVICE</span>` 
+            : '';
+
+        let roleBadge = `<span class="dev-status-badge" style="background: rgba(14,165,233,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 9px; padding: 2px 7px;">🔗 STATION BRIDGE</span>`;
+        if (apRole === 'MASTER_AP' || apRole === 'ELECTED_MASTER_AP') {
+            roleBadge = `<span class="dev-status-badge" style="background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(217,119,6,0.5)); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 800; font-size: 9px; padding: 2px 7px;">👑 MASTER AP</span>`;
+        }
+
+        let wifiBadge = '';
+        if (wifiStatus && isLocal) {
+            wifiBadge = `<span class="role-badge publisher" style="font-size: 8.5px; padding: 2px 6px;">${wifiStatus}</span>`;
+        }
+
+        let rowsHtml = '';
+        if (peers.length === 0) {
+            rowsHtml = `
+                <tr>
+                    <td colspan="9" style="text-align: center; color: #94a3b8; font-size: 12px; padding: 14px;">
+                        No active peers discovered on radio interface.
+                    </td>
+                </tr>
+            `;
+        } else {
+            rowsHtml = peers.map(p => {
+                const rssi = p.rssi;
+                let rssiColor = '#f43f5e';
+                if (rssi > -65) rssiColor = '#34d399';
+                else if (rssi > -75) rssiColor = '#fbbf24';
+
+                return `
+                    <tr>
+                        <td><strong style="color:#f8fafc;">${p.id}</strong></td>
+                        <td><code style="color:#a855f7;">${p.mac}</code></td>
+                        <td><code style="color:#38bdf8;">${p.ip}</code> <span style="font-size:10px; color:#94a3b8;">(${p.radio_ip ? p.radio_ip : p.ip})</span></td>
+                        <td><span style="color:${rssiColor}; font-weight:700;">${rssi} dBm</span></td>
+                        <td><span style="color:#cbd5e1;">${p.latency.toFixed(1)} ms</span></td>
+                        <td><span style="color:${p.loss > 5 ? '#f43f5e' : '#cbd5e1'};">${p.loss.toFixed(1)}%</span></td>
+                        <td><span style="color:#cbd5e1;">${p.snr} dB</span></td>
+                        <td><strong style="color:#c084fc;">${p.score.toFixed(4)}</strong></td>
+                        <td><span class="role-badge publisher" style="font-size:9.5px;">${p.rank}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
         html += `
             <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 4px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h3 style="font-size: 13px; font-weight: 700; color: #00e5ff; margin: 0; display: flex; align-items: center; gap: 6px;">
-                        <span>📻</span> <strong>${localId} Discovered Peer Table</strong> <small style="color: #94a3b8; font-weight: 500;">(${countStr})</small>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <h3 style="font-size: 13px; font-weight: 700; color: #00e5ff; margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>📻</span> <strong>${localId} Discovered Peer Table</strong>
+                        ${localBadge}
+                        ${roleBadge}
+                        ${wifiBadge}
+                        <small style="color: #94a3b8; font-weight: 500;">(${countStr})</small>
                     </h3>
                     <span class="badge badge-cyan" style="font-size: 10px;">${localId} Radio Link Discovery</span>
                 </div>
@@ -256,26 +330,7 @@ function renderNetworkPeerTables(peerTables) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${peers.map(p => {
-                                const rssi = p.rssi;
-                                let rssiColor = '#f43f5e';
-                                if (rssi > -65) rssiColor = '#34d399';
-                                else if (rssi > -75) rssiColor = '#fbbf24';
-
-                                return `
-                                    <tr>
-                                        <td><strong style="color:#f8fafc;">${p.id}</strong></td>
-                                        <td><code style="color:#a855f7;">${p.mac}</code></td>
-                                        <td><code style="color:#38bdf8;">${p.ip}</code> <span style="font-size:10px; color:#94a3b8;">(${p.radio_ip ? p.radio_ip : p.ip})</span></td>
-                                        <td><span style="color:${rssiColor}; font-weight:700;">${rssi} dBm</span></td>
-                                        <td><span style="color:#cbd5e1;">${p.latency.toFixed(1)} ms</span></td>
-                                        <td><span style="color:${p.loss > 5 ? '#f43f5e' : '#cbd5e1'};">${p.loss.toFixed(1)}%</span></td>
-                                        <td><span style="color:#cbd5e1;">${p.snr} dB</span></td>
-                                        <td><strong style="color:#c084fc;">${p.score.toFixed(4)}</strong></td>
-                                        <td><span class="role-badge publisher" style="font-size:9.5px;">${p.rank}</span></td>
-                                    </tr>
-                                `;
-                            }).join('')}
+                            ${rowsHtml}
                         </tbody>
                     </table>
                 </div>
@@ -285,6 +340,7 @@ function renderNetworkPeerTables(peerTables) {
 
     container.innerHTML = html;
 }
+
 
 // Section 3: Render Network-Wide Neighbour Selection Governance Table
 function renderNetworkNeighborTable(neighbors) {

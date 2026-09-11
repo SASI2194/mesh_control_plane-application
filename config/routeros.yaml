@@ -1,0 +1,53 @@
+routeros:
+  username: "admin"
+  password: ""
+  port: 8728
+  rest_port: 80
+  api_timeout_seconds: 1.5
+  poll_interval_seconds: 2.0
+  device_nodes:
+    UGV-01:
+      host_ip: "192.168.3.65"
+      radio_ip: "192.168.3.3"
+      username: "admin"
+      password: ""
+    UGV-02:
+      host_ip: "192.168.3.66"
+      radio_ip: "192.168.3.4"
+      username: "admin"
+      password: ""
+    UGV-03:
+      host_ip: "192.168.3.67"
+      radio_ip: "192.168.3.2"
+      username: "admin"
+      password: ""
+    UGV-04:
+      host_ip: "192.168.3.68"
+      radio_ip: "192.168.3.5"
+      username: "admin"
+      password: ""
+    UGV-05:
+      host_ip: "192.168.3.69"
+      radio_ip: "192.168.3.6"
+      username: "admin"
+      password: ""
+    UGV-06:
+      host_ip: "192.168.3.70"
+      radio_ip: "192.168.3.7"
+      username: "admin"
+      password: ""
+    GCS-01:
+      host_ip: "192.168.3.71"
+      radio_ip: "192.168.3.8"
+      username: "admin"
+      password: ""
+    GCS-02:
+      host_ip: "192.168.3.72"
+      radio_ip: "192.168.3.8"
+      username: "admin"
+      password: ""
+    GCS-03:
+      host_ip: "192.168.3.73"
+      radio_ip: "192.168.3.8"
+      username: "admin"
+      password: ""

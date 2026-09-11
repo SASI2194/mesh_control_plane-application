@@ -1,5 +1,5 @@
 failover:
-  active_device_count: 4
+  active_device_count: 9
   base_switching_interval_seconds: 30.0
   priority_stagger_increment_seconds: 10.0
   node_offline_timeout_seconds: 60.0
@@ -21,7 +21,7 @@ failover:
       radio_ip: 192.168.3.8
       role: Primary Coordinator
       switching_interval_seconds: 30.0
-      enabled: false
+      enabled: true
     GCS-02:
       name: GCS Tactical Station 1
       type: GCS
@@ -29,7 +29,7 @@ failover:
       radio_ip: 192.168.3.8
       role: Tactical Monitor
       switching_interval_seconds: 40.0
-      enabled: false
+      enabled: true
     GCS-03:
       name: GCS Tactical Station 2
       type: GCS
@@ -37,7 +37,7 @@ failover:
       radio_ip: 192.168.3.8
       role: Backup Command
       switching_interval_seconds: 50.0
-      enabled: false
+      enabled: true
     UGV-01:
       name: UGV Unit 01
       type: UGV
@@ -53,7 +53,7 @@ failover:
       radio_ip: 192.168.3.4
       role: Field Unit
       switching_interval_seconds: 40.0
-      enabled: false
+      enabled: true
     UGV-03:
       name: UGV Unit 03
       type: UGV
@@ -85,4 +85,4 @@ failover:
       radio_ip: 192.168.3.7
       role: Field Unit
       switching_interval_seconds: 80.0
-      enabled: false
+      enabled: true

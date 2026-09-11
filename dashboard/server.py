@@ -374,14 +374,30 @@ class TelemetryDataProvider:
         return "OFFLINE", 0.0
 
     def _fetch_radio_interfaces(self, radio_ip):
-        """Queries local NetMetal AX radio via RouterOS REST API to fetch live interface states."""
+        """Queries local NetMetal AX radio via RouterOS REST API using credentials from config/routeros.yaml."""
         try:
+            user, pwd = "admin", ""
+            try:
+                import yaml
+                from pathlib import Path
+                p = Path("config/routeros.yaml")
+                if not p.exists():
+                    p = Path("/home/nvidia/meshcontrolplane/config/routeros.yaml")
+                if p.exists():
+                    with open(p, "r") as f:
+                        cdata = yaml.safe_load(f) or {}
+                        rcfg = cdata.get("routeros", {})
+                        user = rcfg.get("username", user)
+                        pwd = rcfg.get("password", pwd)
+            except Exception:
+                pass
+
             req_url = f"http://{radio_ip}/rest/interface/wifi"
             import urllib.request
             import base64
 
             req = urllib.request.Request(req_url)
-            auth_str = base64.b64encode(b"admin:").decode("ascii")
+            auth_str = base64.b64encode(f"{user}:{pwd}".encode("utf-8")).decode("ascii")
             req.add_header("Authorization", f"Basic {auth_str}")
 
             with urllib.request.urlopen(req, timeout=0.6) as resp:
@@ -449,37 +465,38 @@ class TelemetryDataProvider:
     def _live_radio_hardware_audit_loop(self):
         """
         Periodically audits ONLY THIS LOCAL DEVICE's NetMetal AX hardware radio interface states
-        every 3 seconds to update its own local running/disabled interface badges.
+        and registration table every 2 seconds using credentials from config/routeros.yaml.
         """
-        radio_ip_map = {
-            "192.168.3.65": "192.168.3.3",  # UGV-01 local radio
-            "192.168.3.67": "192.168.3.2",  # UGV-03 local radio
-            "192.168.3.66": "192.168.3.4",  # UGV-02 local radio
-            "192.168.3.68": "192.168.3.5",  # UGV-04 local radio
-            "192.168.3.69": "192.168.3.6",  # UGV-05 local radio
-            "192.168.3.70": "192.168.3.7",  # UGV-06 local radio
-            "192.168.3.71": "192.168.3.8",  # GCS-01 local radio
-        }
-
         while True:
             try:
-                # 1. Determine local host IP and local radio IP
+                radio_ip_map = self._get_radio_ip_map()
                 target_ip = self._get_this_machine_ip()
                 local_radio_ip = radio_ip_map.get(target_ip, "192.168.3.3")
 
-                # 2. Fetch ONLY the local radio interface states
+                # 1. Fetch local radio interface states
                 live_details = self._fetch_radio_interfaces(local_radio_ip)
                 if live_details and live_details.get("total_interfaces", 0) > 0:
                     with self.lock:
-                        # Update ONLY the local node's card in self.nodes!
                         for node in self.nodes:
                             if node["ip"] == target_ip or (target_ip in ["127.0.0.1", "localhost"] and node["id"] == "UGV-01"):
                                 import copy
                                 node["wifi_details"] = copy.deepcopy(live_details)
                                 break
+
+                # 2. Fetch live correlated hardware peers from RouterOS
+                try:
+                    from hardware.routeros_client import RouterOSClient
+                    client = RouterOSClient(host=local_radio_ip)
+                    hw_peers = client.get_correlated_hardware_peers()
+                    if hw_peers is not None:
+                        with self.lock:
+                            self.local_hw_peers = hw_peers
+                except Exception:
+                    pass
             except Exception:
                 pass
-            time.sleep(3)
+            time.sleep(2)
+
 
     def _load_failover_config(self, my_ip=None):
         """
@@ -672,7 +689,7 @@ class TelemetryDataProvider:
             time.sleep(2)
 
     def _get_radio_ip_map(self):
-        """Returns physical host IP -> NetMetal AX Radio IP mapping loaded from config/failover.yaml."""
+        """Returns physical host IP -> NetMetal AX Radio IP mapping loaded from config/routeros.yaml or config/failover.yaml."""
         default_map = {
             "192.168.3.65": "192.168.3.3",
             "192.168.3.67": "192.168.3.2",
@@ -685,22 +702,27 @@ class TelemetryDataProvider:
             "192.168.3.73": "192.168.3.8",
         }
         try:
-            from utils.config_manager import ConfigManager
-            cm = ConfigManager()
-            failover_cfg = cm.get_failover() or {}
-            nodes = failover_cfg.get("failover", {}).get("device_nodes", {})
-            if nodes:
-                dynamic_map = {}
-                for node_id, node_info in nodes.items():
-                    h_ip = node_info.get("host_ip")
-                    r_ip = node_info.get("radio_ip")
-                    if h_ip and r_ip:
-                        dynamic_map[h_ip] = r_ip
-                if dynamic_map:
-                    return dynamic_map
+            import yaml
+            from pathlib import Path
+            p = Path("config/routeros.yaml")
+            if not p.exists():
+                p = Path("/home/nvidia/meshcontrolplane/config/routeros.yaml")
+            if p.exists():
+                with open(p, "r") as f:
+                    cdata = yaml.safe_load(f) or {}
+                    devs = cdata.get("routeros", {}).get("device_nodes", {})
+                    dynamic_map = {}
+                    for node_id, node_info in devs.items():
+                        h_ip = node_info.get("host_ip")
+                        r_ip = node_info.get("radio_ip")
+                        if h_ip and r_ip:
+                            dynamic_map[h_ip] = r_ip
+                    if dynamic_map:
+                        return dynamic_map
         except Exception:
             pass
         return default_map
+
 
     def _promote_local_radio_hardware(self, force=False):
         """Invokes RouterOS REST API client to promote local radio (wifi2 -> AP, wifi2_vap -> STATION-BRIDGE)."""
@@ -944,9 +966,13 @@ class TelemetryDataProvider:
             }
 
             result = {}
+            local_target_ip = self._get_this_machine_ip()
+            hw_peers = getattr(self, "local_hw_peers", None)
+
             for local_n in active_nodes:
                 local_id = local_n["id"]
                 candidate_peers = []
+                is_local = local_n.get("is_local", False) or (local_n["ip"] == local_target_ip)
 
                 for remote_n in active_nodes:
                     if remote_n["id"] == local_id:
@@ -960,10 +986,24 @@ class TelemetryDataProvider:
                     radio_ip = dev_info.get("radio_ip", remote_n.get("radio_ip", "192.168.3.2"))
                     host_ip = remote_n["ip"]
 
-                    rssi = float(remote_n.get("rssi", -56.0))
+                    # If local node, check if live RouterOS hardware peer match is present
+                    hw_match = None
+                    if is_local and hw_peers:
+                        for hp in hw_peers:
+                            if hp.get("ip") == host_ip or hp.get("ip") == radio_ip or (hp.get("mac", "").upper() == mac_addr.upper()):
+                                hw_match = hp
+                                break
+
+                    if hw_match:
+                        rssi = float(hw_match.get("rssi", -62.0))
+                        snr = float(hw_match.get("snr", 30.0))
+                        mac_addr = hw_match.get("mac", mac_addr)
+                    else:
+                        rssi = float(remote_n.get("rssi", -65.0))
+                        snr = float(remote_n.get("snr", 30.0))
+
                     lat = float(remote_n.get("latency", 8.5))
                     loss = float(remote_n.get("loss", 0.0))
-                    snr = float(remote_n.get("snr", 30.0))
                     link_status = "ONLINE"
 
                     metrics = {
@@ -988,6 +1028,7 @@ class TelemetryDataProvider:
                         "status": link_status
                     })
 
+
                 candidate_peers.sort(key=lambda x: x["score"], reverse=True)
 
                 for idx, p in enumerate(candidate_peers):
@@ -1000,7 +1041,17 @@ class TelemetryDataProvider:
                     else:
                         p["rank"] = f"Rank {idx + 1}"
 
-                result[local_id] = candidate_peers
+                is_local = local_n.get("is_local", False)
+                ap_role = local_n.get("ap_role", "STATION_BRIDGE")
+                w_mode = "AP" if local_n.get("is_master_ap") else "STATION-BRIDGE"
+                w_status = f"wifi2 [MBR] {w_mode} • RUNNING"
+
+                result[local_id] = {
+                    "peers": candidate_peers,
+                    "is_local": is_local,
+                    "ap_role": ap_role,
+                    "wifi_status": w_status
+                }
 
             return result
 
@@ -1013,7 +1064,8 @@ class TelemetryDataProvider:
             peer_tables = self.get_network_peer_tables()
             table_rows = []
 
-            for local_id, peers in peer_tables.items():
+            for local_id, data in peer_tables.items():
+                peers = data["peers"] if isinstance(data, dict) and "peers" in data else data
                 peer_map = {}
                 for p in peers:
                     peer_map[p["id"]] = {
