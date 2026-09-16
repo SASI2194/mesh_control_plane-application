@@ -467,11 +467,19 @@ class MeshNode:
         """Sends a periodic 1 Hz control plane application heartbeat and loss feedback to peer nodes over Zenoh."""
         heartbeat_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
         import struct
+        import json
         while self.running:
             try:
                 max_loss = self.bw_monitor.get_max_loss_percent()
-                payload = struct.pack("!f", float(max_loss)) + f"{time.time()}:{self.my_ip}".encode("utf-8")
-                self.forward_session.session.put(heartbeat_key, payload)
+                local_node = next((n for n in DATA_PROVIDER.nodes if n["ip"] == self.my_ip), None)
+                hb_payload = json.dumps({
+                    "sender_ip": self.my_ip,
+                    "timestamp": time.time(),
+                    "max_loss": float(max_loss),
+                    "peers": getattr(DATA_PROVIDER, "local_hw_peers", None) or [],
+                    "wifi_details": local_node.get("wifi_details") if local_node else None
+                }).encode("utf-8")
+                self.forward_session.session.put(heartbeat_key, hb_payload)
             except Exception:
                 pass
             time.sleep(1.0)
@@ -498,12 +506,20 @@ class MeshNode:
 
                     # 3. Broadcast local Peer Table summary over Control Plane Key
                     peer_table_key = f"filtered/_mesh_peer_table/{self.my_ip}"
-                    peer_nodes = DATA_PROVIDER.get_nodes()
-                    peer_payload = json.dumps({
-                        "sender_ip": self.my_ip,
-                        "timestamp": time.time(),
-                        "peers": {n["id"]: {"rssi": n.get("rssi", -65), "latency": n.get("latency", 5.0), "loss": n.get("loss", 0.0), "role": n.get("neighbor_role", "DISCOVERED_IDLE"), "score": n.get("link_score", 0.0)} for n in peer_nodes}
-                    })
+                    local_hw_peers = getattr(DATA_PROVIDER, "local_hw_peers", None)
+                    if local_hw_peers is not None:
+                        peer_payload = json.dumps({
+                            "sender_ip": self.my_ip,
+                            "timestamp": time.time(),
+                            "peers": local_hw_peers
+                        })
+                    else:
+                        peer_nodes = DATA_PROVIDER.get_nodes()
+                        peer_payload = json.dumps({
+                            "sender_ip": self.my_ip,
+                            "timestamp": time.time(),
+                            "peers": {n["id"]: {"rssi": n.get("rssi", -65), "latency": n.get("latency", 5.0), "loss": n.get("loss", 0.0), "role": n.get("neighbor_role", "DISCOVERED_IDLE"), "score": n.get("link_score", 0.0)} for n in peer_nodes}
+                        })
                     self.forward_session.session.put(peer_table_key, peer_payload.encode("utf-8"))
             except Exception:
                 pass
@@ -585,19 +601,45 @@ class MeshNode:
                     pass
                 return
 
+            # Check for Application Control Plane Hardware Peer Table Broadcast
+            if "_mesh_peer_table/" in key_str:
+                import json
+                try:
+                    data = json.loads(payload_bytes.decode("utf-8"))
+                    sender_ip = data.get("sender_ip")
+                    peers = data.get("peers")
+                    if sender_ip and peers is not None:
+                        DATA_PROVIDER.update_remote_peer_table(sender_ip, peers)
+                except Exception:
+                    pass
+                return
+
             # Check for Application Control Plane Heartbeat & Peer Loss Feedback
             if "_mesh_heartbeat/" in key_str:
                 parts = key_str.split("_mesh_heartbeat/")
                 if len(parts) > 1:
                     sender_ip = parts[1]
                     DATA_PROVIDER.record_node_activity(sender_ip)
-                    if len(payload_bytes) >= 4:
-                        import struct
-                        try:
+                    try:
+                        if payload_bytes.startswith(b"{"):
+                            import json
+                            hb_data = json.loads(payload_bytes.decode("utf-8"))
+                            peer_loss = float(hb_data.get("max_loss", 0.0))
+                            self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
+
+                            peers = hb_data.get("peers")
+                            if peers is not None:
+                                DATA_PROVIDER.update_remote_peer_table(sender_ip, peers)
+
+                            wifi_details = hb_data.get("wifi_details")
+                            if wifi_details is not None:
+                                DATA_PROVIDER.update_remote_node_wifi(sender_ip, wifi_details)
+                        elif len(payload_bytes) >= 4:
+                            import struct
                             peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
                             self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
-                        except Exception:
-                            pass
+                    except Exception:
+                        pass
                 return
 
             seq_num, timestamp, origin_ip, raw_payload = MeshSample.unpack_payload(payload_bytes)

@@ -266,7 +266,7 @@ function renderNetworkPeerTables(peerTables) {
         }
 
         let wifiBadge = '';
-        if (wifiStatus && isLocal) {
+        if (wifiStatus) {
             wifiBadge = `<span class="role-badge publisher" style="font-size: 8.5px; padding: 2px 6px;">${wifiStatus}</span>`;
         }
 

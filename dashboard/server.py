@@ -244,6 +244,34 @@ class TelemetryDataProvider:
                     node["wifi_details"] = copy.deepcopy(wifi_details)
                     break
 
+    def update_remote_peer_table(self, sender_ip, peers):
+        """Updates live NetMetal AX radio hardware peer discovery table for a specific remote node received over Zenoh."""
+        my_ip = self._get_this_machine_ip()
+        if sender_ip == my_ip:
+            return
+
+        with self.lock:
+            if not hasattr(self, "remote_hw_peers"):
+                self.remote_hw_peers = {}
+            import copy
+            self.remote_hw_peers[sender_ip] = copy.deepcopy(peers)
+
+            # Update nodes array entry for sender_ip if peers list has valid RSSI/latency metrics
+            for node in self.nodes:
+                if node["ip"] == sender_ip:
+                    if isinstance(peers, list) and len(peers) > 0:
+                        primary_peer = peers[0]
+                        if isinstance(primary_peer, dict):
+                            if "rssi" in primary_peer:
+                                node["rssi"] = float(primary_peer["rssi"])
+                            if "latency" in primary_peer:
+                                node["latency"] = float(primary_peer["latency"])
+                            if "loss" in primary_peer:
+                                node["loss"] = float(primary_peer["loss"])
+                            if "snr" in primary_peer:
+                                node["snr"] = float(primary_peer["snr"])
+                    break
+
     def attach_components(self, registry, scheduler, congestion=None, local_ip=None):
         """Attaches live MeshNode registry, scheduler & congestion instances for real-time telemetry updates."""
         with self.lock:
@@ -310,8 +338,10 @@ class TelemetryDataProvider:
                     offline_timeout = self._get_node_offline_timeout()
                     if (now - last_active) <= offline_timeout:
                         node["status"] = "ONLINE"
-                        node["latency"] = 8.5
-                        node["rssi"] = -68
+                        if node.get("rssi", -95) == -95:
+                            node["rssi"] = -68
+                        if node.get("latency", 0.0) == 0.0:
+                            node["latency"] = 8.5
                     else:
                         node["status"] = "OFFLINE"
                         node["latency"] = 0.0
@@ -968,11 +998,13 @@ class TelemetryDataProvider:
             result = {}
             local_target_ip = self._get_this_machine_ip()
             hw_peers = getattr(self, "local_hw_peers", None)
+            remote_hw_map = getattr(self, "remote_hw_peers", {}) or {}
 
             for local_n in active_nodes:
                 local_id = local_n["id"]
                 candidate_peers = []
                 is_local = local_n.get("is_local", False) or (local_n["ip"] == local_target_ip)
+                node_hw_peers = hw_peers if is_local else remote_hw_map.get(local_n["ip"])
 
                 for remote_n in active_nodes:
                     if remote_n["id"] == local_id:
@@ -986,24 +1018,29 @@ class TelemetryDataProvider:
                     radio_ip = dev_info.get("radio_ip", remote_n.get("radio_ip", "192.168.3.2"))
                     host_ip = remote_n["ip"]
 
-                    # If local node, check if live RouterOS hardware peer match is present
+                    # Check if live RouterOS hardware peer match is present for this local or remote node table
                     hw_match = None
-                    if is_local and hw_peers:
-                        for hp in hw_peers:
-                            if hp.get("ip") == host_ip or hp.get("ip") == radio_ip or (hp.get("mac", "").upper() == mac_addr.upper()):
-                                hw_match = hp
-                                break
+                    if node_hw_peers:
+                        if isinstance(node_hw_peers, list):
+                            for hp in node_hw_peers:
+                                if isinstance(hp, dict):
+                                    hp_ip = hp.get("ip") or hp.get("radio_ip") or ""
+                                    hp_mac = (hp.get("mac") or "").upper()
+                                    if hp_ip in [host_ip, radio_ip] or (hp_mac and hp_mac == mac_addr.upper()):
+                                        hw_match = hp
+                                        break
 
-                    if hw_match:
+                    if hw_match and isinstance(hw_match, dict):
                         rssi = float(hw_match.get("rssi", -62.0))
                         snr = float(hw_match.get("snr", 30.0))
+                        lat = float(hw_match.get("latency", remote_n.get("latency", 8.5)))
+                        loss = float(hw_match.get("loss", remote_n.get("loss", 0.0)))
                         mac_addr = hw_match.get("mac", mac_addr)
                     else:
                         rssi = float(remote_n.get("rssi", -65.0))
                         snr = float(remote_n.get("snr", 30.0))
-
-                    lat = float(remote_n.get("latency", 8.5))
-                    loss = float(remote_n.get("loss", 0.0))
+                        lat = float(remote_n.get("latency", 8.5))
+                        loss = float(remote_n.get("loss", 0.0))
                     link_status = "ONLINE"
 
                     metrics = {

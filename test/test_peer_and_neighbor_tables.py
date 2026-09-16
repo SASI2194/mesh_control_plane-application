@@ -46,6 +46,9 @@ class TestPeerAndNeighborTables(unittest.TestCase):
         time.sleep(1.0)
 
     def setUp(self):
+        DATA_PROVIDER.set_mesh_node_running(True)
+        DATA_PROVIDER.record_node_activity("192.168.3.65")
+        DATA_PROVIDER.record_node_activity("192.168.3.67")
         for n in DATA_PROVIDER.nodes:
             if n["id"] == "UGV-01":
                 n["status"] = "ONLINE"

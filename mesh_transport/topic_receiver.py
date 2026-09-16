@@ -54,7 +54,13 @@ class TopicReceiver:
             self.callback
         )
         self.subscribers.append(wifi_sub)
-        print("[SUBSCRIBE] Control Plane Heartbeat & Telemetry Channels")
+
+        peer_table_sub = self.peer.subscribe(
+            "filtered/_mesh_peer_table/*",
+            self.callback
+        )
+        self.subscribers.append(peer_table_sub)
+        print("[SUBSCRIBE] Control Plane Heartbeat, WiFi & Peer Table Telemetry Channels")
 
         # 2. Subscribe to local ROS deployment topics
         for topic in self.registry.all_topics().values():
