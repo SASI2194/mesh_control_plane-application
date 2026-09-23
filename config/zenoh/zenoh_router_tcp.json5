@@ -3,8 +3,7 @@
   "mode": "router",
   "listen": {
     "endpoints": [
-      "tcp/127.0.0.1:7447",
-      "tcp/192.168.3.65:7447"
+      "tcp/0.0.0.0:7447"
     ]
   },
   "connect": {
@@ -40,7 +39,10 @@
       "timeout": 10000
     }
   },
-  "timestamping": { "enabled": { "router": true, "peer": true, "client": true } },
+  "timestamping": {
+    "enabled": { "router": true, "peer": true, "client": true },
+    "drop_future_timestamp": false
+  },
   "downsampling": [],
   "access_control": {
     "enabled": true,
@@ -50,7 +52,7 @@
         "id": "allow_filtered_topics",
         "permission": "allow",
         "messages": ["put", "declare_subscriber"],
-        "flows": ["egress", "ingress"],
+        "flows": ["ingress", "egress"],
         "key_exprs": [
           "filtered/**"
         ]
@@ -59,7 +61,7 @@
         "id": "allow_mesh_control",
         "permission": "allow",
         "messages": ["put", "declare_subscriber"],
-        "flows": ["egress", "ingress"],
+        "flows": ["ingress", "egress"],
         "key_exprs": [
           "mesh/**"
         ]
@@ -67,19 +69,37 @@
       {
         "id": "allow_ros2_node_discovery",
         "permission": "allow",
-        "messages": ["put", "declare_subscriber", "query", "reply"],
-        "flows": ["egress", "ingress"],
+        "messages": ["put", "delete", "declare_subscriber", "query", "declare_queryable", "reply", "liveliness_token", "declare_liveliness_subscriber", "liveliness_query"],
+        "flows": ["ingress", "egress"],
         "key_exprs": [
           "@ros2/**",
-          "ros2/**"
+          "@ros2_lv/**",
+          "@ros2_tp/**",
+          "@ros2_pub/**",
+          "@ros2_sub/**",
+          "@ros2_service/**",
+          "@ros2_node/**",
+          "@ros2_graph/**",
+          "@ros2_liveliness/**",
+          "@ros2_admin/**",
+          "ros2/**",
+          "50/**",
+          "40/**",
+          "55/**",
+          "0/**",
+          "**"
         ]
       }
     ],
-    "subjects": [{ "id": "all" }],
+    "subjects": [
+      { "id": "all" },
+      { "id": "anonymous" },
+      { "id": "*" }
+    ],
     "policies": [
       {
         "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros2_node_discovery"],
-        "subjects": ["all"]
+        "subjects": ["all", "anonymous", "*"]
       }
     ]
   },
@@ -110,7 +130,7 @@
     }
   },
   "adminspace": {
-    "enabled": true,
+    "enabled": false,
     "permissions": {
       "read": false,
       "write": false

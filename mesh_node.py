@@ -117,9 +117,21 @@ class ROSPublisherBridge:
             self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
             self.topic_types["/mesh_wifi_telemetry"] = String
 
+            # Pre-register all ALLOWED topics from config/topics.yaml for all device namespaces
+            for dev_ns in IP_TO_NAMESPACE.values():
+                for topic_name, topic_info in registry.all_topics().items():
+                    if topic_info.get("status", "ALLOW").upper() == "ALLOW":
+                        type_str = topic_info.get("type", "std_msgs/msg/String")
+                        msg_class = get_message_class(type_str)
+                        ns_topic = f"/{dev_ns}{topic_name}"
+                        if ns_topic not in self.publishers:
+                            pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                            self.publishers[ns_topic] = pub
+                            self.topic_types[ns_topic] = msg_class
+
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
-            print("[INFO] ROS 2 Native Publisher Bridge active (Dynamic Remote & Local Namespacing)")
+            print("[INFO] ROS 2 Native Publisher Bridge active (Pre-registered ALLOWED fleet topics)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 

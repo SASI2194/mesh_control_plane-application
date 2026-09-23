@@ -23,8 +23,7 @@
   "listen": {
     "timeout_ms": 0,
     "endpoints": [
-      "tcp/127.0.0.1:0",
-      "tcp/192.168.3.65:0"
+      "tcp/127.0.0.1:0"
     ],
     "exit_on_failure": true,
     "retry": {
@@ -35,7 +34,7 @@
   },
   "open": {
     "return_conditions": {
-      "connect_scouted": true,
+      "connect_scouted": false,
       "declares": true
     }
   },
@@ -43,38 +42,38 @@
     "timeout": 3000,
     "delay": 500,
     "multicast": {
-      "enabled": true,
+      "enabled": false,
       "address": "224.0.0.224:7446",
-      "interface": "enP5p1s0f1",
+      "interface": "127.0.0.1",
       "ttl": 1,
       "autoconnect": {
         "router": [],
-        "peer": ["router", "peer"],
+        "peer": ["router"],
         "client": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "greater-zid"
+          "to_peer": "never"
         }
       },
-      "listen": true
+      "listen": false
     },
     "gossip": {
       "enabled": true,
       "multihop": true,
       "target": {
-        "router": ["router", "peer"],
+        "router": ["router"],
         "peer": ["router"]
       },
       "autoconnect": {
         "router": [],
-        "peer": ["router", "peer"]
+        "peer": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "greater-zid"
+          "to_peer": "never"
         }
       }
     }
@@ -184,9 +183,9 @@
     }
   },
   "adminspace": {
-    "enabled": true,
+    "enabled": false,
     "permissions": {
-      "read": true,
+      "read": false,
       "write": false
     }
   }
