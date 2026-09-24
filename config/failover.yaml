@@ -42,7 +42,7 @@ failover:
       name: UGV Unit 01
       type: UGV
       host_ip: 192.168.3.65
-      radio_ip: 192.168.3.3
+      radio_ip: 192.168.3.2
       role: Mesh Node
       switching_interval_seconds: 30.0
       enabled: true
@@ -58,7 +58,7 @@ failover:
       name: UGV Unit 03
       type: UGV
       host_ip: 192.168.3.67
-      radio_ip: 192.168.3.2
+      radio_ip: 192.168.3.3
       role: Field Unit
       switching_interval_seconds: 50.0
       enabled: true

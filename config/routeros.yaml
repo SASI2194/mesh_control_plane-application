@@ -8,7 +8,7 @@ routeros:
   device_nodes:
     UGV-01:
       host_ip: "192.168.3.65"
-      radio_ip: "192.168.3.3"
+      radio_ip: "192.168.3.2"
       username: "admin"
       password: ""
     UGV-02:
@@ -18,7 +18,7 @@ routeros:
       password: ""
     UGV-03:
       host_ip: "192.168.3.67"
-      radio_ip: "192.168.3.2"
+      radio_ip: "192.168.3.3"
       username: "admin"
       password: ""
     UGV-04:
