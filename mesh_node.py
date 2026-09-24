@@ -40,9 +40,10 @@ from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
 from dashboard.server import start_dashboard_background, DATA_PROVIDER
 
 from core.network_models import MeshSample
+from mesh_transport.zenoh_session import resolve_zenoh_config_path
 
 
-PEER_CONFIG = "/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5"
+PEER_CONFIG = resolve_zenoh_config_path("/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5")
 
 
 def get_message_class(type_str: str):

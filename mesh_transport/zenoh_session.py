@@ -1,4 +1,39 @@
+import os
 import zenoh
+
+
+def resolve_zenoh_config_path(config_path: str) -> str:
+    """
+    Dynamically resolves Zenoh configuration file paths across different workspaces,
+    devices (e.g. ugv01..ugv06), and Docker containers.
+    """
+    if config_path and os.path.exists(config_path):
+        return config_path
+
+    filename = os.path.basename(config_path) if config_path else "zenoh_peer_tcp.json5"
+    env_var = "ZENOH_SESSION_CONFIG_URI" if "peer" in filename else "ZENOH_ROUTER_CONFIG_URI"
+    if os.getenv(env_var) and os.path.exists(os.getenv(env_var)):
+        return os.getenv(env_var)
+
+    ws_dir_env = os.getenv("WS_ZENOH_DIR")
+    if ws_dir_env:
+        cand = os.path.join(ws_dir_env, filename)
+        if os.path.exists(cand):
+            return cand
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    candidates = [
+        os.path.join("/home/nvidia/ugv/ros2_ws/src/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp", filename),
+        os.path.join("/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp", filename),
+        os.path.join(base_dir, "config", "zenoh", filename),
+        os.path.join(os.getcwd(), "config", "zenoh", filename),
+    ]
+
+    for cand in candidates:
+        if os.path.exists(cand):
+            return cand
+
+    return config_path
 
 
 class ZenohSession:
@@ -13,11 +48,12 @@ class ZenohSession:
 
     def connect(self):
 
-        config = zenoh.Config.from_file(self.config_file)
+        resolved_file = resolve_zenoh_config_path(self.config_file)
+        config = zenoh.Config.from_file(resolved_file)
 
         self.session = zenoh.open(config)
 
-        print(f"[INFO] Connected : {self.config_file}")
+        print(f"[INFO] Connected : {resolved_file}")
 
     #################################################################
 

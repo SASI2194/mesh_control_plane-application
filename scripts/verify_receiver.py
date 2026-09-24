@@ -18,10 +18,10 @@ real-time packet statistics.
 import time
 import threading
 
-from mesh_transport.zenoh_session import ZenohSession
+from mesh_transport.zenoh_session import ZenohSession, resolve_zenoh_config_path
 
 
-PEER_CONFIG = "/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5"
+PEER_CONFIG = resolve_zenoh_config_path("/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp/zenoh_peer_tcp.json5")
 
 
 class VerificationReceiver:

@@ -1,7 +1,13 @@
 #!/bin/bash
 # Script to synchronize Zenoh configuration files between ws_rmw_zenoh and meshcontrolplane
 
-WS_ZENOH_DIR="/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp"
+if [ -z "$WS_ZENOH_DIR" ]; then
+    if [ -d "/home/nvidia/ugv/ros2_ws/src/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp" ]; then
+        WS_ZENOH_DIR="/home/nvidia/ugv/ros2_ws/src/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp"
+    else
+        WS_ZENOH_DIR="/home/nvidia/ws_rmw_zenoh/src/rmw_zenoh-humble/rmw_zenoh_cpp/config/tcp"
+    fi
+fi
 REPO_ZENOH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../config/zenoh" && pwd)"
 
 case "$1" in
