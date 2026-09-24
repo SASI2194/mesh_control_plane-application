@@ -16,13 +16,13 @@ topics:
     name: /camera/color/image_raw/compressed
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 4
     name: /camera/color/image_raw/compressedDepth
     type: sensor_msgs/msg/CompressedImage
     priority: 1
-    status: ALLOW
+    status: DENY
 
   - id: 5
     name: /camera/color/image_raw/theora

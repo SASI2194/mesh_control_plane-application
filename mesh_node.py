@@ -101,12 +101,12 @@ class ROSPublisherBridge:
         try:
             import rclpy
             from std_msgs.msg import String
-            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
             if not rclpy.ok():
                 rclpy.init()
             node_name = f"mesh_control_plane_receiver_{device_ns}" if device_ns else "mesh_control_plane_receiver"
             self.node = rclpy.create_node(node_name)
-            sensor_qos = QoSProfile(
+            default_sensor_qos = QoSProfile(
                 depth=10,
                 reliability=ReliabilityPolicy.RELIABLE,
                 durability=DurabilityPolicy.VOLATILE,
@@ -128,10 +128,14 @@ class ROSPublisherBridge:
                 for dev_ns in IP_TO_NAMESPACE.values():
                     ns_topic = f"/{dev_ns}{topic_name}"
                     if ns_topic not in self.publishers:
-                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                        pub_qos = qos_profile_sensor_data if ("image" in ns_topic or "camera" in ns_topic) else default_sensor_qos
+                        pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
                         self.publishers[ns_topic] = pub
                         self.topic_types[ns_topic] = msg_class
 
+            from rclpy.executors import MultiThreadedExecutor
+            self.executor = MultiThreadedExecutor(num_threads=4)
+            self.executor.add_node(self.node)
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
             print("[INFO] ROS 2 Native Publisher Bridge active (Pre-registered ALLOWED fleet topics)")
@@ -139,9 +143,11 @@ class ROSPublisherBridge:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 
     def _spin_loop(self):
-        import rclpy
         try:
-            if self.node:
+            if hasattr(self, 'executor') and self.executor:
+                self.executor.spin()
+            elif self.node:
+                import rclpy
                 rclpy.spin(self.node)
         except Exception:
             pass
@@ -184,14 +190,14 @@ class ROSPublisherBridge:
                         ns_topic = f"/{ns}{ros_topic}"
 
                     if ns_topic not in self.publishers:
-                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-                        sensor_qos = QoSProfile(
+                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
+                        pub_qos = qos_profile_sensor_data if ("image" in ns_topic or "camera" in ns_topic) else QoSProfile(
                             depth=10,
                             reliability=ReliabilityPolicy.RELIABLE,
                             durability=DurabilityPolicy.VOLATILE,
                             history=HistoryPolicy.KEEP_LAST
                         )
-                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                        pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
                         self.publishers[ns_topic] = pub
                         self.topic_types[ns_topic] = msg_class
                         print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
@@ -209,7 +215,7 @@ class ROSPublisherBridge:
         except Exception as ex:
             pass
 
-    def is_recently_republished(self, ros_topic, window_sec=0.2):
+    def is_recently_republished(self, ros_topic, window_sec=0.01):
         with self.republished_lock:
             last_t = self.last_republished_time.get(ros_topic, 0.0)
             return (time.time() - last_t) < window_sec
@@ -237,35 +243,48 @@ class ROSSubscriberBridge:
                     rclpy.init()
                 node_name = f"mesh_control_plane_transmitter_{device_ns}" if device_ns else "mesh_control_plane_transmitter"
                 self.node = rclpy.create_node(node_name)
+                from rclpy.executors import MultiThreadedExecutor
+                self.executor = MultiThreadedExecutor(num_threads=4)
+                self.executor.add_node(self.node)
                 self.thread = Thread(target=self._spin_loop, daemon=True)
                 self.thread.start()
 
-            from rclpy.qos import qos_profile_sensor_data
+            sensor_sub_qos = QoSProfile(
+                depth=30,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST
+            )
             for topic_name, topic_info in registry.all_topics().items():
+                status = str(topic_info.get("status", "ALLOW")).upper()
+                if status == "DENY" or "compressedDepth" in topic_name or "theora" in topic_name:
+                    continue
+
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
 
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # Subscribe exclusively to device-namespaced topic if device_ns is provided (e.g. /ugv_01/camera/color/image_raw)
+                # Subscribe exclusively to ALLOWED device-namespaced topic if device_ns is provided (e.g. /ugv_01/camera/color/image_raw)
                 target_topic = f"/{device_ns}{topic_name}" if device_ns else topic_name
                 if target_topic not in self.subscribers:
                     sub = self.node.create_subscription(
                         msg_class,
                         target_topic,
                         make_cb(target_topic),
-                        qos_profile_sensor_data
+                        sensor_sub_qos
                     )
                     self.subscribers[target_topic] = sub
-            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on device namespace topics: /{device_ns}/...)")
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on ALLOWED device namespace topics: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
     def _spin_loop(self):
-        import rclpy
         try:
-            if self.node:
+            if hasattr(self, 'executor') and self.executor:
+                self.executor.spin()
+            elif self.node:
+                import rclpy
                 rclpy.spin(self.node)
         except Exception:
             pass
@@ -708,7 +727,7 @@ class MeshNode:
                 self.republished_hashes.remove(payload_hash)
                 return
 
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
             return
 
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
@@ -738,7 +757,7 @@ class MeshNode:
                 self.republished_hashes.remove(payload_hash)
                 return
 
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
             return
 
         base_topic = ros_topic

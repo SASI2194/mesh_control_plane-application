@@ -128,7 +128,7 @@
       "tx": {
         "lease": 10000,
         "keep_alive": 4,
-        "batch_size": 65536,
+        "batch_size": 20971520,
         "queue": {
           "batching": {
             "enabled": true,

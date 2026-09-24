@@ -59,7 +59,7 @@ class KeyMapper:
         clean_key = zenoh_key
         if clean_key.startswith("filtered/"):
             clean_key = clean_key[len("filtered/"):]
-        elif "/" in clean_key:
+        if "/" in clean_key:
             parts = clean_key.split("/", 1)
             if parts[0].isdigit():
                 clean_key = parts[1]
