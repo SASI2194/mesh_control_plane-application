@@ -118,16 +118,19 @@ class ROSPublisherBridge:
             self.topic_types["/mesh_wifi_telemetry"] = String
 
             # Pre-register all ALLOWED topics from config/topics.yaml for all device namespaces
-            for dev_ns in IP_TO_NAMESPACE.values():
-                for topic_name, topic_info in registry.all_topics().items():
-                    if topic_info.get("status", "ALLOW").upper() == "ALLOW":
-                        type_str = topic_info.get("type", "std_msgs/msg/String")
-                        msg_class = get_message_class(type_str)
-                        ns_topic = f"/{dev_ns}{topic_name}"
-                        if ns_topic not in self.publishers:
-                            pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
-                            self.publishers[ns_topic] = pub
-                            self.topic_types[ns_topic] = msg_class
+            for topic_name, topic_info in registry.all_topics().items():
+                type_str = topic_info.get("type", "std_msgs/msg/String")
+                msg_class = get_message_class(type_str)
+                self.topic_types[topic_name] = msg_class
+                if not topic_name.startswith("/"):
+                    self.topic_types["/" + topic_name] = msg_class
+
+                for dev_ns in IP_TO_NAMESPACE.values():
+                    ns_topic = f"/{dev_ns}{topic_name}"
+                    if ns_topic not in self.publishers:
+                        pub = self.node.create_publisher(msg_class, ns_topic, sensor_qos)
+                        self.publishers[ns_topic] = pub
+                        self.topic_types[ns_topic] = msg_class
 
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
@@ -160,7 +163,15 @@ class ROSPublisherBridge:
         try:
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
-            msg_class = self.topic_types.get(ros_topic, String)
+            msg_class = self.topic_types.get(ros_topic)
+            if not msg_class:
+                for t_name, t_info in self.registry.all_topics().items():
+                    if ros_topic.endswith(t_name):
+                        msg_class = get_message_class(t_info.get("type", "std_msgs/msg/String"))
+                        break
+            if not msg_class:
+                msg_class = String
+
             msg = deserialize_message(raw_payload, msg_class)
 
             # Dynamically publish on Device Namespaced topic if origin_ip is provided
@@ -749,11 +760,6 @@ class MeshNode:
             else:
                 print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
                 self.forwarding.forward(mesh_sample)
-            if self.ros_bridge:
-                try:
-                    self.ros_bridge.publish_message(ros_topic, payload_bytes, origin_ip=self.my_ip)
-                except Exception:
-                    pass
         else:
             print(f"[BLOCK ] {mesh_sample.key}")
 

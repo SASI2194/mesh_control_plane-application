@@ -1,5 +1,5 @@
 {
-  "mode": "peer",
+  "mode": "client",
   "connect": {
     "timeout_ms": {
       "router": -1,
@@ -109,7 +109,7 @@
       "max_links": 1,
       "lowlatency": false,
       "qos": { "enabled": true },
-      "compression": { "enabled": true }
+      "compression": { "enabled": false }
     },
     "multicast": {
       "join_interval": 2500,

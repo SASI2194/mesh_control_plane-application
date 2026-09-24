@@ -1,5 +1,4 @@
 {
-  "id": "6a65616e757673756776000000000065",
   "mode": "router",
   "listen": {
     "endpoints": [
@@ -49,9 +48,18 @@
     "default_permission": "deny",
     "rules": [
       {
+        "id": "allow_all_local",
+        "permission": "allow",
+        "messages": ["put", "delete", "declare_subscriber", "query", "declare_queryable", "reply", "liveliness_token", "declare_liveliness_subscriber", "liveliness_query"],
+        "flows": ["ingress", "egress"],
+        "key_exprs": [
+          "**"
+        ]
+      },
+      {
         "id": "allow_filtered_topics",
         "permission": "allow",
-        "messages": ["put", "declare_subscriber"],
+        "messages": ["put", "delete", "declare_subscriber", "query", "declare_queryable", "reply", "liveliness_token", "declare_liveliness_subscriber", "liveliness_query"],
         "flows": ["ingress", "egress"],
         "key_exprs": [
           "filtered/**"
@@ -60,7 +68,7 @@
       {
         "id": "allow_mesh_control",
         "permission": "allow",
-        "messages": ["put", "declare_subscriber"],
+        "messages": ["put", "delete", "declare_subscriber", "query", "declare_queryable", "reply", "liveliness_token", "declare_liveliness_subscriber", "liveliness_query"],
         "flows": ["ingress", "egress"],
         "key_exprs": [
           "mesh/**"
@@ -81,25 +89,29 @@
           "@ros2_node/**",
           "@ros2_graph/**",
           "@ros2_liveliness/**",
-          "@ros2_admin/**",
-          "ros2/**",
-          "50/**",
-          "40/**",
-          "55/**",
-          "0/**",
-          "**"
+          "@ros2_admin/**"
         ]
       }
     ],
     "subjects": [
-      { "id": "all" },
-      { "id": "anonymous" },
-      { "id": "*" }
+      {
+        "id": "local_loopback",
+        "interfaces": ["lo", "lo0", "127.0.0.1"]
+      },
+      {
+        "id": "all"
+      }
     ],
     "policies": [
       {
+        "id": "local_policy",
+        "rules": ["allow_all_local"],
+        "subjects": ["local_loopback"]
+      },
+      {
+        "id": "remote_policy",
         "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros2_node_discovery"],
-        "subjects": ["all", "anonymous", "*"]
+        "subjects": ["all"]
       }
     ]
   },
@@ -110,7 +122,7 @@
       "accept_pending": 10000,
       "max_sessions": 10000,
       "qos": { "enabled": true },
-      "compression": { "enabled": true }
+      "compression": { "enabled": false }
     },
     "link": {
       "tx": {

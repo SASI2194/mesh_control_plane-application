@@ -53,12 +53,6 @@ class ZenohSession:
             self.session.put(key, payload)
 
     def has_matching_subscribers(self, key):
-        pub = self.get_publisher(key)
-        if pub and hasattr(pub, "matching_status"):
-            try:
-                return pub.matching_status.matching
-            except Exception:
-                pass
         return True
 
     #################################################################
