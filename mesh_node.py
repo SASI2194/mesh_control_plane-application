@@ -132,6 +132,9 @@ class ROSPublisherBridge:
                         self.publishers[ns_topic] = pub
                         self.topic_types[ns_topic] = msg_class
 
+            from rclpy.executors import MultiThreadedExecutor
+            self.executor = MultiThreadedExecutor(num_threads=4)
+            self.executor.add_node(self.node)
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
             print("[INFO] ROS 2 Native Publisher Bridge active (Pre-registered ALLOWED fleet topics)")
@@ -139,9 +142,11 @@ class ROSPublisherBridge:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 
     def _spin_loop(self):
-        import rclpy
         try:
-            if self.node:
+            if hasattr(self, 'executor') and self.executor:
+                self.executor.spin()
+            elif self.node:
+                import rclpy
                 rclpy.spin(self.node)
         except Exception:
             pass
@@ -209,7 +214,7 @@ class ROSPublisherBridge:
         except Exception as ex:
             pass
 
-    def is_recently_republished(self, ros_topic, window_sec=0.2):
+    def is_recently_republished(self, ros_topic, window_sec=0.01):
         with self.republished_lock:
             last_t = self.last_republished_time.get(ros_topic, 0.0)
             return (time.time() - last_t) < window_sec
@@ -237,10 +242,17 @@ class ROSSubscriberBridge:
                     rclpy.init()
                 node_name = f"mesh_control_plane_transmitter_{device_ns}" if device_ns else "mesh_control_plane_transmitter"
                 self.node = rclpy.create_node(node_name)
+                from rclpy.executors import MultiThreadedExecutor
+                self.executor = MultiThreadedExecutor(num_threads=4)
+                self.executor.add_node(self.node)
                 self.thread = Thread(target=self._spin_loop, daemon=True)
                 self.thread.start()
 
-            from rclpy.qos import qos_profile_sensor_data
+            sensor_sub_qos = QoSProfile(
+                depth=30,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST
+            )
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -255,7 +267,7 @@ class ROSSubscriberBridge:
                         msg_class,
                         target_topic,
                         make_cb(target_topic),
-                        qos_profile_sensor_data
+                        sensor_sub_qos
                     )
                     self.subscribers[target_topic] = sub
             print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on device namespace topics: /{device_ns}/...)")
@@ -263,9 +275,11 @@ class ROSSubscriberBridge:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
     def _spin_loop(self):
-        import rclpy
         try:
-            if self.node:
+            if hasattr(self, 'executor') and self.executor:
+                self.executor.spin()
+            elif self.node:
+                import rclpy
                 rclpy.spin(self.node)
         except Exception:
             pass
@@ -708,7 +722,7 @@ class MeshNode:
                 self.republished_hashes.remove(payload_hash)
                 return
 
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
             return
 
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
@@ -738,7 +752,7 @@ class MeshNode:
                 self.republished_hashes.remove(payload_hash)
                 return
 
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
             return
 
         base_topic = ros_topic
