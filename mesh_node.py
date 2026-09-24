@@ -254,7 +254,7 @@ class ROSSubscriberBridge:
                     sub = self.node.create_subscription(
                         msg_class,
                         target_topic,
-                        make_cb(topic_name),
+                        make_cb(target_topic),
                         qos_profile_sensor_data
                     )
                     self.subscribers[target_topic] = sub
@@ -741,15 +741,25 @@ class MeshNode:
         if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.2):
             return
 
+        base_topic = ros_topic
+        if not self.registry.exists(base_topic):
+            for t_name in self.registry.all_topics().keys():
+                if ros_topic.endswith(t_name):
+                    base_topic = t_name
+                    break
+
         # Record Publisher (Tx) metrics for local ROS topic sample
-        seq_num = self.bw_monitor.record_tx_sample(ros_topic, len(payload_bytes))
+        seq_num = self.bw_monitor.record_tx_sample(base_topic, len(payload_bytes))
 
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
+        is_allowed = (ros_topic in self.scheduler.allowed_topics or base_topic in self.scheduler.allowed_topics)
+        prio = self.registry.get(base_topic)["priority"] if self.registry.exists(base_topic) else 5
+
         mesh_sample = MeshSample(
             key=ros_topic,
             payload=payload_bytes,
-            allowed=(ros_topic in self.scheduler.allowed_topics),
-            priority=self.registry.get(ros_topic)["priority"] if self.registry.exists(ros_topic) else 5,
+            allowed=is_allowed,
+            priority=prio,
             sequence_number=seq_num,
             origin_ip=self.my_ip
         )
