@@ -118,7 +118,8 @@ class ROSPublisherBridge:
             self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
             self.topic_types["/mesh_wifi_telemetry"] = String
 
-            # Pre-register all ALLOWED topics from config/topics.yaml for all device namespaces
+            # Pre-register ALLOWED topics from config/topics.yaml for the local device namespace only
+            target_namespaces = [device_ns] if device_ns else []
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -126,7 +127,7 @@ class ROSPublisherBridge:
                 if not topic_name.startswith("/"):
                     self.topic_types["/" + topic_name] = msg_class
 
-                for dev_ns in IP_TO_NAMESPACE.values():
+                for dev_ns in target_namespaces:
                     ns_topic = f"/{dev_ns}{topic_name}"
                     if ns_topic not in self.publishers:
                         pub_qos = qos_profile_sensor_data if ("image" in ns_topic or "camera" in ns_topic) else default_sensor_qos
@@ -139,7 +140,7 @@ class ROSPublisherBridge:
             self.executor.add_node(self.node)
             self.thread = Thread(target=self._spin_loop, daemon=True)
             self.thread.start()
-            print("[INFO] ROS 2 Native Publisher Bridge active (Pre-registered ALLOWED fleet topics)")
+            print(f"[INFO] ROS 2 Native Publisher Bridge active (Local namespace: {device_ns})")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Publisher Bridge initialization warning: {e}")
 
@@ -208,11 +209,23 @@ class ROSPublisherBridge:
                         self.last_republished_time[ns_topic] = time.time()
                     return
 
-            # Fallback publish on base topic if no origin_ip
-            if ros_topic in self.publishers:
-                self.publishers[ros_topic].publish(msg)
-                with self.republished_lock:
-                    self.last_republished_time[ros_topic] = time.time()
+            # Dynamic publish on base/direct topic if no origin_ip
+            if ros_topic not in self.publishers:
+                from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
+                pub_qos = qos_profile_sensor_data if ("image" in ros_topic or "camera" in ros_topic) else QoSProfile(
+                    depth=10,
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.VOLATILE,
+                    history=HistoryPolicy.KEEP_LAST
+                )
+                pub = self.node.create_publisher(msg_class, ros_topic, pub_qos)
+                self.publishers[ros_topic] = pub
+                self.topic_types[ros_topic] = msg_class
+                print(f"[INFO] Created dynamic ROS 2 publisher: {ros_topic}")
+
+            self.publishers[ros_topic].publish(msg)
+            with self.republished_lock:
+                self.last_republished_time[ros_topic] = time.time()
         except Exception as ex:
             pass
 
