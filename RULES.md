@@ -75,19 +75,27 @@
 
 ---
 
-## RULE 8: Mandatory Release History Synchronization & Documentation Policy
+## RULE 8: Demand-Driven Egress Governance & Interest-Based Network Transport
+- **Interest-Based Zero-Egress Transport Policy**: Inter-device transport over physical mesh network interfaces (`enP5p1s0f0`) MUST operate strictly on a demand-driven basis.
+- **Dynamic Subscriber Interest Verification**: `ForwardingEngine` must verify live remote subscriber matching (`pub.matching_status.matching == True`) before transmitting any topic payload over Zenoh.
+- **Zero Egress on Unrequested Topics**: When zero remote subscribers exist for a topic key (`filtered/55/<ns>/<topic>`), `mesh_node.py` MUST skip physical network transmission (`[DEMAND] <topic> (0 Remote Subscribers — Egress Skipped)`) and enforce **0.00 Mbps wireless egress**.
+- **On-Demand Subscription Lifecycle**: Receiver nodes (`_demand_monitor_loop`) MUST NOT statically pre-subscribe to sensor data topics at startup. Remote subscriptions MUST be declared dynamically on-demand only when local external ROS 2 subscribers (e.g. RViz2) are detected, and MUST be undeclared immediately when external subscribers close.
+
+---
+
+## RULE 9: Mandatory Release History Synchronization & Documentation Policy
 - **Itemized Release History**: Every software release tag (`vX.Y.Z`) MUST contain an itemized, line-by-line version control entry in `README.md` documenting all feature additions, parameter updates, architectural refactors, and bug fixes before git commits are finalized or tags are created.
 - **Pre-Push Documentation Audit**: Git tags MUST NOT be pushed to remote repositories (`git push origin --tags`) without verified release history alignment in `README.md`.
 
 ---
 
-## RULE 9: Mandatory Version Release Documentation & Deprecation Governance Policy
+## RULE 10: Mandatory Version Release Documentation & Deprecation Governance Policy
 - **Mandatory README Update Per Version**: Every version update MUST update `README.md` with explicit release notes detailing configuration changes (e.g., `node_offline_timeout_seconds` updated to 60.0 seconds).
 - **Explicit Version Deprecation Notice**: Non-recommended or experimental interim versions (such as `v5.2.0`, `v5.3.0`, and `v5.4.0`) MUST be explicitly marked as **NOT RECOMMENDED / DEPRECATED** in the `README.md` version control release table.
 
 ---
 
-## RULE 10: Mandatory User Approval Directive for Network & Zenoh Configuration Files
+## RULE 11: Mandatory User Approval Directive for Network & Zenoh Configuration Files
 - **Strict User Approval Requirement**: Modifying, editing, or re-configuring any Zenoh configuration file (`config/zenoh/zenoh_peer_tcp.json5`, `config/zenoh/zenoh_router_tcp.json5`, `.json`, `.json5`) or transport session definitions (`PEER_CONFIG`) is strictly prohibited without explicit prior user review and approval.
 - **Unsanctioned Config Revert Policy**: If any network configuration file or `.json5` file is modified without explicit user authorization, the change MUST be immediately reverted back to its previous authorized state.
 

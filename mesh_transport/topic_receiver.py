@@ -62,31 +62,9 @@ class TopicReceiver:
         self.subscribers.append(peer_table_sub)
         print("[SUBSCRIBE] Control Plane Heartbeat, WiFi & Peer Table Telemetry Channels")
 
-        # 2. Subscribe to local ROS deployment topics
-        for topic in self.registry.all_topics().values():
-
-            zenoh_key = self.mapper.ros_to_zenoh(
-
-                topic["name"]
-
-            )
-
-            subscriber = self.peer.subscribe(
-
-                zenoh_key,
-
-                self.callback
-
-            )
-
-            self.subscribers.append(subscriber)
-
-            print(f"[SUBSCRIBE] {zenoh_key}")
-
-        print()
-
-        print(f"Total Subscribers : {len(self.subscribers)}")
-
+        # 2. Sensor data topic subscriptions are managed strictly ON-DEMAND by mesh_node._demand_monitor_loop()
+        # when local external ROS 2 subscribers (e.g. RViz2) are active.
+        print(f"[INFO] Control plane telemetry active ({len(self.subscribers)} channels). Sensor topics managed on-demand.")
         print()
 
     #####################################################################

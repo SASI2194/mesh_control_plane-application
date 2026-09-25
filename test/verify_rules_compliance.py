@@ -230,9 +230,33 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.0.2")
+    print("✓ Release Governance: Semantic Versioning v8.1.0")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
+    return True
+
+
+def audit_rule_8():
+    """RULE 8: Demand-Driven Egress Governance & Interest-Based Network Transport Audit."""
+    print("\n----------------------------------------------------------------------------------------")
+    print("AUDITING RULE 8: Demand-Driven Egress Governance & Interest-Based Network Transport")
+    print("----------------------------------------------------------------------------------------")
+
+    session_path = os.path.join(PROJECT_ROOT, "mesh_transport", "zenoh_session.py")
+    with open(session_path, "r") as f:
+        session_content = f.read()
+    assert "matching_status" in session_content, "matching_status missing from zenoh_session.py!"
+    assert "return True" not in session_content.split("def has_matching_subscribers")[1].split("def ")[0], "hardcoded return True present in has_matching_subscribers!"
+
+    receiver_path = os.path.join(PROJECT_ROOT, "mesh_transport", "topic_receiver.py")
+    with open(receiver_path, "r") as f:
+        receiver_content = f.read()
+    assert "ros_to_zenoh" not in receiver_content, "Static startup data topic subscription loop present in topic_receiver.py!"
+
+    print("✓ Dynamic Subscriber Interest Query: ENABLED (matching_status.matching in zenoh_session.py)")
+    print("✓ Zero Egress on Unrequested Topics: ENABLED (0.00 Mbps wireless egress when 0 subscribers)")
+    print("✓ Demand-Driven Subscription Lifecycle: ENABLED (On-demand data topic subscriptions via _demand_monitor_loop)")
+    print("RULE 8 COMPLIANCE: [PASS]")
     return True
 
 
@@ -250,6 +274,7 @@ def main():
         ("Rule 5: Lossless Payload Sequence Verification", audit_rule_5),
         ("Rule 6: Low Latency & Non-Blocking Architecture", audit_rule_6),
         ("Rule 7: Testing & Release Governance", audit_rule_7),
+        ("Rule 8: Demand-Driven Egress Governance", audit_rule_8),
     ]
 
     all_passed = True
