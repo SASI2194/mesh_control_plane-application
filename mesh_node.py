@@ -97,12 +97,13 @@ class ROSPublisherBridge:
         self.publishers = {}
         self.topic_types = {}
         self.node = None
+        self.registry = registry
         self.last_republished_time = {}
         self.republished_lock = Lock()
         try:
             import rclpy
             from std_msgs.msg import String
-            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
             if not rclpy.ok():
                 rclpy.init()
             node_name = f"mesh_control_plane_receiver_{device_ns}" if device_ns else "mesh_control_plane_receiver"
@@ -130,8 +131,7 @@ class ROSPublisherBridge:
                 for dev_ns in target_namespaces:
                     ns_topic = f"/{dev_ns}{topic_name}"
                     if ns_topic not in self.publishers:
-                        pub_qos = qos_profile_sensor_data if ("image" in ns_topic or "camera" in ns_topic) else default_sensor_qos
-                        pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
+                        pub = self.node.create_publisher(msg_class, ns_topic, default_sensor_qos)
                         self.publishers[ns_topic] = pub
                         self.topic_types[ns_topic] = msg_class
 
@@ -172,7 +172,7 @@ class ROSPublisherBridge:
             from std_msgs.msg import String
             from rclpy.serialization import deserialize_message
             msg_class = self.topic_types.get(ros_topic)
-            if not msg_class:
+            if not msg_class and hasattr(self, 'registry') and self.registry:
                 for t_name, t_info in self.registry.all_topics().items():
                     if ros_topic.endswith(t_name):
                         msg_class = get_message_class(t_info.get("type", "std_msgs/msg/String"))
@@ -192,8 +192,8 @@ class ROSPublisherBridge:
                         ns_topic = f"/{ns}{ros_topic}"
 
                     if ns_topic not in self.publishers:
-                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
-                        pub_qos = qos_profile_sensor_data if ("image" in ns_topic or "camera" in ns_topic) else QoSProfile(
+                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+                        pub_qos = QoSProfile(
                             depth=10,
                             reliability=ReliabilityPolicy.RELIABLE,
                             durability=DurabilityPolicy.VOLATILE,
@@ -211,8 +211,8 @@ class ROSPublisherBridge:
 
             # Dynamic publish on base/direct topic if no origin_ip
             if ros_topic not in self.publishers:
-                from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
-                pub_qos = qos_profile_sensor_data if ("image" in ros_topic or "camera" in ros_topic) else QoSProfile(
+                from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+                pub_qos = QoSProfile(
                     depth=10,
                     reliability=ReliabilityPolicy.RELIABLE,
                     durability=DurabilityPolicy.VOLATILE,
