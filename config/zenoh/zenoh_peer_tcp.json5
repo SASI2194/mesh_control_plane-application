@@ -1,5 +1,5 @@
 {
-  "mode": "client",
+  "mode": "peer",
   "connect": {
     "timeout_ms": {
       "router": -1,
@@ -34,7 +34,7 @@
   },
   "open": {
     "return_conditions": {
-      "connect_scouted": false,
+      "connect_scouted": true,
       "declares": true
     }
   },
@@ -48,13 +48,13 @@
       "ttl": 1,
       "autoconnect": {
         "router": [],
-        "peer": ["router"],
+        "peer": ["router", "peer"],
         "client": ["router"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "never"
+          "to_peer": "greater-zid"
         }
       },
       "listen": false
@@ -63,17 +63,17 @@
       "enabled": true,
       "multihop": true,
       "target": {
-        "router": ["router"],
+        "router": ["router", "peer"],
         "peer": ["router"]
       },
       "autoconnect": {
         "router": [],
-        "peer": ["router"]
+        "peer": ["router", "peer"]
       },
       "autoconnect_strategy": {
         "peer": {
           "to_router": "always",
-          "to_peer": "never"
+          "to_peer": "greater-zid"
         }
       }
     }
@@ -109,7 +109,7 @@
       "max_links": 1,
       "lowlatency": false,
       "qos": { "enabled": true },
-      "compression": { "enabled": false }
+      "compression": { "enabled": true }
     },
     "multicast": {
       "join_interval": 2500,
@@ -158,7 +158,7 @@
       }
     },
     "shared_memory": {
-      "enabled": false,
+      "enabled": true,
       "mode": "lazy",
       "transport_optimization": {
         "enabled": true,
@@ -183,9 +183,9 @@
     }
   },
   "adminspace": {
-    "enabled": false,
+    "enabled": true,
     "permissions": {
-      "read": false,
+      "read": true,
       "write": false
     }
   }
