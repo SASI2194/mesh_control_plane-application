@@ -99,4 +99,15 @@
 - **Strict User Approval Requirement**: Modifying, editing, or re-configuring any Zenoh configuration file (`config/zenoh/zenoh_peer_tcp.json5`, `config/zenoh/zenoh_router_tcp.json5`, `.json`, `.json5`) or transport session definitions (`PEER_CONFIG`) is strictly prohibited without explicit prior user review and approval.
 - **Unsanctioned Config Revert Policy**: If any network configuration file or `.json5` file is modified without explicit user authorization, the change MUST be immediately reverted back to its previous authorized state.
 
+---
+
+## RULE 12: Strict Monotonic Versioning Governance Policy
+- **Semantic Version Format**: Version numbers MUST strictly follow `vX.Y.Z` semantic versioning format consisting of three integer numbers separated by dots (`.`), where:
+  - **Major Version ($X$)**: Highest priority (breaking changes or architectural redesigns).
+  - **Minor Version ($Y$)**: Medium priority (feature additions and enhancement releases).
+  - **Patch Version ($Z$)**: Lowest priority (bug fixes and patch releases).
+- **Strict Monotonic Progression**: Every new release version `vX2.Y2.Z2` MUST be strictly greater than any previously existing version `vX1.Y1.Z1` ($X_2 > X_1$, or $X_2 = X_1 \land Y_2 > Y_1$, or $X_2 = X_1 \land Y_2 = Y_1 \land Z_2 > Z_1$).
+- **Regression Prohibition**: Releasing, committing, or tagging a version lower than or equal to an existing higher version (such as releasing `v8.0.3` when `v8.1.1` exists) is strictly FORBIDDEN and constitutes a version governance violation.
+
+
 
