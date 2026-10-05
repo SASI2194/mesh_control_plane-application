@@ -798,7 +798,8 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            if hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
+            is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+            if not is_latched and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
                 print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
             else:
                 print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")

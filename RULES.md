@@ -76,9 +76,10 @@
 ---
 
 ## RULE 8: Demand-Driven Egress Governance & Interest-Based Network Transport
-- **Interest-Based Zero-Egress Transport Policy**: Inter-device transport over physical mesh network interfaces (`enP5p1s0f0`) MUST operate strictly on a demand-driven basis.
-- **Dynamic Subscriber Interest Verification**: `ForwardingEngine` must verify live remote subscriber matching (`pub.matching_status.matching == True`) before transmitting any topic payload over Zenoh.
-- **Zero Egress on Unrequested Topics**: When zero remote subscribers exist for a topic key (`filtered/55/<ns>/<topic>`), `mesh_node.py` MUST skip physical network transmission (`[DEMAND] <topic> (0 Remote Subscribers — Egress Skipped)`) and enforce **0.00 Mbps wireless egress**.
+- **Interest-Based Zero-Egress Transport Policy**: Inter-device transport over physical mesh network interfaces (`enP5p1s0f0`) MUST operate strictly on a demand-driven basis for continuous streaming data topics.
+- **Dynamic Subscriber Interest Verification**: `ForwardingEngine` must verify live remote subscriber matching (`pub.matching_status.matching == True`) before transmitting high-rate continuous topic payloads over Zenoh.
+- **Zero Egress on Unrequested Streaming Topics**: When zero remote subscribers exist for a continuous streaming topic key (`filtered/55/<ns>/<topic>`), `mesh_node.py` MUST skip physical network transmission (`[DEMAND] <topic> (0 Remote Subscribers — Egress Skipped)`) and enforce **0.00 Mbps wireless egress**.
+- **Latched Single-Publish Topic Governance Exemption**: Single-publish and latched state topics (`/robot_description`, `/tf_static`, `/map`, `/map_metadata`) are exempted from zero-egress demand suppression upon initial capture to ensure latched robot model definitions and static transform graphs are reliably distributed and cached across all active fleet devices upon system startup.
 - **On-Demand Subscription Lifecycle**: Receiver nodes (`_demand_monitor_loop`) MUST NOT statically pre-subscribe to sensor data topics at startup. Remote subscriptions MUST be declared dynamically on-demand only when local external ROS 2 subscribers (e.g. RViz2) are detected, and MUST be undeclared immediately when external subscribers close.
 
 ---

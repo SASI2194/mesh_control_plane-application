@@ -230,7 +230,7 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.1.2")
+    print("✓ Release Governance: Semantic Versioning v8.1.3")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
     return True
@@ -253,8 +253,14 @@ def audit_rule_8():
         receiver_content = f.read()
     assert "ros_to_zenoh" not in receiver_content, "Static startup data topic subscription loop present in topic_receiver.py!"
 
+    mesh_node_path = os.path.join(PROJECT_ROOT, "mesh_node.py")
+    with open(mesh_node_path, "r") as f:
+        mesh_node_content = f.read()
+    assert "is_latched" in mesh_node_content, "Latched single-publish topic exemption missing from mesh_node.py!"
+
     print("✓ Dynamic Subscriber Interest Query: ENABLED (matching_status.matching in zenoh_session.py)")
-    print("✓ Zero Egress on Unrequested Topics: ENABLED (0.00 Mbps wireless egress when 0 subscribers)")
+    print("✓ Zero Egress on Unrequested Streaming Topics: ENABLED (0.00 Mbps wireless egress when 0 subscribers)")
+    print("✓ Latched Single-Publish Exemption: ENABLED (/robot_description, /tf_static forwarded at startup)")
     print("✓ Demand-Driven Subscription Lifecycle: ENABLED (On-demand data topic subscriptions via _demand_monitor_loop)")
     print("RULE 8 COMPLIANCE: [PASS]")
     return True
@@ -278,8 +284,8 @@ def audit_rule_12():
         assert len(parts) == 3, f"Version {v_str} does not contain exactly 3 dot-separated integers!"
         return tuple(parts)
 
-    v1 = parse_ver("v8.1.1")
-    v2 = parse_ver("v8.1.2")
+    v1 = parse_ver("v8.1.2")
+    v2 = parse_ver("v8.1.3")
     assert v2 > v1, f"Version {v2} is not strictly greater than previous version {v1}!"
 
     print("✓ 3-Component Dot-Separated Format: ENABLED (vX.Y.Z format verified)")

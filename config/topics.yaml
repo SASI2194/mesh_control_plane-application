@@ -1,79 +1,139 @@
 topics:
 
   - id: 1
-    name: /camera/color/camera_info
-    type: sensor_msgs/msg/CameraInfo
+    name: /back_cam
+    type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
   - id: 2
+    name: /back_camera/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 3
     name: /camera/color/image_raw
     type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
-  - id: 3
-    name: /camera/color/image_raw/compressed
-    type: sensor_msgs/msg/CompressedImage
-    priority: 1
-    status: DENY
-
   - id: 4
-    name: /camera/color/image_raw/compressedDepth
-    type: sensor_msgs/msg/CompressedImage
+    name: /camera/heartbeat
+    type: std_msgs/msg/Int32
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 5
-    name: /camera/color/image_raw/theora
-    type: theora_image_transport/msg/Packet
-    priority: 2
-    status: DENY
+    name: fl_encoder
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
 
   - id: 6
-    name: /camera/color/metadata
-    type: realsense2_camera_msgs/msg/Metadata
-    priority: 2
-    status: DENY
-
-  - id: 7
-    name: /camera/depth/camera_info
-    type: sensor_msgs/msg/CameraInfo
-    priority: 1
-    status: DENY
-
-  - id: 8
-    name: /camera/depth/image_rect_raw
+    name: /front_cam
     type: sensor_msgs/msg/Image
     priority: 1
-    status: DENY
+    status: ALLOW
+
+  - id: 7
+    name: /heart_beat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 8
+    name: /joint_states
+    type: sensor_msgs/msg/JointState
+    priority: 1
+    status: ALLOW
 
   - id: 9
-    name: /camera/depth/image_rect_raw/compressed
-    type: sensor_msgs/msg/CompressedImage
-    priority: 2
-    status: DENY
+    name: /left_cam
+    type: sensor_msgs/msg/Image
+    priority: 1
+    status: ALLOW
 
   - id: 10
-    name: /camera/depth/image_rect_raw/compressedDepth
-    type: sensor_msgs/msg/CompressedImage
+    name: /left_camera/heartbeat
+    type: std_msgs/msg/Int32
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 11
-    name: /camera/depth/image_rect_raw/theora
-    type: theora_image_transport/msg/Packet
-    priority: 2
-    status: DENY
+    name: /lidar3d_odom
+    type: nav_msgs/msg/Odometry
+    priority: 1
+    status: ALLOW
 
   - id: 12
-    name: /camera/depth/metadata
-    type: realsense2_camera_msgs/msg/Metadata
+    name: /lidar_2d/heartbeat
+    type: std_msgs/msg/Int32
     priority: 1
-    status: DENY
+    status: ALLOW
 
   - id: 13
-    name: /camera/extrinsics/depth_to_color
-    type: realsense2_camera_msgs/msg/Extrinsics
+    name: /lidar_3d/heartbeat
+    type: std_msgs/msg/Int32
     priority: 1
-    status: DENY
+    status: ALLOW
+
+  - id: 14
+    name: /lidar_point_cloud
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
+  - id: 15
+    name: /lslidar_driver_node/transition_event
+    type: lifecycle_msgs/msg/TransitionEvent
+    priority: 1
+    status: ALLOW
+
+  - id: 16
+    name: /motor/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 17
+    name: /right_cam
+    type: sensor_msgs/msg/Image
+    priority: 1
+    status: ALLOW
+
+  - id: 18
+    name: /right_camera/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 19
+    name: /robot_description
+    type: std_msgs/msg/String
+    priority: 1
+    status: ALLOW
+
+  - id: 20
+    name: /rtabmap/cloud_obstacles
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
+  - id: 21
+    name: /rtabmap/cloud_map
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
+  - id: 22
+    name: /scan_2d
+    type: sensor_msgs/msg/LaserScan
+    priority: 1
+    status: ALLOW
+
+  - id: 23
+    name: /scan
+    type: sensor_msgs/msg/LaserScan
+    priority: 1
+    status: ALLOW
