@@ -603,20 +603,31 @@ class TelemetryDataProvider:
         """
         Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
         Ensures radio stays in current mode for FULL switching_interval seconds unless an active
-        link or peer is detected, in which case probe toggling is held.
+        link or remote peer is detected, in which case probe toggling is held.
         """
         now = time.time()
         state_start = getattr(self, "_probe_state_start", 0.0)
         current_state = getattr(self, "_probe_state", "AP")
 
-        # Check for active hardware peers or recent application-level node activity
-        has_hw_peers = len(getattr(self, "local_hw_peers", [])) > 0
-        has_recent_activity = any((now - t) <= 30.0 for t in self.node_activity.values()) if hasattr(self, "node_activity") else False
+        # Check for active REMOTE hardware peers or recent REMOTE application-level node activity (excluding self/local IPs)
+        local_ips = self._get_local_ips()
+        raw_hw_peers = getattr(self, "local_hw_peers", []) or []
+        remote_hw_peers = [
+            p for p in raw_hw_peers
+            if isinstance(p, dict) and p.get("ip") != my_ip and p.get("ip") not in local_ips
+        ]
+        has_remote_hw_peers = len(remote_hw_peers) > 0
 
-        if has_hw_peers or has_recent_activity:
+        has_recent_remote_activity = any(
+            (now - t) <= 30.0 
+            for ip, t in self.node_activity.items() 
+            if ip != my_ip and ip not in local_ips
+        ) if hasattr(self, "node_activity") else False
+
+        if has_remote_hw_peers or has_recent_remote_activity:
             # Active physical Wi-Fi association or application heartbeat detected! Hold current probe state.
             if state_start != 0.0:
-                print(f"[PROBE HOLD] Active link/peer detected for {my_ip}. Holding current {current_state} mode...")
+                print(f"[PROBE HOLD] Active remote link/peer detected for {my_ip}. Holding current {current_state} mode...")
             self._probe_state_start = now
             return
 
@@ -672,7 +683,14 @@ class TelemetryDataProvider:
                         if n["ip"] != my_ip and n.get("status") == "ONLINE"
                     ]
                     has_remote_peers = len(remote_online_nodes) > 0
-                    has_hw_peers = len(getattr(self, "local_hw_peers", [])) > 0
+
+                    local_ips = self._get_local_ips()
+                    raw_hw_peers = getattr(self, "local_hw_peers", []) or []
+                    remote_hw_peers = [
+                        p for p in raw_hw_peers
+                        if isinstance(p, dict) and p.get("ip") != my_ip and p.get("ip") not in local_ips
+                    ]
+                    has_remote_hw_peers = len(remote_hw_peers) > 0
 
                     # 1. Determine all currently ONLINE node IDs across the mesh
                     online_node_ids = [n["id"] for n in self.nodes if n.get("status") == "ONLINE"]
@@ -701,7 +719,7 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        if not (has_remote_peers or has_hw_peers):
+                        if not (has_remote_peers or has_remote_hw_peers):
                             # Isolated Master AP with 0 peers -> Run rank-staggered search probe cycle
                             self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
