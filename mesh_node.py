@@ -280,7 +280,7 @@ class ROSSubscriberBridge:
         self.node = node
         try:
             import rclpy
-            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
             from rclpy.serialization import serialize_message
             self.serialize_message = serialize_message
 
