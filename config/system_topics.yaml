@@ -1,0 +1,31 @@
+system_topics:
+
+  - id: 101
+    name: /tf
+    type: tf2_msgs/msg/TFMessage
+    priority: 1
+    status: ALLOW
+
+  - id: 102
+    name: /tf_static
+    type: tf2_msgs/msg/TFMessage
+    priority: 1
+    status: ALLOW
+
+  - id: 103
+    name: /clock
+    type: rosgraph_msgs/msg/Clock
+    priority: 1
+    status: ALLOW
+
+  - id: 104
+    name: /rosout
+    type: rcl_interfaces/msg/Log
+    priority: 1
+    status: ALLOW
+
+  - id: 105
+    name: /parameter_events
+    type: rcl_interfaces/msg/ParameterEvent
+    priority: 1
+    status: ALLOW

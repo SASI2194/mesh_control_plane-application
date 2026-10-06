@@ -183,6 +183,10 @@ class ROSPublisherBridge:
             msg = deserialize_message(raw_payload, msg_class)
 
             # Dynamically publish on Device Namespaced topic if origin_ip is provided
+            is_latched_topic = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+            target_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_topic else DurabilityPolicy.VOLATILE
+
             if origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
@@ -192,36 +196,59 @@ class ROSPublisherBridge:
                         ns_topic = f"/{ns}{ros_topic}"
 
                     if ns_topic not in self.publishers:
-                        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
                         pub_qos = QoSProfile(
                             depth=10,
                             reliability=ReliabilityPolicy.RELIABLE,
-                            durability=DurabilityPolicy.VOLATILE,
+                            durability=target_durability,
                             history=HistoryPolicy.KEEP_LAST
                         )
                         pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
                         self.publishers[ns_topic] = pub
                         self.topic_types[ns_topic] = msg_class
-                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic}")
+                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic} (Durability: {target_durability.name})")
 
                     self.publishers[ns_topic].publish(msg)
                     with self.republished_lock:
                         self.last_republished_time[ns_topic] = time.time()
+
+                    # Mirror transform payloads to global /tf and /tf_static for standard ROS 2 / RViz2 listeners
+                    if ros_topic.endswith("/tf_static") or ros_topic == "/tf_static":
+                        global_tf = "/tf_static"
+                    elif ros_topic.endswith("/tf") or ros_topic == "/tf":
+                        global_tf = "/tf"
+                    else:
+                        global_tf = None
+
+                    if global_tf and global_tf != ns_topic:
+                        if global_tf not in self.publishers:
+                            gtf_durability = DurabilityPolicy.TRANSIENT_LOCAL if "static" in global_tf else DurabilityPolicy.VOLATILE
+                            gtf_qos = QoSProfile(
+                                depth=10,
+                                reliability=ReliabilityPolicy.RELIABLE,
+                                durability=gtf_durability,
+                                history=HistoryPolicy.KEEP_LAST
+                            )
+                            gpub = self.node.create_publisher(msg_class, global_tf, gtf_qos)
+                            self.publishers[global_tf] = gpub
+                            self.topic_types[global_tf] = msg_class
+                            print(f"[INFO] Created global transform ROS 2 publisher: {global_tf}")
+                        self.publishers[global_tf].publish(msg)
+                        with self.republished_lock:
+                            self.last_republished_time[global_tf] = time.time()
                     return
 
             # Dynamic publish on base/direct topic if no origin_ip
             if ros_topic not in self.publishers:
-                from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
                 pub_qos = QoSProfile(
                     depth=10,
                     reliability=ReliabilityPolicy.RELIABLE,
-                    durability=DurabilityPolicy.VOLATILE,
+                    durability=target_durability,
                     history=HistoryPolicy.KEEP_LAST
                 )
                 pub = self.node.create_publisher(msg_class, ros_topic, pub_qos)
                 self.publishers[ros_topic] = pub
                 self.topic_types[ros_topic] = msg_class
-                print(f"[INFO] Created dynamic ROS 2 publisher: {ros_topic}")
+                print(f"[INFO] Created dynamic ROS 2 publisher: {ros_topic} (Durability: {target_durability.name})")
 
             self.publishers[ros_topic].publish(msg)
             with self.republished_lock:

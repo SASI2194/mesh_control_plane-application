@@ -28,7 +28,7 @@
   $$\Delta \text{Bandwidth} = \text{Tx Published Mbps} - \text{Rx Subscribed Mbps}$$
   $$\text{Delivery Ratio (\%)} = \left(\frac{\text{Rx Subscribed Mbps}}{\text{Tx Published Mbps}}\right) \times 100$$
   This differential determines exact end-to-end transport efficiency and verifies that admitted topics achieve 100% full delivery without packet loss across the mesh network.
-- **Topic Priorities & Dynamic Scheduling**: Topics must be strictly assigned to priority tiers P1 (highest) through P5 (lowest). The `BandwidthScheduler` continuously evaluates dynamic bandwidth demand and admits topics from P1 downward until available network capacity (`maximum_bandwidth_mbps` in `config/mesh.yaml`) is satisfied.
+- **Topic Priorities & Dynamic Scheduling**: Topics must be strictly assigned to priority tiers P1 (highest) through P5 (lowest) across `config/topics.yaml` (application sensor topics) and `config/system_topics.yaml` (ROS 2 system infrastructure topics: `/tf`, `/tf_static`, `/clock`, `/rosout`, `/parameter_events`). The `BandwidthScheduler` continuously evaluates dynamic bandwidth demand and admits topics from P1 downward until available network capacity (`maximum_bandwidth_mbps` in `config/mesh.yaml`) is satisfied.
 
 ---
 

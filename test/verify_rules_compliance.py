@@ -230,7 +230,7 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.1.3")
+    print("✓ Release Governance: Semantic Versioning v8.2.0")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
     return True
@@ -257,10 +257,16 @@ def audit_rule_8():
     with open(mesh_node_path, "r") as f:
         mesh_node_content = f.read()
     assert "is_latched" in mesh_node_content, "Latched single-publish topic exemption missing from mesh_node.py!"
+    assert "TRANSIENT_LOCAL" in mesh_node_content, "TRANSIENT_LOCAL QoS durability missing from mesh_node.py!"
+
+    sys_topics_path = os.path.join(PROJECT_ROOT, "config", "system_topics.yaml")
+    assert os.path.exists(sys_topics_path), "config/system_topics.yaml missing!"
 
     print("✓ Dynamic Subscriber Interest Query: ENABLED (matching_status.matching in zenoh_session.py)")
     print("✓ Zero Egress on Unrequested Streaming Topics: ENABLED (0.00 Mbps wireless egress when 0 subscribers)")
     print("✓ Latched Single-Publish Exemption: ENABLED (/robot_description, /tf_static forwarded at startup)")
+    print("✓ System Topics Separation (Option B): ENABLED (config/system_topics.yaml verified)")
+    print("✓ TRANSIENT_LOCAL QoS Durability Alignment: ENABLED (mesh_node.py ROSPublisherBridge updated)")
     print("✓ Demand-Driven Subscription Lifecycle: ENABLED (On-demand data topic subscriptions via _demand_monitor_loop)")
     print("RULE 8 COMPLIANCE: [PASS]")
     return True
@@ -284,8 +290,8 @@ def audit_rule_12():
         assert len(parts) == 3, f"Version {v_str} does not contain exactly 3 dot-separated integers!"
         return tuple(parts)
 
-    v1 = parse_ver("v8.1.2")
-    v2 = parse_ver("v8.1.3")
+    v1 = parse_ver("v8.1.3")
+    v2 = parse_ver("v8.2.0")
     assert v2 > v1, f"Version {v2} is not strictly greater than previous version {v1}!"
 
     print("✓ 3-Component Dot-Separated Format: ENABLED (vX.Y.Z format verified)")

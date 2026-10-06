@@ -16,24 +16,41 @@ import yaml
 
 class TopicRegistry:
 
-    def __init__(self, filename="config/topics.yaml"):
+    def __init__(self, filename="config/topics.yaml", extra_files=None):
 
         self._topics = {}
+        import os
 
-        with open(filename, "r") as f:
-            cfg = yaml.safe_load(f)
+        filenames = [filename]
+        if extra_files:
+            if isinstance(extra_files, list):
+                filenames.extend(extra_files)
+            else:
+                filenames.append(extra_files)
 
-        for topic in cfg["topics"]:
-            # Store status (ALLOW/DENY) and live measured dynamic metrics
-            t_copy = dict(topic)
-            t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
-            t_copy["type"] = str(topic.get("type", "std_msgs/msg/String"))
-            t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))
-            t_copy["measured_bandwidth"] = 0.0  # 0.0 Mbps until samples enter mesh
-            t_copy["hz"] = 0.0
-            t_copy["data_size_bytes"] = 0.0
-            t_copy["data_size_str"] = "0 B"
-            self._topics[topic["name"]] = t_copy
+        sys_topics_path = os.path.join(os.path.dirname(os.path.abspath(filename)), "system_topics.yaml")
+        if sys_topics_path not in filenames and os.path.exists(sys_topics_path):
+            filenames.append(sys_topics_path)
+
+        for fn in filenames:
+            if not os.path.exists(fn):
+                continue
+            with open(fn, "r") as f:
+                cfg = yaml.safe_load(f)
+            if not cfg:
+                continue
+
+            raw_list = cfg.get("topics") or cfg.get("system_topics") or []
+            for topic in raw_list:
+                t_copy = dict(topic)
+                t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
+                t_copy["type"] = str(topic.get("type", "std_msgs/msg/String"))
+                t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))
+                t_copy["measured_bandwidth"] = 0.0
+                t_copy["hz"] = 0.0
+                t_copy["data_size_bytes"] = 0.0
+                t_copy["data_size_str"] = "0 B"
+                self._topics[topic["name"]] = t_copy
 
     #####################################################################
 
