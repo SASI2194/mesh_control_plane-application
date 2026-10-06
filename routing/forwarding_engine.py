@@ -82,9 +82,12 @@ class ForwardingEngine:
 
         #################################################################
         # Demand-Driven Check: Skip egress if zero remote subscribers match
+        # (Exempt latched state topics and system transform infrastructure topics)
         #################################################################
 
-        if hasattr(self.session, "has_matching_subscribers"):
+        is_exempt = any(k in sample.key for k in ["robot_description", "tf_static", "tf", "map", "map_metadata", "clock", "rosout", "parameter_events"])
+
+        if not is_exempt and hasattr(self.session, "has_matching_subscribers"):
             if not self.session.has_matching_subscribers(output_key):
                 self.dropped_packets += 1
                 self.dropped_bytes += len(sample.payload)
@@ -106,20 +109,21 @@ class ForwardingEngine:
         # Publish
         #################################################################
 
+        keys_to_publish = [output_key]
+        if "tf_static" in output_key and output_key != "filtered/55/tf_static":
+            keys_to_publish.append("filtered/55/tf_static")
+        elif "tf" in output_key and output_key != "filtered/55/tf":
+            keys_to_publish.append("filtered/55/tf")
+
         try:
-
-            self.session.publish(
-
-                output_key,
-
-                packed_payload
-
-            )
+            for pub_key in keys_to_publish:
+                self.session.publish(
+                    pub_key,
+                    packed_payload
+                )
 
             self.forwarded_packets += 1
-
             self.forwarded_bytes += len(sample.payload)
-
             print(f"[FORWARD] {output_key} (Seq #{sample.sequence_number})")
 
         except Exception as ex:

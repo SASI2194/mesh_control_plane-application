@@ -120,7 +120,7 @@ class ROSPublisherBridge:
             self.topic_types["/mesh_wifi_telemetry"] = String
 
             # Pre-register ALLOWED topics from config/topics.yaml and system_topics.yaml
-            target_namespaces = [device_ns] if device_ns else []
+            all_fleet_namespaces = list(IP_TO_NAMESPACE.values())
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -129,13 +129,22 @@ class ROSPublisherBridge:
                     self.topic_types["/" + topic_name] = msg_class
 
                 is_sys = registry.is_system_topic(topic_name)
-                if is_sys:
-                    sys_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
+                is_latched = any(k in topic_name for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                
+                topics_to_prereg = []
+                base_t = topic_name if topic_name.startswith("/") else "/" + topic_name
+                topics_to_prereg.append(base_t)
+                if is_sys or is_latched:
+                    for dev_ns in all_fleet_namespaces:
+                        topics_to_prereg.append(f"/{dev_ns}{base_t}")
+                elif device_ns:
+                    topics_to_prereg.append(f"/{device_ns}{base_t}")
+
+                for sys_topic in topics_to_prereg:
                     if sys_topic not in self.publishers:
-                        is_latched = any(k in sys_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
                         pub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched else DurabilityPolicy.VOLATILE
                         pub_qos = QoSProfile(
-                            depth=10,
+                            depth=100 if is_latched else 10,
                             reliability=ReliabilityPolicy.RELIABLE,
                             durability=pub_durability,
                             history=HistoryPolicy.KEEP_LAST
@@ -143,13 +152,6 @@ class ROSPublisherBridge:
                         pub = self.node.create_publisher(msg_class, sys_topic, pub_qos)
                         self.publishers[sys_topic] = pub
                         self.topic_types[sys_topic] = msg_class
-                else:
-                    for dev_ns in target_namespaces:
-                        ns_topic = f"/{dev_ns}{topic_name}" if topic_name.startswith("/") else f"/{dev_ns}/{topic_name}"
-                        if ns_topic not in self.publishers:
-                            pub = self.node.create_publisher(msg_class, ns_topic, default_sensor_qos)
-                            self.publishers[ns_topic] = pub
-                            self.topic_types[ns_topic] = msg_class
 
             from rclpy.executors import MultiThreadedExecutor
             self.executor = MultiThreadedExecutor(num_threads=4)
@@ -243,7 +245,7 @@ class ROSPublisherBridge:
                 t_durability = DurabilityPolicy.TRANSIENT_LOCAL if ("static" in target_t or is_latched_topic) else DurabilityPolicy.VOLATILE
                 if target_t not in self.publishers:
                     pub_qos = QoSProfile(
-                        depth=10,
+                        depth=100 if ("static" in target_t or is_latched_topic) else 10,
                         reliability=ReliabilityPolicy.RELIABLE,
                         durability=t_durability,
                         history=HistoryPolicy.KEEP_LAST
@@ -329,11 +331,26 @@ class ROSSubscriberBridge:
 
                 for target_topic in targets_to_sub:
                     if target_topic not in self.subscribers:
+                        is_latched_sub = any(k in target_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                        if is_latched_sub:
+                            sub_qos = QoSProfile(
+                                depth=10,
+                                reliability=ReliabilityPolicy.RELIABLE,
+                                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                                history=HistoryPolicy.KEEP_LAST
+                            )
+                        else:
+                            sub_qos = QoSProfile(
+                                depth=30,
+                                reliability=ReliabilityPolicy.BEST_EFFORT,
+                                durability=DurabilityPolicy.VOLATILE,
+                                history=HistoryPolicy.KEEP_LAST
+                            )
                         sub = self.node.create_subscription(
                             msg_class,
                             target_topic,
                             make_cb(target_topic),
-                            sensor_sub_qos
+                            sub_qos
                         )
                         self.subscribers[target_topic] = sub
             print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on ALLOWED device namespace topics: /{device_ns}/...)")
@@ -489,11 +506,30 @@ class MeshNode:
         self.receiver.start()
         self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=self.ros_bridge.node if self.ros_bridge else None, device_ns=my_dev_ns)
 
+        # In-memory payload cache for latched state topics (/tf_static, /robot_description, etc.)
+        self.latched_payload_cache = {}
+        self.active_demand_subs = {}
+
+        # Pre-declare permanent Zenoh subscriptions for all latched state topics at startup
+        latched_keys_to_sub = ["filtered/55/tf_static", "filtered/55/robot_description", "filtered/55/map", "filtered/55/map_metadata"]
+        for dev_ns in IP_TO_NAMESPACE.values():
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf_static")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/robot_description")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map_metadata")
+
+        for zk in latched_keys_to_sub:
+            try:
+                zsub = self.peer.subscribe(zk, self.callback)
+                self.active_demand_subs[zk] = zsub
+                print(f"[INFO] Pre-subscribed latched Zenoh key: {zk}")
+            except Exception:
+                pass
+
         #
         # Start Demand-Driven Interest Subscriber Monitor Thread
         #
 
-        self.active_demand_subs = {}
         self.demand_thread = Thread(target=self._demand_monitor_loop, daemon=True)
         self.demand_thread.start()
 
@@ -571,6 +607,7 @@ class MeshNode:
         heartbeat_key = f"filtered/_mesh_heartbeat/{self.my_ip}"
         import struct
         import json
+        hb_tick = 0
         while self.running:
             try:
                 max_loss = self.bw_monitor.get_max_loss_percent()
@@ -583,6 +620,14 @@ class MeshNode:
                     "wifi_details": local_node.get("wifi_details") if local_node else None
                 }).encode("utf-8")
                 self.forward_session.session.put(heartbeat_key, hb_payload)
+
+                hb_tick += 1
+                if hb_tick % 3 == 0 and hasattr(self, 'latched_payload_cache') and self.ros_bridge:
+                    for cached_topic, (c_payload, c_origin) in list(self.latched_payload_cache.items()):
+                        try:
+                            self.ros_bridge.publish_message(cached_topic, c_payload, origin_ip=c_origin)
+                        except Exception:
+                            pass
             except Exception:
                 pass
             time.sleep(1.0)
@@ -656,7 +701,10 @@ class MeshNode:
                         base_topic = topic_cfg["name"]
                         is_sys = self.registry.is_system_topic(base_topic)
                         if is_sys:
-                            target_topics = [base_topic if base_topic.startswith("/") else "/" + base_topic]
+                            b_clean = base_topic if base_topic.startswith("/") else "/" + base_topic
+                            target_topics = [b_clean]
+                            for dev_ns in enabled_namespaces:
+                                target_topics.append(f"/{dev_ns}{b_clean}")
                         else:
                             target_topics = [f"/{dev_ns}{base_topic}" if base_topic.startswith("/") else f"/{dev_ns}/{base_topic}" for dev_ns in enabled_namespaces]
 
@@ -760,6 +808,9 @@ class MeshNode:
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
                 self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload), seq_num)
+                is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                if is_latched:
+                    self.latched_payload_cache[ros_topic] = (raw_payload, origin_ip)
 
             # Re-publish original raw ROS 2 payload back onto local Zenoh session for local ROS subscribers
             local_key = key_str[len("filtered/"):]
