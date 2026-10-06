@@ -720,7 +720,8 @@ class MeshNode:
                                     self.active_demand_subs[zenoh_key] = zenoh_sub
                                     print(f"[DEMAND ACTIVE] Subscribed to {zenoh_key} (External ROS 2 Subs: {[s.node_name for s in external_subs]})")
                             else:
-                                if zenoh_key in self.active_demand_subs:
+                                is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                                if not is_latched and zenoh_key in self.active_demand_subs:
                                     zenoh_sub = self.active_demand_subs.pop(zenoh_key)
                                     try:
                                         zenoh_sub.undeclare()
