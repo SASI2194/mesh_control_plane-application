@@ -119,7 +119,7 @@ class ROSPublisherBridge:
             self.publishers["/mesh_wifi_telemetry"] = self.telemetry_pub
             self.topic_types["/mesh_wifi_telemetry"] = String
 
-            # Pre-register ALLOWED topics from config/topics.yaml for the local device namespace only
+            # Pre-register ALLOWED topics from config/topics.yaml and system_topics.yaml
             target_namespaces = [device_ns] if device_ns else []
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
@@ -128,12 +128,28 @@ class ROSPublisherBridge:
                 if not topic_name.startswith("/"):
                     self.topic_types["/" + topic_name] = msg_class
 
-                for dev_ns in target_namespaces:
-                    ns_topic = f"/{dev_ns}{topic_name}"
-                    if ns_topic not in self.publishers:
-                        pub = self.node.create_publisher(msg_class, ns_topic, default_sensor_qos)
-                        self.publishers[ns_topic] = pub
-                        self.topic_types[ns_topic] = msg_class
+                is_sys = registry.is_system_topic(topic_name)
+                if is_sys:
+                    sys_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
+                    if sys_topic not in self.publishers:
+                        is_latched = any(k in sys_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                        pub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched else DurabilityPolicy.VOLATILE
+                        pub_qos = QoSProfile(
+                            depth=10,
+                            reliability=ReliabilityPolicy.RELIABLE,
+                            durability=pub_durability,
+                            history=HistoryPolicy.KEEP_LAST
+                        )
+                        pub = self.node.create_publisher(msg_class, sys_topic, pub_qos)
+                        self.publishers[sys_topic] = pub
+                        self.topic_types[sys_topic] = msg_class
+                else:
+                    for dev_ns in target_namespaces:
+                        ns_topic = f"/{dev_ns}{topic_name}" if topic_name.startswith("/") else f"/{dev_ns}/{topic_name}"
+                        if ns_topic not in self.publishers:
+                            pub = self.node.create_publisher(msg_class, ns_topic, default_sensor_qos)
+                            self.publishers[ns_topic] = pub
+                            self.topic_types[ns_topic] = msg_class
 
             from rclpy.executors import MultiThreadedExecutor
             self.executor = MultiThreadedExecutor(num_threads=4)
@@ -182,77 +198,50 @@ class ROSPublisherBridge:
 
             msg = deserialize_message(raw_payload, msg_class)
 
-            # Dynamically publish on Device Namespaced topic if origin_ip is provided
+            # Dynamically publish on Device Namespaced topic if origin_ip is provided,
+            # while keeping system infrastructure topics strictly global un-namespaced
+            is_sys = hasattr(self, 'registry') and self.registry and self.registry.is_system_topic(ros_topic)
+            if not is_sys:
+                SYSTEM_NAMES = {"/tf", "/tf_static", "/clock", "/rosout", "/parameter_events"}
+                if ros_topic in SYSTEM_NAMES or any(ros_topic.endswith(st) for st in SYSTEM_NAMES):
+                    is_sys = True
+
             is_latched_topic = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
             from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
             target_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_topic else DurabilityPolicy.VOLATILE
 
-            if origin_ip:
+            if is_sys:
+                clean_sys = "/" + ros_topic.split("/")[-1] if "/" in ros_topic else ros_topic
+                if clean_sys not in ["/tf", "/tf_static", "/clock", "/rosout", "/parameter_events"]:
+                    clean_sys = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+                ns_topic = clean_sys
+            elif origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
                     if ros_topic.startswith(f"/{ns}") or ros_topic.startswith("/ugv_") or ros_topic.startswith("/gcs_"):
                         ns_topic = ros_topic
                     else:
-                        ns_topic = f"/{ns}{ros_topic}"
+                        ns_topic = f"/{ns}{ros_topic}" if ros_topic.startswith("/") else f"/{ns}/{ros_topic}"
+                else:
+                    ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+            else:
+                ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
 
-                    if ns_topic not in self.publishers:
-                        pub_qos = QoSProfile(
-                            depth=10,
-                            reliability=ReliabilityPolicy.RELIABLE,
-                            durability=target_durability,
-                            history=HistoryPolicy.KEEP_LAST
-                        )
-                        pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
-                        self.publishers[ns_topic] = pub
-                        self.topic_types[ns_topic] = msg_class
-                        print(f"[INFO] Created dynamic namespaced ROS 2 publisher: {ns_topic} (Durability: {target_durability.name})")
-
-                    self.publishers[ns_topic].publish(msg)
-                    with self.republished_lock:
-                        self.last_republished_time[ns_topic] = time.time()
-
-                    # Mirror transform payloads to global /tf and /tf_static for standard ROS 2 / RViz2 listeners
-                    if ros_topic.endswith("/tf_static") or ros_topic == "/tf_static":
-                        global_tf = "/tf_static"
-                    elif ros_topic.endswith("/tf") or ros_topic == "/tf":
-                        global_tf = "/tf"
-                    else:
-                        global_tf = None
-
-                    if global_tf and global_tf != ns_topic:
-                        if global_tf not in self.publishers:
-                            gtf_durability = DurabilityPolicy.TRANSIENT_LOCAL if "static" in global_tf else DurabilityPolicy.VOLATILE
-                            gtf_qos = QoSProfile(
-                                depth=10,
-                                reliability=ReliabilityPolicy.RELIABLE,
-                                durability=gtf_durability,
-                                history=HistoryPolicy.KEEP_LAST
-                            )
-                            gpub = self.node.create_publisher(msg_class, global_tf, gtf_qos)
-                            self.publishers[global_tf] = gpub
-                            self.topic_types[global_tf] = msg_class
-                            print(f"[INFO] Created global transform ROS 2 publisher: {global_tf}")
-                        self.publishers[global_tf].publish(msg)
-                        with self.republished_lock:
-                            self.last_republished_time[global_tf] = time.time()
-                    return
-
-            # Dynamic publish on base/direct topic if no origin_ip
-            if ros_topic not in self.publishers:
+            if ns_topic not in self.publishers:
                 pub_qos = QoSProfile(
                     depth=10,
                     reliability=ReliabilityPolicy.RELIABLE,
                     durability=target_durability,
                     history=HistoryPolicy.KEEP_LAST
                 )
-                pub = self.node.create_publisher(msg_class, ros_topic, pub_qos)
-                self.publishers[ros_topic] = pub
-                self.topic_types[ros_topic] = msg_class
-                print(f"[INFO] Created dynamic ROS 2 publisher: {ros_topic} (Durability: {target_durability.name})")
+                pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
+                self.publishers[ns_topic] = pub
+                self.topic_types[ns_topic] = msg_class
+                print(f"[INFO] Created dynamic ROS 2 publisher: {ns_topic} (Durability: {target_durability.name})")
 
-            self.publishers[ros_topic].publish(msg)
+            self.publishers[ns_topic].publish(msg)
             with self.republished_lock:
-                self.last_republished_time[ros_topic] = time.time()
+                self.last_republished_time[ns_topic] = time.time()
         except Exception as ex:
             pass
 
@@ -306,8 +295,14 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # Subscribe exclusively to ALLOWED device-namespaced topic if device_ns is provided (e.g. /ugv_01/camera/color/image_raw)
-                target_topic = f"/{device_ns}{topic_name}" if device_ns else topic_name
+                # Subscribe to global un-namespaced topic for system topics, or device-namespaced topic for sensor streams
+                is_sys = registry.is_system_topic(topic_name)
+                if is_sys:
+                    target_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
+                elif device_ns:
+                    target_topic = f"/{device_ns}{topic_name}" if topic_name.startswith("/") else f"/{device_ns}/{topic_name}"
+                else:
+                    target_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
                 if target_topic not in self.subscribers:
                     sub = self.node.create_subscription(
                         msg_class,
@@ -632,11 +627,15 @@ class MeshNode:
 
                 if self.ros_bridge and self.ros_bridge.node:
                     node = self.ros_bridge.node
-                    for dev_ns in enabled_namespaces:
-                        for topic_cfg in self.registry.all_topics().values():
-                            base_topic = topic_cfg["name"]
-                            ns_topic = f"/{dev_ns}{base_topic}"
+                    for topic_cfg in self.registry.all_topics().values():
+                        base_topic = topic_cfg["name"]
+                        is_sys = self.registry.is_system_topic(base_topic)
+                        if is_sys:
+                            target_topics = [base_topic if base_topic.startswith("/") else "/" + base_topic]
+                        else:
+                            target_topics = [f"/{dev_ns}{base_topic}" if base_topic.startswith("/") else f"/{dev_ns}/{base_topic}" for dev_ns in enabled_namespaces]
 
+                        for ns_topic in target_topics:
                             all_subs = node.get_subscriptions_info_by_topic(ns_topic)
                             external_subs = [s for s in all_subs if not (s.node_name.startswith("mesh_control_plane") or s.node_name.startswith("_mesh_"))]
                             sub_count = len(external_subs)

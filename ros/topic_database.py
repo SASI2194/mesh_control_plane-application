@@ -40,9 +40,11 @@ class TopicRegistry:
             if not cfg:
                 continue
 
+            is_sys_file = "system_topics" in cfg or "system_topics.yaml" in fn
             raw_list = cfg.get("topics") or cfg.get("system_topics") or []
             for topic in raw_list:
                 t_copy = dict(topic)
+                t_copy["is_system"] = is_sys_file
                 t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
                 t_copy["type"] = str(topic.get("type", "std_msgs/msg/String"))
                 t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))
@@ -51,6 +53,30 @@ class TopicRegistry:
                 t_copy["data_size_bytes"] = 0.0
                 t_copy["data_size_str"] = "0 B"
                 self._topics[topic["name"]] = t_copy
+
+    #####################################################################
+
+    def is_system_topic(self, topic_name: str) -> bool:
+        """
+        Check if a given topic name is a ROS 2 system infrastructure topic
+        (e.g., /tf, /tf_static, /clock, /rosout, /parameter_events).
+        """
+        if not topic_name:
+            return False
+        clean_t = topic_name.strip()
+        if not clean_t.startswith("/"):
+            clean_t = "/" + clean_t
+
+        info = self._topics.get(clean_t)
+        if info and info.get("is_system", False):
+            return True
+
+        SYSTEM_NAMES = {"/tf", "/tf_static", "/clock", "/rosout", "/parameter_events"}
+        if clean_t in SYSTEM_NAMES:
+            return True
+
+        base_name = "/" + clean_t.split("/")[-1] if "/" in clean_t else clean_t
+        return base_name in SYSTEM_NAMES
 
     #####################################################################
 

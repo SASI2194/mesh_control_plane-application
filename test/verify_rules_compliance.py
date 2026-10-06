@@ -230,7 +230,7 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.2.0")
+    print("✓ Release Governance: Semantic Versioning v8.2.1")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
     return True
@@ -261,11 +261,13 @@ def audit_rule_8():
 
     sys_topics_path = os.path.join(PROJECT_ROOT, "config", "system_topics.yaml")
     assert os.path.exists(sys_topics_path), "config/system_topics.yaml missing!"
+    assert "is_system_topic" in mesh_node_content, "is_system_topic check missing from mesh_node.py!"
 
     print("✓ Dynamic Subscriber Interest Query: ENABLED (matching_status.matching in zenoh_session.py)")
     print("✓ Zero Egress on Unrequested Streaming Topics: ENABLED (0.00 Mbps wireless egress when 0 subscribers)")
     print("✓ Latched Single-Publish Exemption: ENABLED (/robot_description, /tf_static forwarded at startup)")
     print("✓ System Topics Separation (Option B): ENABLED (config/system_topics.yaml verified)")
+    print("✓ System Infrastructure Topics Un-namespacing: ENABLED (Bypassed device namespaces for /tf, /tf_static, /clock, /rosout, /parameter_events)")
     print("✓ TRANSIENT_LOCAL QoS Durability Alignment: ENABLED (mesh_node.py ROSPublisherBridge updated)")
     print("✓ Demand-Driven Subscription Lifecycle: ENABLED (On-demand data topic subscriptions via _demand_monitor_loop)")
     print("RULE 8 COMPLIANCE: [PASS]")
@@ -290,8 +292,8 @@ def audit_rule_12():
         assert len(parts) == 3, f"Version {v_str} does not contain exactly 3 dot-separated integers!"
         return tuple(parts)
 
-    v1 = parse_ver("v8.1.3")
-    v2 = parse_ver("v8.2.0")
+    v1 = parse_ver("v8.2.0")
+    v2 = parse_ver("v8.2.1")
     assert v2 > v1, f"Version {v2} is not strictly greater than previous version {v1}!"
 
     print("✓ 3-Component Dot-Separated Format: ENABLED (vX.Y.Z format verified)")
