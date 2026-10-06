@@ -199,22 +199,32 @@ class ROSPublisherBridge:
             msg = deserialize_message(raw_payload, msg_class)
 
             # Dynamically publish on Device Namespaced topic if origin_ip is provided,
-            # while keeping system infrastructure topics strictly global un-namespaced
+            # while mirroring transform topics (/tf, /tf_static) to both global and device-namespaced topics.
+            is_transform = ros_topic == "/tf" or ros_topic == "/tf_static" or ros_topic.endswith("/tf") or ros_topic.endswith("/tf_static")
             is_sys = hasattr(self, 'registry') and self.registry and self.registry.is_system_topic(ros_topic)
-            if not is_sys:
+            if not is_sys and not is_transform:
                 SYSTEM_NAMES = {"/tf", "/tf_static", "/clock", "/rosout", "/parameter_events"}
                 if ros_topic in SYSTEM_NAMES or any(ros_topic.endswith(st) for st in SYSTEM_NAMES):
                     is_sys = True
 
             is_latched_topic = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
             from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-            target_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_topic else DurabilityPolicy.VOLATILE
 
-            if is_sys:
+            targets_to_publish = []
+            if is_transform:
+                gtf = "/tf_static" if "static" in ros_topic else "/tf"
+                targets_to_publish.append(gtf)
+                if origin_ip:
+                    ns = get_device_namespace(origin_ip)
+                    if ns:
+                        nstf = f"/{ns}/tf_static" if "static" in ros_topic else f"/{ns}/tf"
+                        if nstf not in targets_to_publish:
+                            targets_to_publish.append(nstf)
+            elif is_sys:
                 clean_sys = "/" + ros_topic.split("/")[-1] if "/" in ros_topic else ros_topic
-                if clean_sys not in ["/tf", "/tf_static", "/clock", "/rosout", "/parameter_events"]:
+                if clean_sys not in ["/clock", "/rosout", "/parameter_events"]:
                     clean_sys = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
-                ns_topic = clean_sys
+                targets_to_publish.append(clean_sys)
             elif origin_ip:
                 ns = get_device_namespace(origin_ip)
                 if ns:
@@ -224,24 +234,28 @@ class ROSPublisherBridge:
                         ns_topic = f"/{ns}{ros_topic}" if ros_topic.startswith("/") else f"/{ns}/{ros_topic}"
                 else:
                     ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+                targets_to_publish.append(ns_topic)
             else:
                 ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+                targets_to_publish.append(ns_topic)
 
-            if ns_topic not in self.publishers:
-                pub_qos = QoSProfile(
-                    depth=10,
-                    reliability=ReliabilityPolicy.RELIABLE,
-                    durability=target_durability,
-                    history=HistoryPolicy.KEEP_LAST
-                )
-                pub = self.node.create_publisher(msg_class, ns_topic, pub_qos)
-                self.publishers[ns_topic] = pub
-                self.topic_types[ns_topic] = msg_class
-                print(f"[INFO] Created dynamic ROS 2 publisher: {ns_topic} (Durability: {target_durability.name})")
+            for target_t in targets_to_publish:
+                t_durability = DurabilityPolicy.TRANSIENT_LOCAL if ("static" in target_t or is_latched_topic) else DurabilityPolicy.VOLATILE
+                if target_t not in self.publishers:
+                    pub_qos = QoSProfile(
+                        depth=10,
+                        reliability=ReliabilityPolicy.RELIABLE,
+                        durability=t_durability,
+                        history=HistoryPolicy.KEEP_LAST
+                    )
+                    pub = self.node.create_publisher(msg_class, target_t, pub_qos)
+                    self.publishers[target_t] = pub
+                    self.topic_types[target_t] = msg_class
+                    print(f"[INFO] Created dynamic ROS 2 publisher: {target_t} (Durability: {t_durability.name})")
 
-            self.publishers[ns_topic].publish(msg)
-            with self.republished_lock:
-                self.last_republished_time[ns_topic] = time.time()
+                self.publishers[target_t].publish(msg)
+                with self.republished_lock:
+                    self.last_republished_time[target_t] = time.time()
         except Exception as ex:
             pass
 
@@ -295,22 +309,33 @@ class ROSSubscriberBridge:
                 def make_cb(t_name):
                     return lambda msg: self._handle_ros_message(t_name, msg)
 
-                # Subscribe to global un-namespaced topic for system topics, or device-namespaced topic for sensor streams
+                is_transform = topic_name == "/tf" or topic_name == "/tf_static" or topic_name.endswith("/tf") or topic_name.endswith("/tf_static")
                 is_sys = registry.is_system_topic(topic_name)
-                if is_sys:
-                    target_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
+
+                targets_to_sub = []
+                if is_transform:
+                    gtf = topic_name if topic_name.startswith("/") else "/" + topic_name
+                    targets_to_sub.append(gtf)
+                    if device_ns:
+                        nstf = f"/{device_ns}{gtf}"
+                        if nstf not in targets_to_sub:
+                            targets_to_sub.append(nstf)
+                elif is_sys:
+                    targets_to_sub.append(topic_name if topic_name.startswith("/") else "/" + topic_name)
                 elif device_ns:
-                    target_topic = f"/{device_ns}{topic_name}" if topic_name.startswith("/") else f"/{device_ns}/{topic_name}"
+                    targets_to_sub.append(f"/{device_ns}{topic_name}" if topic_name.startswith("/") else f"/{device_ns}/{topic_name}")
                 else:
-                    target_topic = topic_name if topic_name.startswith("/") else "/" + topic_name
-                if target_topic not in self.subscribers:
-                    sub = self.node.create_subscription(
-                        msg_class,
-                        target_topic,
-                        make_cb(target_topic),
-                        sensor_sub_qos
-                    )
-                    self.subscribers[target_topic] = sub
+                    targets_to_sub.append(topic_name if topic_name.startswith("/") else "/" + topic_name)
+
+                for target_topic in targets_to_sub:
+                    if target_topic not in self.subscribers:
+                        sub = self.node.create_subscription(
+                            msg_class,
+                            target_topic,
+                            make_cb(target_topic),
+                            sensor_sub_qos
+                        )
+                        self.subscribers[target_topic] = sub
             print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on ALLOWED device namespace topics: /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
