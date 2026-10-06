@@ -26,9 +26,11 @@ def main():
     print("==========================================================")
 
     registry = TopicRegistry()
-    registry._topics["/camera/color/image_raw/theora"]["status"] = "ALLOW"
-    registry._topics["/camera/depth/image_rect_raw/compressed"]["status"] = "ALLOW"
-    registry._topics["/camera/depth/image_rect_raw/theora"]["status"] = "ALLOW"
+    t_keys = list(registry._topics.keys())
+    if len(t_keys) >= 3:
+        registry._topics[t_keys[0]]["priority"] = 4
+        registry._topics[t_keys[1]]["priority"] = 3
+        registry._topics[t_keys[2]]["priority"] = 2
     scheduler = BandwidthScheduler(registry)
     scheduler.available_bandwidth = 600.0
     scheduler.schedule()
@@ -64,11 +66,12 @@ def main():
     assert res4["shedding_level"] == 1
 
     # 5. Test DENY Status filtering
-    registry._topics["/camera/depth/image_rect_raw"]["status"] = "DENY"
+    deny_topic = t_keys[0]
+    registry._topics[deny_topic]["status"] = "DENY"
     scheduler.schedule()
-    assert "/camera/depth/image_rect_raw" not in scheduler.allowed_topics, "Topic marked as DENY was not blocked!"
+    assert deny_topic not in scheduler.allowed_topics, "Topic marked as DENY was not blocked!"
     print(f"\n[Test 5: DENY Status Filtering]")
-    print(f"Topic /camera/depth/image_rect_raw set to DENY -> Successfully excluded from allowed topics!")
+    print(f"Topic {deny_topic} set to DENY -> Successfully excluded from allowed topics!")
 
     print("\n[SUCCESS] Congestion Controller & Topic Shedding Tests PASSED!")
 

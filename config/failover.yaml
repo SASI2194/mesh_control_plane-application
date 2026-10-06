@@ -1,6 +1,6 @@
 failover:
   active_device_count: 9
-  base_switching_interval_seconds: 30.0
+  base_switching_interval_seconds: 60.0
   priority_stagger_increment_seconds: 10.0
   node_offline_timeout_seconds: 60.0
   device_priority:
@@ -20,7 +20,7 @@ failover:
       host_ip: 192.168.3.71
       radio_ip: 192.168.3.8
       role: Primary Coordinator
-      switching_interval_seconds: 30.0
+      switching_interval_seconds: 60.0
       enabled: true
     GCS-02:
       name: GCS Tactical Station 1
@@ -28,7 +28,7 @@ failover:
       host_ip: 192.168.3.72
       radio_ip: 192.168.3.8
       role: Tactical Monitor
-      switching_interval_seconds: 40.0
+      switching_interval_seconds: 70.0
       enabled: true
     GCS-03:
       name: GCS Tactical Station 2
@@ -36,7 +36,7 @@ failover:
       host_ip: 192.168.3.73
       radio_ip: 192.168.3.8
       role: Backup Command
-      switching_interval_seconds: 50.0
+      switching_interval_seconds: 80.0
       enabled: true
     UGV-01:
       name: UGV Unit 01
@@ -44,7 +44,7 @@ failover:
       host_ip: 192.168.3.65
       radio_ip: 192.168.3.2
       role: Mesh Node
-      switching_interval_seconds: 30.0
+      switching_interval_seconds: 90.0
       enabled: true
     UGV-02:
       name: UGV Unit 02
@@ -52,7 +52,7 @@ failover:
       host_ip: 192.168.3.66
       radio_ip: 192.168.3.4
       role: Field Unit
-      switching_interval_seconds: 40.0
+      switching_interval_seconds: 100.0
       enabled: true
     UGV-03:
       name: UGV Unit 03
@@ -60,7 +60,7 @@ failover:
       host_ip: 192.168.3.67
       radio_ip: 192.168.3.3
       role: Field Unit
-      switching_interval_seconds: 50.0
+      switching_interval_seconds: 110.0
       enabled: true
     UGV-04:
       name: UGV Unit 04
@@ -68,7 +68,7 @@ failover:
       host_ip: 192.168.3.68
       radio_ip: 192.168.3.5
       role: Field Unit
-      switching_interval_seconds: 60.0
+      switching_interval_seconds: 120.0
       enabled: true
     UGV-05:
       name: UGV Unit 05
@@ -76,7 +76,7 @@ failover:
       host_ip: 192.168.3.69
       radio_ip: 192.168.3.6
       role: Field Unit
-      switching_interval_seconds: 70.0
+      switching_interval_seconds: 130.0
       enabled: true
     UGV-06:
       name: UGV Unit 06
@@ -84,5 +84,5 @@ failover:
       host_ip: 192.168.3.70
       radio_ip: 192.168.3.7
       role: Field Unit
-      switching_interval_seconds: 80.0
+      switching_interval_seconds: 140.0
       enabled: true

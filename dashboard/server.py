@@ -599,14 +599,26 @@ class TelemetryDataProvider:
 
         return priority, interval
 
-    def _handle_disconnected_30s_probe(self, my_ip, switching_interval=30.0):
+    def _handle_disconnected_30s_probe(self, my_ip, switching_interval=60.0):
         """
         Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
-        Ensures radio stays in STATION-BRIDGE mode for FULL switching_interval seconds.
+        Ensures radio stays in current mode for FULL switching_interval seconds unless an active
+        link or peer is detected, in which case probe toggling is held.
         """
         now = time.time()
         state_start = getattr(self, "_probe_state_start", 0.0)
         current_state = getattr(self, "_probe_state", "AP")
+
+        # Check for active hardware peers or recent application-level node activity
+        has_hw_peers = len(getattr(self, "local_hw_peers", [])) > 0
+        has_recent_activity = any((now - t) <= 30.0 for t in self.node_activity.values()) if hasattr(self, "node_activity") else False
+
+        if has_hw_peers or has_recent_activity:
+            # Active physical Wi-Fi association or application heartbeat detected! Hold current probe state.
+            if state_start != 0.0:
+                print(f"[PROBE HOLD] Active link/peer detected for {my_ip}. Holding current {current_state} mode...")
+            self._probe_state_start = now
+            return
 
         if state_start == 0.0:
             self._probe_state_start = now
@@ -660,6 +672,7 @@ class TelemetryDataProvider:
                         if n["ip"] != my_ip and n.get("status") == "ONLINE"
                     ]
                     has_remote_peers = len(remote_online_nodes) > 0
+                    has_hw_peers = len(getattr(self, "local_hw_peers", [])) > 0
 
                     # 1. Determine all currently ONLINE node IDs across the mesh
                     online_node_ids = [n["id"] for n in self.nodes if n.get("status") == "ONLINE"]
@@ -688,7 +701,7 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        if not has_remote_peers:
+                        if not (has_remote_peers or has_hw_peers):
                             # Isolated Master AP with 0 peers -> Run rank-staggered search probe cycle
                             self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
