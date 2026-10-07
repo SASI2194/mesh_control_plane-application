@@ -120,7 +120,6 @@ class ROSPublisherBridge:
             self.topic_types["/mesh_wifi_telemetry"] = String
 
             # Pre-register ALLOWED topics from config/topics.yaml and system_topics.yaml
-            all_fleet_namespaces = list(IP_TO_NAMESPACE.values())
             for topic_name, topic_info in registry.all_topics().items():
                 type_str = topic_info.get("type", "std_msgs/msg/String")
                 msg_class = get_message_class(type_str)
@@ -133,12 +132,15 @@ class ROSPublisherBridge:
                 
                 topics_to_prereg = []
                 base_t = topic_name if topic_name.startswith("/") else "/" + topic_name
-                topics_to_prereg.append(base_t)
-                if is_sys or is_latched:
-                    for dev_ns in all_fleet_namespaces:
-                        topics_to_prereg.append(f"/{dev_ns}{base_t}")
-                elif device_ns:
-                    topics_to_prereg.append(f"/{device_ns}{base_t}")
+                if is_sys:
+                    # System infrastructure topics (/tf, /tf_static, /clock, /rosout) MUST be global un-namespaced ONLY
+                    topics_to_prereg.append(base_t)
+                else:
+                    # Application sensor topics MUST be device-namespaced ONLY
+                    if device_ns:
+                        topics_to_prereg.append(f"/{device_ns}{base_t}")
+                    else:
+                        topics_to_prereg.append(base_t)
 
                 for sys_topic in topics_to_prereg:
                     if sys_topic not in self.publishers:
@@ -622,10 +624,17 @@ class MeshNode:
                 self.forward_session.session.put(heartbeat_key, hb_payload)
 
                 hb_tick += 1
-                if hb_tick % 3 == 0 and hasattr(self, 'latched_payload_cache') and self.ros_bridge:
+                if hb_tick % 3 == 0 and hasattr(self, 'latched_payload_cache'):
                     for cached_topic, (c_payload, c_origin) in list(self.latched_payload_cache.items()):
                         try:
-                            self.ros_bridge.publish_message(cached_topic, c_payload, origin_ip=c_origin)
+                            if self.ros_bridge:
+                                self.ros_bridge.publish_message(cached_topic, c_payload, origin_ip=c_origin)
+                            if c_origin == self.my_ip and hasattr(self, 'forward_session') and self.forward_session and self.forward_session.session:
+                                clean_t = cached_topic.lstrip("/")
+                                ns_key = f"filtered/55/{self.my_dev_ns}/{clean_t}"
+                                self.forward_session.session.put(ns_key, c_payload)
+                                global_key = f"filtered/55/{clean_t}"
+                                self.forward_session.session.put(global_key, c_payload)
                         except Exception:
                             pass
             except Exception:
@@ -902,6 +911,8 @@ class MeshNode:
 
         if mesh_sample.allowed:
             is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+            if is_latched:
+                self.latched_payload_cache[ros_topic] = (payload_bytes, self.my_ip)
             if not is_latched and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
                 print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
             else:

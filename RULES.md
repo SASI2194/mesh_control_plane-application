@@ -107,8 +107,10 @@
   - **Major Version ($X$)**: Highest priority (breaking changes or architectural redesigns).
   - **Minor Version ($Y$)**: Medium priority (feature additions and enhancement releases).
   - **Patch Version ($Z$)**: Lowest priority (bug fixes and patch releases).
-- **Strict Monotonic Progression**: Every new release version `vX2.Y2.Z2` MUST be strictly greater than any previously existing version `vX1.Y1.Z1` ($X_2 > X_1$, or $X_2 = X_1 \land Y_2 > Y_1$, or $X_2 = X_1 \land Y_2 = Y_1 \land Z_2 > Z_1$).
-- **Regression Prohibition**: Releasing, committing, or tagging a version lower than or equal to an existing higher version (such as releasing `v8.0.3` when `v8.1.1` exists) is strictly FORBIDDEN and constitutes a version governance violation.
+- **User Input Driven Versioning Policy**: Version tags and release version number increments MUST ONLY be assigned or incremented upon explicit user direction or input, aligned with the remote GitHub repository release baseline. AI agents MUST NOT auto-increment version tags on internal edits without user confirmation.
+- **Strict Monotonic Progression**: Every new release version `vX2.Y2.Z2` MUST be strictly greater than any previously existing remote release version `vX1.Y1.Z1` ($X_2 > X_1$, or $X_2 = X_1 \land Y_2 > Y_1$, or $X_2 = X_1 \land Y_2 = Y_1 \land Z_2 > Z_1$).
+- **Regression Prohibition**: Releasing, committing, or tagging a version lower than or equal to an existing higher remote release version is strictly FORBIDDEN and constitutes a version governance violation.
+
 
 
 

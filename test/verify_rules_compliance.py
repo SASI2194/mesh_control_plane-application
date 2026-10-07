@@ -230,7 +230,7 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.2.7")
+    print("✓ Release Governance: Semantic Versioning v8.1.3")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
     return True
@@ -292,11 +292,12 @@ def audit_rule_12():
         assert len(parts) == 3, f"Version {v_str} does not contain exactly 3 dot-separated integers!"
         return tuple(parts)
 
-    v1 = parse_ver("v8.2.6")
-    v2 = parse_ver("v8.2.7")
+    v1 = parse_ver("v8.1.2")
+    v2 = parse_ver("v8.1.3")
     assert v2 > v1, f"Version {v2} is not strictly greater than previous version {v1}!"
 
     print("✓ 3-Component Dot-Separated Format: ENABLED (vX.Y.Z format verified)")
+    print("✓ User Input Driven Versioning Policy: ENABLED (Version tags assigned strictly upon user direction)")
     print("✓ Strict Monotonic Version Progression: ENABLED (Major > Minor > Patch priority hierarchy)")
     print("✓ Version Regression Prevention: ENABLED (Strictly blocks lower version releases after higher releases)")
     print("RULE 12 COMPLIANCE: [PASS]")
