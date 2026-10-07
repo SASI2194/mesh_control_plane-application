@@ -717,9 +717,28 @@ class MeshNode:
                         else:
                             target_topics = [f"/{dev_ns}{base_topic}" if base_topic.startswith("/") else f"/{dev_ns}/{base_topic}" for dev_ns in enabled_namespaces]
 
+                        IGNORED_SYSTEM_SUBS = {
+                            "ugv_hardware_monitor", "sensor_health_monitor", "fastlio_mapping",
+                            "rgbd_odometry", "ekf_filter_node", "encoder_odom_node",
+                            "robot_state_publisher", "sick_scansegment_xd", "sick_scan",
+                            "xsens_mti_node", "lslidar_driver_node", "camera_node"
+                        }
+
                         for ns_topic in target_topics:
                             all_subs = node.get_subscriptions_info_by_topic(ns_topic)
-                            external_subs = [s for s in all_subs if not (s.node_name.startswith("mesh_control_plane") or s.node_name.startswith("_mesh_"))]
+                            external_subs = []
+                            for s in all_subs:
+                                s_name = s.node_name
+                                s_ns = (s.node_namespace or "").strip("/")
+                                if s_name.startswith("mesh_control_plane") or s_name.startswith("_mesh_"):
+                                    continue
+                                if s_name in IGNORED_SYSTEM_SUBS or s_name.startswith("launch_ros_") or s_name.startswith("transform_listener_impl_"):
+                                    continue
+                                if s_ns and hasattr(self, 'my_dev_ns') and self.my_dev_ns and s_ns != self.my_dev_ns:
+                                    if any(s_ns.startswith(prefix) for prefix in ["ugv_", "gcs_"]):
+                                        continue
+                                external_subs.append(s)
+
                             sub_count = len(external_subs)
                             zenoh_key = f"filtered/55/{ns_topic.lstrip('/')}"
 
