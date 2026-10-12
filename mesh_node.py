@@ -247,7 +247,7 @@ class ROSPublisherBridge:
                 t_durability = DurabilityPolicy.TRANSIENT_LOCAL if ("static" in target_t or is_latched_topic) else DurabilityPolicy.VOLATILE
                 if target_t not in self.publishers:
                     pub_qos = QoSProfile(
-                        depth=100 if ("static" in target_t or is_latched_topic) else 10,
+                        depth=100 if (is_transform or "static" in target_t or is_latched_topic) else 10,
                         reliability=ReliabilityPolicy.RELIABLE,
                         durability=t_durability,
                         history=HistoryPolicy.KEEP_LAST
@@ -512,9 +512,10 @@ class MeshNode:
         self.latched_payload_cache = {}
         self.active_demand_subs = {}
 
-        # Pre-declare permanent Zenoh subscriptions for all latched state topics at startup
-        latched_keys_to_sub = ["filtered/55/tf_static", "filtered/55/robot_description", "filtered/55/map", "filtered/55/map_metadata"]
+        # Pre-declare permanent Zenoh subscriptions for system transform infrastructure (/tf, /tf_static) and latched state topics at startup
+        latched_keys_to_sub = ["filtered/55/tf", "filtered/55/tf_static", "filtered/55/robot_description", "filtered/55/map", "filtered/55/map_metadata"]
         for dev_ns in IP_TO_NAMESPACE.values():
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf_static")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/robot_description")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map")
@@ -735,7 +736,9 @@ class MeshNode:
                                 s_ns = (s.node_namespace or "").strip("/")
                                 if s_name.startswith("mesh_control_plane") or s_name.startswith("_mesh_"):
                                     continue
-                                if s_name in IGNORED_SYSTEM_SUBS or s_name.startswith("launch_ros_") or s_name.startswith("transform_listener_impl_"):
+                                if s_name in IGNORED_SYSTEM_SUBS or s_name.startswith("launch_ros_"):
+                                    continue
+                                if s_name.startswith("transform_listener_impl_") and not (ns_topic == "/tf" or ns_topic.endswith("/tf")):
                                     continue
                                 if s_ns and hasattr(self, 'my_dev_ns') and self.my_dev_ns and s_ns != self.my_dev_ns:
                                     if any(s_ns.startswith(prefix) for prefix in ["ugv_", "gcs_"]):
@@ -751,7 +754,7 @@ class MeshNode:
                                     self.active_demand_subs[zenoh_key] = zenoh_sub
                                     print(f"[DEMAND ACTIVE] Subscribed to {zenoh_key} (External ROS 2 Subs: {[s.node_name for s in external_subs]})")
                             else:
-                                is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "map", "map_metadata"])
+                                is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "tf", "map", "map_metadata"])
                                 if not is_latched and zenoh_key in self.active_demand_subs:
                                     zenoh_sub = self.active_demand_subs.pop(zenoh_key)
                                     try:
