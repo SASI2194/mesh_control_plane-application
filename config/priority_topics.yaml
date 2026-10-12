@@ -1,0 +1,73 @@
+priority_topics:
+
+  - id: 201
+    name: /rtabmap/map
+    type: nav_msgs/msg/OccupancyGrid
+    priority: 1
+    status: ALLOW
+
+  - id: 202
+    name: /rtabmap/cloud_map
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
+  - id: 203
+    name: /rtabmap/octomap_grid
+    type: nav_msgs/msg/OccupancyGrid
+    priority: 1
+    status: ALLOW
+
+  - id: 204
+    name: /rtabmap/cloud_obstacles
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
+  - id: 205
+    name: /rtabmap/global_path
+    type: nav_msgs/msg/Path
+    priority: 1
+    status: ALLOW
+
+  - id: 206
+    name: /rtabmap/info
+    type: std_msgs/msg/String
+    priority: 1
+    status: ALLOW
+
+  - id: 207
+    name: /heart_beat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 208
+    name: /camera/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 209
+    name: /motor/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 210
+    name: /lidar_2d/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 211
+    name: /lidar_3d/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW
+
+  - id: 212
+    name: /sensor_health_status
+    type: std_msgs/msg/String
+    priority: 1
+    status: ALLOW

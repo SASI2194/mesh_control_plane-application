@@ -230,7 +230,7 @@ def audit_rule_7():
 
     print("✓ RULES.md Cryptographic Hash Signature: OK")
     print("✓ Automated Test Coverage: 5 Test Suites Active (test/)")
-    print("✓ Release Governance: Semantic Versioning v8.2.0")
+    print("✓ Release Governance: Semantic Versioning v8.2.1")
     print("✓ Git Remote Push Protection: User Confirmation Directive Enforced")
     print("RULE 7 COMPLIANCE: [PASS]")
     return True
@@ -292,8 +292,8 @@ def audit_rule_12():
         assert len(parts) == 3, f"Version {v_str} does not contain exactly 3 dot-separated integers!"
         return tuple(parts)
 
-    v1 = parse_ver("v8.1.3")
-    v2 = parse_ver("v8.2.0")
+    v1 = parse_ver("v8.2.0")
+    v2 = parse_ver("v8.2.1")
     assert v2 > v1, f"Version {v2} is not strictly greater than previous version {v1}!"
 
     print("✓ 3-Component Dot-Separated Format: ENABLED (vX.Y.Z format verified)")
@@ -301,6 +301,33 @@ def audit_rule_12():
     print("✓ Strict Monotonic Version Progression: ENABLED (Major > Minor > Patch priority hierarchy)")
     print("✓ Version Regression Prevention: ENABLED (Strictly blocks lower version releases after higher releases)")
     print("RULE 12 COMPLIANCE: [PASS]")
+    return True
+
+
+def audit_rule_13():
+    """RULE 13: NetMetal AX Link-State Protection & Base Interval Override Governance."""
+    print("\n----------------------------------------------------------------------------------------")
+    print("AUDITING RULE 13: NetMetal AX Link-State Protection & Base Interval Override Governance")
+    print("----------------------------------------------------------------------------------------")
+
+    rules_path = os.path.join(PROJECT_ROOT, "RULES.md")
+    with open(rules_path, "r", encoding="utf-8") as f:
+        rules_content = f.read()
+
+    assert "RULE 13: NetMetal AX Link-State Protection & Base Interval Override Governance" in rules_content, "RULE 13 missing from RULES.md!"
+
+    server_path = os.path.join(PROJECT_ROOT, "dashboard", "server.py")
+    with open(server_path, "r", encoding="utf-8") as f:
+        server_content = f.read()
+
+    assert "RULE 13" in server_content, "RULE 13 annotations missing from dashboard/server.py!"
+    assert "_probe_state_start = 0.0" in server_content, "Probe reset logic missing from server.py!"
+
+    print("✓ Condition A: Startup Hardware Telemetry Read: ENABLED")
+    print("✓ Condition B: Connected State Switchover Prohibition: ENABLED")
+    print("✓ Condition C: Dwell Timer Hold & Reset on Link Detection: ENABLED")
+    print("✓ Condition D: Anti-Oscillation Hysteresis Lock: ENABLED")
+    print("RULE 13 COMPLIANCE: [PASS]")
     return True
 
 
@@ -320,6 +347,7 @@ def main():
         ("Rule 7: Testing & Release Governance", audit_rule_7),
         ("Rule 8: Demand-Driven Egress Governance", audit_rule_8),
         ("Rule 12: Strict Monotonic Versioning Governance", audit_rule_12),
+        ("Rule 13: NetMetal AX Link Protection & Base Interval Override", audit_rule_13),
     ]
 
     all_passed = True

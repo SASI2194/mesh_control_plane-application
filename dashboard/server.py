@@ -515,6 +515,14 @@ class TelemetryDataProvider:
                                 import copy
                                 node["wifi_details"] = copy.deepcopy(live_details)
                                 break
+                        # Update live current_hardware_mode from actual hardware interface status
+                        for iface in live_details.get("interfaces", []):
+                            if iface.get("name") in ["wifi2", "wifi2_vap"]:
+                                mode_str = str(iface.get("mode", "")).upper()
+                                if "STATION" in mode_str:
+                                    self.current_hardware_mode = "STATION_BRIDGE"
+                                elif "AP" in mode_str and iface.get("name") == "wifi2":
+                                    self.current_hardware_mode = "AP"
 
                 # 2. Fetch live correlated hardware peers from RouterOS
                 try:
@@ -602,8 +610,8 @@ class TelemetryDataProvider:
     def _handle_disconnected_30s_probe(self, my_ip, switching_interval=60.0):
         """
         Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
-        Ensures radio stays in current mode for FULL switching_interval seconds unless an active
-        link or remote peer is detected, in which case probe toggling is held.
+        RULE 13 COMPLIANCE: Ensures radio stays in current mode for FULL switching_interval seconds unless an active
+        physical link or remote peer is confirmed on NetMetal AX, in which case probe toggling is locked/held and timer reset to 0.0.
         """
         now = time.time()
         state_start = getattr(self, "_probe_state_start", 0.0)
@@ -624,14 +632,18 @@ class TelemetryDataProvider:
             if ip != my_ip and ip not in local_ips
         ) if hasattr(self, "node_activity") else False
 
+        # RULE 13 CONDITION B & C: Active physical Wi-Fi link or node activity confirmed! Lock radio mode & reset probe timer to 0.0
         if has_remote_hw_peers or has_recent_remote_activity:
-            # Active physical Wi-Fi association or application heartbeat detected! Hold current probe state.
             if state_start != 0.0:
-                print(f"[PROBE HOLD] Active remote link/peer detected for {my_ip}. Holding current {current_state} mode...")
-            self._probe_state_start = now
+                print(f"[PROBE HOLD - RULE 13] NetMetal AX active link/peer detected for {my_ip}. Holding {current_state} mode & resetting probe timer to 0.0...")
+            self._probe_state_start = 0.0
             return
 
+        # RULE 13 CONDITION A: Initial startup check — suppress forced AP promotion if active link is already present
         if state_start == 0.0:
+            if has_remote_hw_peers or has_recent_remote_activity:
+                print(f"[PROBE STARTUP HOLD - RULE 13] NetMetal AX link confirmed for {my_ip}. Suppressing startup mode toggle.")
+                return
             self._probe_state_start = now
             self._probe_state = "AP"
             self._promote_local_radio_hardware()
@@ -640,6 +652,12 @@ class TelemetryDataProvider:
         elapsed = now - state_start
 
         if elapsed >= switching_interval:
+            # RULE 13 CONDITION B: Re-verify hardware link right before executing mode switchover
+            if has_remote_hw_peers or has_recent_remote_activity:
+                print(f"[PROBE TIMER OVERRIDE - RULE 13] NetMetal AX link active upon {int(switching_interval)}s timer expiry for {my_ip}. Suppressing switchover.")
+                self._probe_state_start = 0.0
+                return
+
             self._probe_state_start = now
             if current_state == "AP":
                 self._probe_state = "STATION_BRIDGE"
@@ -656,6 +674,7 @@ class TelemetryDataProvider:
             else:
                 self._demote_local_radio_hardware()
 
+
     def _master_ap_failover_election_loop(self):
         """
         Monitors health of Master AP across 9-device mesh using config/failover.yaml.
@@ -664,8 +683,8 @@ class TelemetryDataProvider:
           - All lower priority connected nodes -> Demote to STATION-BRIDGE and lock.
           - Isolated nodes with 0 peers -> Perform rank-staggered search probe cycle.
         """
-        # Grace period for initial startup heartbeat discovery across mesh nodes
-        time.sleep(3.0)
+        # Initial 12s grace period for startup heartbeat & RouterOS hardware discovery
+        time.sleep(12.0)
 
         while True:
             try:
@@ -692,7 +711,7 @@ class TelemetryDataProvider:
                     ]
                     has_remote_hw_peers = len(remote_hw_peers) > 0
 
-                    # 1. Determine all currently ONLINE node IDs across the mesh
+                    # 1. Determine all ONLINE node IDs across the entire mesh (both local and remote)
                     online_node_ids = [n["id"] for n in self.nodes if n.get("status") == "ONLINE"]
 
                     # 2. Identify highest priority ONLINE node from priority_order
@@ -702,12 +721,24 @@ class TelemetryDataProvider:
                             highest_online_master_id = node_id
                             break
 
-                    # 3. Fallback: if no remote nodes are online yet, local node acts as candidate
-                    if not highest_online_master_id:
-                        highest_online_master_id = local_node_id
+                    # 3. Safeguard for field units (UGV-02 through UGV-06):
+                    # Default Primary Gateway candidate is the highest designated gateway in the fleet (GCS-01 or UGV-01)
+                    primary_fleet_master = "UGV-01"
+                    for p in priority_order:
+                        if p.startswith("GCS") or p == "UGV-01":
+                            primary_fleet_master = p
+                            break
+
+                    is_field_unit = local_node_id not in ["GCS-01", "GCS-02", "GCS-03", "UGV-01"]
+                    if is_field_unit and (highest_online_master_id == local_node_id or not highest_online_master_id) and not has_remote_peers:
+                        # Field unit running alone or during startup without remote peers: defer to Primary Fleet Gateway
+                        highest_online_master_id = primary_fleet_master
+                    elif not highest_online_master_id:
+                        highest_online_master_id = primary_fleet_master
 
                     # 4. Evaluate if THIS host is the elected Master AP
                     i_am_master_ap = (local_node_id == highest_online_master_id)
+
 
                     if i_am_master_ap:
                         self.master_failover_event = None

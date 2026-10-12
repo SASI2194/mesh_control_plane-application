@@ -19,120 +19,78 @@ topics:
     status: ALLOW
 
   - id: 4
-    name: /camera/heartbeat
-    type: std_msgs/msg/Int32
-    priority: 1
-    status: ALLOW
-
-  - id: 5
     name: /fl_encoder
     type: std_msgs/msg/Int32
     priority: 1
     status: ALLOW
 
-  - id: 6
+  - id: 5
     name: /front_cam
     type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
-  - id: 7
-    name: /heart_beat
-    type: std_msgs/msg/Int32
-    priority: 1
-    status: ALLOW
-
-  - id: 8
+  - id: 6
     name: /joint_states
     type: sensor_msgs/msg/JointState
     priority: 1
     status: ALLOW
 
-  - id: 9
+  - id: 7
     name: /left_cam
     type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
-  - id: 10
+  - id: 8
     name: /left_camera/heartbeat
     type: std_msgs/msg/Int32
     priority: 1
     status: ALLOW
 
-  - id: 11
+  - id: 9
     name: /lidar3d_odom
     type: nav_msgs/msg/Odometry
     priority: 1
     status: ALLOW
 
-  - id: 12
-    name: /lidar_2d/heartbeat
-    type: std_msgs/msg/Int32
-    priority: 1
-    status: ALLOW
-
-  - id: 13
-    name: /lidar_3d/heartbeat
-    type: std_msgs/msg/Int32
-    priority: 1
-    status: ALLOW
-
-  - id: 14
+  - id: 10
     name: /lidar_point_cloud
     type: sensor_msgs/msg/PointCloud2
     priority: 1
     status: ALLOW
 
-  - id: 15
+  - id: 11
     name: /lslidar_driver_node/transition_event
     type: lifecycle_msgs/msg/TransitionEvent
     priority: 1
     status: ALLOW
 
-  - id: 16
-    name: /motor/heartbeat
-    type: std_msgs/msg/Int32
-    priority: 1
-    status: ALLOW
-
-  - id: 17
+  - id: 12
     name: /right_cam
     type: sensor_msgs/msg/Image
     priority: 1
     status: ALLOW
 
-  - id: 18
+  - id: 13
     name: /right_camera/heartbeat
     type: std_msgs/msg/Int32
     priority: 1
     status: ALLOW
 
-  - id: 19
+  - id: 14
     name: /robot_description
     type: std_msgs/msg/String
     priority: 1
     status: ALLOW
 
-  - id: 20
-    name: /rtabmap/cloud_obstacles
-    type: sensor_msgs/msg/PointCloud2
-    priority: 1
-    status: ALLOW
-
-  - id: 21
-    name: /rtabmap/cloud_map
-    type: sensor_msgs/msg/PointCloud2
-    priority: 1
-    status: ALLOW
-
-  - id: 22
+  - id: 15
     name: /scan_2d
     type: sensor_msgs/msg/LaserScan
     priority: 1
     status: ALLOW
 
-  - id: 23
+  - id: 16
     name: /scan
     type: sensor_msgs/msg/LaserScan
     priority: 1

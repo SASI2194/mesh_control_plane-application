@@ -111,6 +111,15 @@
 - **Strict Monotonic Progression**: Every new release version `vX2.Y2.Z2` MUST be strictly greater than any previously existing remote release version `vX1.Y1.Z1` ($X_2 > X_1$, or $X_2 = X_1 \land Y_2 > Y_1$, or $X_2 = X_1 \land Y_2 = Y_1 \land Z_2 > Z_1$).
 - **Regression Prohibition**: Releasing, committing, or tagging a version lower than or equal to an existing higher remote release version is strictly FORBIDDEN and constitutes a version governance violation.
 
+---
+
+## RULE 13: NetMetal AX Link-State Protection & Base Interval Override Governance
+- **Condition A (Initial Hardware Telemetry Read on Startup)**: Upon initial launch of `mesh_node.py`, the system MUST directly query the local NetMetal AX radio parameters (`interface/wireless/print` or registration table). If NetMetal AX reports `connected: true` or active wireless registration, mode switching MUST be suppressed immediately.
+- **Condition B (Connected State Switchover Prohibition — Condition B)**: If the NetMetal AX radio parameters confirm an active physical connection (either in `STATION-BRIDGE` mode connected to an AP, or in `MASTER-AP` mode with associated clients), the Mesh Control Plane MUST lock the radio mode and STRICTLY PROHIBIT any mode switchover, regardless of base switching intervals (60s) or rank-staggered probe timers (130s).
+- **Condition C (Dwell Timer Hold & Reset)**: When a physical link is detected on the NetMetal AX, any running probe countdown timer MUST be immediately paused and reset to `0.0`. The timer can only begin counting down if the physical NetMetal AX link status explicitly returns `disconnected` for more than 15 consecutive seconds.
+- **Condition D (Anti-Oscillation Hysteresis Lock)**: When switching from `STATION-BRIDGE` to `MASTER-AP` (or vice versa), if a connection was established within the last 60 seconds, a secondary switchover is blocked for at least 120 seconds to prevent rapid ping-pong oscillation between Access Point and Station modes.
+
+
 
 
 

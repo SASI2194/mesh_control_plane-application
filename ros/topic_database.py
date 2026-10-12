@@ -32,6 +32,10 @@ class TopicRegistry:
         if sys_topics_path not in filenames and os.path.exists(sys_topics_path):
             filenames.append(sys_topics_path)
 
+        prio_topics_path = os.path.join(os.path.dirname(os.path.abspath(filename)), "priority_topics.yaml")
+        if prio_topics_path not in filenames and os.path.exists(prio_topics_path):
+            filenames.append(prio_topics_path)
+
         for fn in filenames:
             if not os.path.exists(fn):
                 continue
@@ -41,10 +45,12 @@ class TopicRegistry:
                 continue
 
             is_sys_file = "system_topics" in cfg or "system_topics.yaml" in fn
-            raw_list = cfg.get("topics") or cfg.get("system_topics") or []
+            is_prio_file = "priority_topics" in cfg or "priority_topics.yaml" in fn
+            raw_list = cfg.get("topics") or cfg.get("system_topics") or cfg.get("priority_topics") or []
             for topic in raw_list:
                 t_copy = dict(topic)
                 t_copy["is_system"] = is_sys_file
+                t_copy["is_priority_protected"] = is_prio_file or t_copy.get("priority") == 1
                 t_copy["status"] = str(topic.get("status", "ALLOW")).upper()
                 t_copy["type"] = str(topic.get("type", "std_msgs/msg/String"))
                 t_copy["static_bandwidth"] = float(topic.get("bandwidth", 0.0))

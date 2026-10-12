@@ -519,6 +519,9 @@ class MeshNode:
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/robot_description")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map_metadata")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/map")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/cloud_map")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/octomap_grid")
 
         for zk in latched_keys_to_sub:
             try:
@@ -929,7 +932,7 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata"])
+            is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata", "rtabmap"])
             if is_latched:
                 self.latched_payload_cache[ros_topic] = (payload_bytes, self.my_ip)
             if not is_latched and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
