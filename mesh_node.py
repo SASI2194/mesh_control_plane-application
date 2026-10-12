@@ -427,6 +427,7 @@ class MeshNode:
         #
 
         my_dev_ns = get_device_namespace(self.my_ip)
+        self.my_dev_ns = my_dev_ns
         self.registry = TopicRegistry()
         self.registry.print_topics()
         self.ros_bridge = ROSPublisherBridge(self.registry, device_ns=my_dev_ns)
@@ -686,6 +687,41 @@ class MeshNode:
                 pass
             time.sleep(2.0)
 
+    @staticmethod
+    def _get_local_process_cmdlines():
+        """Returns set of lowercased cmdlines and process names running locally on this machine."""
+        cmds = set()
+        try:
+            for pid in os.listdir("/proc"):
+                if pid.isdigit():
+                    try:
+                        with open(f"/proc/{pid}/cmdline", "rb") as f:
+                            raw = f.read().decode("utf-8", errors="ignore").replace("\x00", " ").strip()
+                            if raw:
+                                cmds.add(raw.lower())
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return cmds
+
+    def _is_local_subscriber(self, s_name: str, s_ns: str, local_cmds: set) -> bool:
+        """Determines if a ROS 2 subscriber belongs to or is executing on this local machine."""
+        if s_ns and hasattr(self, 'my_dev_ns') and self.my_dev_ns and s_ns == self.my_dev_ns:
+            return True
+        if hasattr(self, 'my_dev_ns') and self.my_dev_ns and s_name.startswith(self.my_dev_ns):
+            return True
+
+        s_lower = s_name.lower()
+        for cmd in local_cmds:
+            if s_lower in cmd:
+                return True
+            if "_ros2cli_" in s_lower and "ros2" in cmd:
+                return True
+            if "transform_listener_impl_" in s_lower and any(t in cmd for t in ["rviz", "tf2", "echo", "nav2", "slam"]):
+                return True
+        return False
+
     def _demand_monitor_loop(self):
         """Monitors local ROS 2 node graph for EXTERNAL subscriber interest (RViz2, ros2 topic echo) and dynamically declares/undeclares Zenoh subscribers on demand for active enabled fleet devices."""
         while self.running:
@@ -710,6 +746,19 @@ class MeshNode:
 
                 if self.ros_bridge and self.ros_bridge.node:
                     node = self.ros_bridge.node
+                    local_proc_cmds = self._get_local_process_cmdlines()
+
+                    IGNORED_SYSTEM_SUBS = {
+                        "ugv_hardware_monitor", "sensor_health_monitor", "fastlio_mapping",
+                        "rgbd_odometry", "ekf_filter_node", "encoder_odom_node",
+                        "robot_state_publisher", "sick_scansegment_xd", "sick_scan",
+                        "xsens_mti_node", "lslidar_driver_node", "camera_node",
+                        "rtabmap", "rtabmap_viz", "rtabmap_sync", "rgbd_sync",
+                        "descriptor_sharing_node", "slam_toolbox", "cartographer_node",
+                        "amcl", "controller_server", "planner_server", "bt_navigator",
+                        "behavior_server", "smoother_server", "waypoint_follower"
+                    }
+
                     for topic_cfg in self.registry.all_topics().values():
                         base_topic = topic_cfg["name"]
                         is_sys = self.registry.is_system_topic(base_topic)
@@ -721,14 +770,15 @@ class MeshNode:
                         else:
                             target_topics = [f"/{dev_ns}{base_topic}" if base_topic.startswith("/") else f"/{dev_ns}/{base_topic}" for dev_ns in enabled_namespaces]
 
-                        IGNORED_SYSTEM_SUBS = {
-                            "ugv_hardware_monitor", "sensor_health_monitor", "fastlio_mapping",
-                            "rgbd_odometry", "ekf_filter_node", "encoder_odom_node",
-                            "robot_state_publisher", "sick_scansegment_xd", "sick_scan",
-                            "xsens_mti_node", "lslidar_driver_node", "camera_node"
-                        }
-
                         for ns_topic in target_topics:
+                            # Extract target device namespace if topic targets another fleet entity
+                            target_dev_ns = None
+                            clean_target = ns_topic.lstrip("/")
+                            for dev_prefix in ["ugv_", "gcs_"]:
+                                if clean_target.startswith(dev_prefix):
+                                    target_dev_ns = clean_target.split("/", 1)[0]
+                                    break
+
                             all_subs = node.get_subscriptions_info_by_topic(ns_topic)
                             external_subs = []
                             for s in all_subs:
@@ -738,11 +788,21 @@ class MeshNode:
                                     continue
                                 if s_name in IGNORED_SYSTEM_SUBS or s_name.startswith("launch_ros_"):
                                     continue
+                                if s_name.startswith("rtabmap") or s_name.startswith("descriptor_sharing"):
+                                    continue
                                 if s_name.startswith("transform_listener_impl_") and not (ns_topic == "/tf" or ns_topic.endswith("/tf")):
                                     continue
                                 if s_ns and hasattr(self, 'my_dev_ns') and self.my_dev_ns and s_ns != self.my_dev_ns:
                                     if any(s_ns.startswith(prefix) for prefix in ["ugv_", "gcs_"]):
                                         continue
+
+                                # If topic targets a remote device, reject subscribers belonging to that target or not running locally
+                                if target_dev_ns and hasattr(self, 'my_dev_ns') and self.my_dev_ns and target_dev_ns != self.my_dev_ns:
+                                    if s_ns == target_dev_ns or s_name.startswith(target_dev_ns):
+                                        continue
+                                    if not self._is_local_subscriber(s_name, s_ns, local_proc_cmds):
+                                        continue
+
                                 external_subs.append(s)
 
                             sub_count = len(external_subs)
