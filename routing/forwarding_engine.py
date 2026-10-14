@@ -25,7 +25,7 @@ class ForwardingEngine:
 
     #####################################################################
 
-    def __init__(self, session, my_ip: str = "127.0.0.1"):
+    def __init__(self, session, my_ip: str = "127.0.0.1", device_ns: str = None):
 
         #
         # Zenoh publishing session
@@ -33,6 +33,7 @@ class ForwardingEngine:
 
         self.session = session
         self.my_ip = my_ip
+        self.device_ns = device_ns  # Local device namespace e.g. "ugv_01"
 
         #
         # Statistics
@@ -54,10 +55,33 @@ class ForwardingEngine:
             return f"filtered/{topic_name}"
         return f"filtered/55/{topic_name}"
 
+    def _format_ns_key(self, ros_topic: str) -> str:
+        """Returns the device-namespaced Zenoh key (filtered/55/{dev_ns}/{clean_topic})."""
+        if not self.device_ns:
+            return self._format_key(ros_topic)
+        topic_clean = ros_topic.lstrip("/")
+        # Already namespaced — do not double-prefix
+        if topic_clean.startswith(f"{self.device_ns}/"):
+            return f"filtered/55/{topic_clean}"
+        return f"filtered/55/{self.device_ns}/{topic_clean}"
+
+    def _all_keys_for(self, ros_topic: str):
+        """Returns the set of Zenoh keys to check/publish for this topic (namespaced + global)."""
+        primary = self._format_key(ros_topic)
+        keys = [primary]
+        if self.device_ns:
+            ns_key = self._format_ns_key(ros_topic)
+            if ns_key != primary and ns_key not in keys:
+                keys.append(ns_key)
+        return keys
+
     def has_subscribers(self, ros_topic: str) -> bool:
-        output_key = self._format_key(ros_topic)
+        """Returns True if any remote subscriber exists on the namespaced OR global Zenoh key."""
         if hasattr(self.session, "has_matching_subscribers"):
-            return self.session.has_matching_subscribers(output_key)
+            for key in self._all_keys_for(ros_topic):
+                if self.session.has_matching_subscribers(key):
+                    return True
+            return False
         return True
 
     #####################################################################
@@ -82,16 +106,32 @@ class ForwardingEngine:
 
         #################################################################
         # Demand-Driven Check: Skip egress if zero remote subscribers match
-        # (Exempt latched state topics and system transform infrastructure topics)
+        # on EITHER the namespaced key OR the global (unnamespaced) key.
+        # Exempt latched state topics and system transform infrastructure topics.
         #################################################################
 
         is_exempt = any(k in sample.key for k in ["robot_description", "tf_static", "tf", "map", "map_metadata", "clock", "rosout", "parameter_events"])
 
+        # Collect all Zenoh keys to attempt publishing (namespaced + global)
+        all_candidate_keys = self._all_keys_for(sample.key)
+        # Also add tf-specific global mirrors as before
+        for cand_key in list(all_candidate_keys):
+            if "tf_static" in cand_key and "filtered/55/tf_static" not in all_candidate_keys:
+                all_candidate_keys.append("filtered/55/tf_static")
+            elif "/tf" in cand_key and not "tf_static" in cand_key and "filtered/55/tf" not in all_candidate_keys:
+                all_candidate_keys.append("filtered/55/tf")
+
         if not is_exempt and hasattr(self.session, "has_matching_subscribers"):
-            if not self.session.has_matching_subscribers(output_key):
+            # Determine which candidate keys actually have remote subscribers
+            keys_with_subs = [k for k in all_candidate_keys if self.session.has_matching_subscribers(k)]
+            if not keys_with_subs:
                 self.dropped_packets += 1
                 self.dropped_bytes += len(sample.payload)
                 return
+            # Only publish to keys that have live subscribers
+            keys_to_publish = keys_with_subs
+        else:
+            keys_to_publish = [output_key]
 
         #################################################################
         # Pack payload with sequence metadata header & origin IP
@@ -106,14 +146,8 @@ class ForwardingEngine:
         )
 
         #################################################################
-        # Publish
+        # Publish to all active subscriber keys
         #################################################################
-
-        keys_to_publish = [output_key]
-        if "tf_static" in output_key and output_key != "filtered/55/tf_static":
-            keys_to_publish.append("filtered/55/tf_static")
-        elif "tf" in output_key and output_key != "filtered/55/tf":
-            keys_to_publish.append("filtered/55/tf")
 
         try:
             for pub_key in keys_to_publish:
@@ -124,7 +158,7 @@ class ForwardingEngine:
 
             self.forwarded_packets += 1
             self.forwarded_bytes += len(sample.payload)
-            print(f"[FORWARD] {output_key} (Seq #{sample.sequence_number})")
+            print(f"[FORWARD] {output_key} -> {keys_to_publish} (Seq #{sample.sequence_number})")
 
         except Exception as ex:
 

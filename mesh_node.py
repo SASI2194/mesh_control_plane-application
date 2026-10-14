@@ -234,8 +234,19 @@ class ROSPublisherBridge:
                 if ns:
                     if ros_topic.startswith(f"/{ns}") or ros_topic.startswith("/ugv_") or ros_topic.startswith("/gcs_"):
                         ns_topic = ros_topic
+                        # Also resolve the base (unnamespaced) variant so unnamespaced consumers receive it
+                        for dev_prefix in ["ugv_", "gcs_"]:
+                            if ros_topic.lstrip("/").startswith(dev_prefix):
+                                base_variant = "/" + "/".join(ros_topic.lstrip("/").split("/")[1:])
+                                if base_variant not in targets_to_publish and base_variant != "/":
+                                    targets_to_publish.append(base_variant)
+                                break
                     else:
                         ns_topic = f"/{ns}{ros_topic}" if ros_topic.startswith("/") else f"/{ns}/{ros_topic}"
+                        # Publish to base topic as well so unnamespaced consumers (ros2 topic echo) receive data
+                        base_variant = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+                        if base_variant not in targets_to_publish:
+                            targets_to_publish.append(base_variant)
                 else:
                     ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
                 targets_to_publish.append(ns_topic)
@@ -326,10 +337,17 @@ class ROSSubscriberBridge:
                             targets_to_sub.append(nstf)
                 elif is_sys:
                     targets_to_sub.append(topic_name if topic_name.startswith("/") else "/" + topic_name)
-                elif device_ns:
-                    targets_to_sub.append(f"/{device_ns}{topic_name}" if topic_name.startswith("/") else f"/{device_ns}/{topic_name}")
                 else:
-                    targets_to_sub.append(topic_name if topic_name.startswith("/") else "/" + topic_name)
+                    # Subscribe to BOTH the base (unnamespaced) topic and the device-namespaced topic.
+                    # Standard ROS 2 drivers (LiDAR, RealSense, RTAB-Map) publish on /lidar_point_cloud etc.
+                    # RViz and other consumers subscribe on /ugv_01/lidar_point_cloud.
+                    # Subscribing to both ensures we capture sensor data regardless of driver convention.
+                    base_t = topic_name if topic_name.startswith("/") else "/" + topic_name
+                    targets_to_sub.append(base_t)
+                    if device_ns:
+                        ns_t = f"/{device_ns}{base_t}"
+                        if ns_t not in targets_to_sub:
+                            targets_to_sub.append(ns_t)
 
                 for target_topic in targets_to_sub:
                     if target_topic not in self.subscribers:
@@ -355,7 +373,7 @@ class ROSSubscriberBridge:
                             sub_qos
                         )
                         self.subscribers[target_topic] = sub
-            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Listening exclusively on ALLOWED device namespace topics: /{device_ns}/...)")
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Capturing base + /{device_ns}/... sensor topics)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
@@ -493,7 +511,8 @@ class MeshNode:
 
         self.forwarding = ForwardingEngine(
             self.forward_session,
-            my_ip=self.my_ip
+            my_ip=self.my_ip,
+            device_ns=my_dev_ns
         )
 
         #
@@ -981,12 +1000,31 @@ class MeshNode:
         # Record Publisher (Tx) metrics for local ROS topic sample
         seq_num = self.bw_monitor.record_tx_sample(base_topic, len(payload_bytes))
 
+        # Normalize egress key: if message was captured on a base (unnamespaced) topic
+        # (e.g. /lidar_point_cloud from an unnamespaced sensor driver), resolve it to
+        # the device-namespaced form (e.g. /ugv_01/lidar_point_cloud) so that remote
+        # subscribers on RViz / ros2 topic echo using /ugv_01/... keys can match it.
+        egress_topic = ros_topic
+        is_transform_topic = ros_topic in ("/tf", "/tf_static") or ros_topic.endswith("/tf") or ros_topic.endswith("/tf_static")
+        is_sys_topic = self.registry.is_system_topic(ros_topic) or ros_topic in ("/clock", "/rosout", "/parameter_events")
+        if not is_transform_topic and not is_sys_topic and hasattr(self, 'my_dev_ns') and self.my_dev_ns:
+            # Check if topic already carries device namespace prefix
+            is_already_namespaced = (
+                ros_topic.startswith(f"/{self.my_dev_ns}/") or
+                ros_topic.startswith(f"/{self.my_dev_ns}")
+            )
+            if not is_already_namespaced:
+                # Resolve to device-namespaced egress key
+                clean_t = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
+                egress_topic = f"/{self.my_dev_ns}{clean_t}"
+
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
-        is_allowed = (ros_topic in self.scheduler.allowed_topics or base_topic in self.scheduler.allowed_topics)
+        is_allowed = (ros_topic in self.scheduler.allowed_topics or base_topic in self.scheduler.allowed_topics or
+                      egress_topic in self.scheduler.allowed_topics)
         prio = self.registry.get(base_topic)["priority"] if self.registry.exists(base_topic) else 5
 
         mesh_sample = MeshSample(
-            key=ros_topic,
+            key=egress_topic,
             payload=payload_bytes,
             allowed=is_allowed,
             priority=prio,
@@ -997,8 +1035,8 @@ class MeshNode:
         if mesh_sample.allowed:
             is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map", "map_metadata", "rtabmap"])
             if is_latched:
-                self.latched_payload_cache[ros_topic] = (payload_bytes, self.my_ip)
-            if not is_latched and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(ros_topic):
+                self.latched_payload_cache[egress_topic] = (payload_bytes, self.my_ip)
+            if not is_latched and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(egress_topic):
                 print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
             else:
                 print(f"[ALLOW] {mesh_sample.key} (Seq #{seq_num}, Size: {len(payload_bytes)} B)")
