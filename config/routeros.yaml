@@ -13,12 +13,12 @@ routeros:
       password: ""
     UGV-02:
       host_ip: "192.168.3.66"
-      radio_ip: "192.168.3.4"
+      radio_ip: "192.168.3.3"
       username: "admin"
       password: ""
     UGV-03:
       host_ip: "192.168.3.67"
-      radio_ip: "192.168.3.3"
+      radio_ip: "192.168.3.4"
       username: "admin"
       password: ""
     UGV-04:

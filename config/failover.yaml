@@ -50,7 +50,7 @@ failover:
       name: UGV Unit 02
       type: UGV
       host_ip: 192.168.3.66
-      radio_ip: 192.168.3.4
+      radio_ip: 192.168.3.3
       role: Field Unit
       switching_interval_seconds: 100.0
       enabled: true
@@ -58,7 +58,7 @@ failover:
       name: UGV Unit 03
       type: UGV
       host_ip: 192.168.3.67
-      radio_ip: 192.168.3.3
+      radio_ip: 192.168.3.4
       role: Field Unit
       switching_interval_seconds: 110.0
       enabled: true
