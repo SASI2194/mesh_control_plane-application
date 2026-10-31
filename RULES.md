@@ -110,6 +110,13 @@
 - **User Input Driven Versioning Policy**: Version tags and release version number increments MUST ONLY be assigned or incremented upon explicit user direction or input, aligned with the remote GitHub repository release baseline. AI agents MUST NOT auto-increment version tags on internal edits without user confirmation.
 - **Strict Monotonic Progression**: Every new release version `vX2.Y2.Z2` MUST be strictly greater than any previously existing remote release version `vX1.Y1.Z1` ($X_2 > X_1$, or $X_2 = X_1 \land Y_2 > Y_1$, or $X_2 = X_1 \land Y_2 = Y_1 \land Z_2 > Z_1$).
 - **Regression Prohibition**: Releasing, committing, or tagging a version lower than or equal to an existing higher remote release version is strictly FORBIDDEN and constitutes a version governance violation.
+- **Mandatory Tag-Gated Commit Policy**: No release commit accompanied by a version tag SHALL be executed without an explicit version string provided by the user in the same instruction. Code changes may be committed without a tag as intermediate work-in-progress, but any commit representing a release MUST be gated on user-supplied version input. AI agents MUST NOT silently assign or reuse version tags across sessions.
+- **Mandatory Rule 12 Cross-Verification Before Tag Application**: Before applying any user-provided version tag, the following three checks MUST be performed and their results explicitly reported to the user:
+  1. **Format Check**: Version string matches `vX.Y.Z` with three non-negative integers — reject and report on failure.
+  2. **Monotonic Check**: New version is strictly greater than the latest remote tag (verified via `git ls-remote --tags origin`) — reject and report on violation.
+  3. **Source Check**: Version string originated from explicit user input in the current instruction — block if agent-initiated without user confirmation.
+  All three checks MUST PASS before `git tag` and `git push` are executed.
+
 
 ---
 
