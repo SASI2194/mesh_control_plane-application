@@ -32,7 +32,7 @@ priority_topics:
 
   - id: 206
     name: /rtabmap/info
-    type: std_msgs/msg/String
+    type: rtabmap_msgs/msg/Info
     priority: 1
     status: ALLOW
 
