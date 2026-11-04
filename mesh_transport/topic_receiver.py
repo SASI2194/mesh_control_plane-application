@@ -60,7 +60,13 @@ class TopicReceiver:
             self.callback
         )
         self.subscribers.append(peer_table_sub)
-        print("[SUBSCRIBE] Control Plane Heartbeat, WiFi & Peer Table Telemetry Channels")
+
+        time_sync_sub = self.peer.subscribe(
+            "filtered/_mesh_time_sync/*",
+            self.callback
+        )
+        self.subscribers.append(time_sync_sub)
+        print("[SUBSCRIBE] Control Plane Heartbeat, WiFi, Peer Table & Time Sync Channels")
 
         # 2. Sensor data topic subscriptions are managed strictly ON-DEMAND by mesh_node._demand_monitor_loop()
         # when local external ROS 2 subscribers (e.g. RViz2) are active.

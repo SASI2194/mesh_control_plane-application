@@ -395,6 +395,37 @@ class RouterOSClient:
                 "identity": selected_n.get("identity", "MikroTik")
             })
 
+        # RULE 13 COMPLIANCE: Include directly all physically registered Wi-Fi clients from registration table
+        correlated_macs = set()
+        for c in correlated:
+            correlated_macs.add(c["mac"])
+            if c["mac"].startswith("04:"):
+                correlated_macs.add("06:" + c["mac"][3:])
+            elif c["mac"].startswith("06:"):
+                correlated_macs.add("04:" + c["mac"][3:])
+
+        for r in reg_table:
+            m = (r.get("mac") or "").upper()
+            if m and m not in correlated_macs:
+                interface = r.get("interface") or "wifi2"
+                rssi = r.get("rssi", -65.0)
+                snr = r.get("snr", 30.0)
+                uptime = r.get("uptime", "0s")
+                correlated.append({
+                    "mac": m,
+                    "ip": "",
+                    "interface": interface,
+                    "rssi": rssi,
+                    "snr": snr,
+                    "uptime": uptime,
+                    "identity": "Registered Mesh Radio Client"
+                })
+                correlated_macs.add(m)
+                if m.startswith("04:"):
+                    correlated_macs.add("06:" + m[3:])
+                elif m.startswith("06:"):
+                    correlated_macs.add("04:" + m[3:])
+
         return correlated
 
 

@@ -20,12 +20,14 @@ Features:
 ===============================================================================
 """
 
+import datetime
 import json
 import os
 import socket
 import subprocess
 import sys
 import time
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from threading import Thread, RLock
@@ -181,6 +183,9 @@ class TelemetryDataProvider:
         ]
 
         self.node_activity = {}
+        self.node_reported_times = {}
+        self.node_clock_offsets = {}
+        self.forward_session = None
         self.mesh_node_running = False
         self.master_failover_event = None
 
@@ -202,11 +207,217 @@ class TelemetryDataProvider:
             self.mesh_node_running = running
             if not running:
                 self.node_activity.clear()
+                self.node_reported_times.clear()
+                self.node_clock_offsets.clear()
 
-    def record_node_activity(self, node_ip):
-        """Records real-time application heartbeat activity timestamp for a node IP."""
+    def record_node_activity(self, node_ip, remote_timestamp=None):
+        """Records real-time application heartbeat activity timestamp and clock drift for a node IP."""
         with self.lock:
-            self.node_activity[node_ip] = time.time()
+            now = time.time()
+            self.node_activity[node_ip] = now
+            if remote_timestamp is not None:
+                try:
+                    r_ts = float(remote_timestamp)
+                    self.node_reported_times[node_ip] = r_ts
+                    self.node_clock_offsets[node_ip] = r_ts - now
+                except Exception:
+                    pass
+
+    def _format_clock_info(self, node_ip, is_local=False):
+        """Calculates live estimated clock time, offset, and sync status for a device."""
+        now = time.time()
+        if is_local:
+            dt = datetime.datetime.fromtimestamp(now)
+            return {
+                "clock_time": dt.strftime("%H:%M:%S.%f")[:12],
+                "clock_offset_sec": 0.0,
+                "clock_offset_str": "0.00s (Master)",
+                "clock_synced": True
+            }
+
+        offset = self.node_clock_offsets.get(node_ip)
+        if offset is not None:
+            remote_now = now + offset
+            dt = datetime.datetime.fromtimestamp(remote_now)
+            sign = "+" if offset >= 0 else ""
+            offset_str = f"{sign}{offset:.2f}s"
+            is_synced = abs(offset) < 1.0
+            return {
+                "clock_time": dt.strftime("%H:%M:%S.%f")[:12],
+                "clock_offset_sec": round(offset, 3),
+                "clock_offset_str": offset_str,
+                "clock_synced": is_synced
+            }
+        else:
+            return {
+                "clock_time": "--:--:--",
+                "clock_offset_sec": 0.0,
+                "clock_offset_str": "N/A",
+                "clock_synced": False
+            }
+
+    def apply_time_sync(self, master_time, sender_ip=None):
+        """
+        Applies system clock synchronization to match master_time.
+        Executes `date -u -s @<master_time>` and `hwclock --systohc`.
+        """
+        try:
+            master_time = float(master_time)
+            current_time = time.time()
+            delta = master_time - current_time
+            epoch_arg = f"@{master_time:.3f}"
+
+            # 1. Try sudo -n date -u -s @<master_time>
+            cmd = ["sudo", "-n", "date", "-u", "-s", epoch_arg]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            if res.returncode != 0:
+                # 2. Fallback to direct date command (if running as root)
+                cmd_direct = ["date", "-u", "-s", epoch_arg]
+                res = subprocess.run(cmd_direct, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            if res.returncode == 0:
+                try:
+                    subprocess.run(["sudo", "-n", "hwclock", "--systohc"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=2)
+                except Exception:
+                    pass
+
+                new_time = time.time()
+                if sender_ip:
+                    with self.lock:
+                        self.node_clock_offsets[sender_ip] = 0.0
+
+                print(f"[TIME SYNC] System time successfully updated to {epoch_arg} (drift corrected: {delta:+.3f}s)")
+                return {
+                    "status": "SYNCED",
+                    "delta_corrected": round(delta, 3),
+                    "new_time": new_time,
+                    "new_time_str": datetime.datetime.fromtimestamp(new_time).strftime("%Y-%m-%d %H:%M:%S.%f")[:23],
+                    "message": f"Successfully synchronized clock (drift: {delta:+.3f}s)"
+                }
+            else:
+                err_msg = res.stderr.strip() or res.stdout.strip()
+                print(f"[TIME SYNC ERROR] Failed to set date: {err_msg}")
+                return {
+                    "status": "PERMISSION_DENIED" if "permission" in err_msg.lower() or "privilege" in err_msg.lower() else "ERROR",
+                    "error": err_msg,
+                    "hint": "Requires root or sudoers NOPASSWD for /usr/bin/date. Run: echo '$USER ALL=(ALL) NOPASSWD: /usr/bin/date, /sbin/hwclock' | sudo tee /etc/sudoers.d/mesh_time_sync"
+                }
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def broadcast_time_sync(self, master_time=None):
+        """
+        Broadcasts this device's current system time across the entire mesh fleet.
+        Uses dual-layer synchronization:
+        1. Parallel HTTP REST dispatch (POST /api/time_sync/apply) to all active peer dashboards.
+        2. Zenoh control-plane broadcast on `filtered/_mesh_time_sync/{my_ip}`.
+        """
+        if master_time is None:
+            master_time = time.time()
+        else:
+            try:
+                master_time = float(master_time)
+            except Exception:
+                master_time = time.time()
+
+        my_ip = self._get_this_machine_ip()
+        payload_data = {
+            "master_time": master_time,
+            "master_time_str": datetime.datetime.fromtimestamp(master_time).strftime("%Y-%m-%d %H:%M:%S.%f")[:23],
+            "sender_ip": my_ip,
+            "timestamp": master_time
+        }
+
+        # 1. Zenoh control plane broadcast
+        zenoh_published = False
+        if hasattr(self, "forward_session") and self.forward_session and getattr(self.forward_session, "session", None):
+            try:
+                sync_key = f"filtered/_mesh_time_sync/{my_ip}"
+                self.forward_session.session.put(sync_key, json.dumps(payload_data).encode("utf-8"))
+                zenoh_published = True
+                print(f"[TIME SYNC] Published Zenoh broadcast on {sync_key}")
+            except Exception as e:
+                print(f"[TIME SYNC] Zenoh broadcast warning: {e}")
+
+        # 2. Dispatch parallel HTTP POST to active online fleet peers
+        results = {}
+        with self.lock:
+            active_peers = [n for n in self.nodes if n["ip"] != my_ip and n.get("status") == "ONLINE"]
+
+        def sync_remote_node(target_ip, node_id):
+            url = f"http://{target_ip}:8080/api/time_sync/apply"
+            try:
+                post_bytes = json.dumps(payload_data).encode("utf-8")
+                req = urllib.request.Request(
+                    url,
+                    data=post_bytes,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    results[node_id] = {"ip": target_ip, "result": res_json}
+            except Exception as ex:
+                results[node_id] = {"ip": target_ip, "result": {"status": "UNREACHABLE", "error": str(ex)}}
+
+        threads = []
+        for p in active_peers:
+            t = Thread(target=sync_remote_node, args=(p["ip"], p["id"]))
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join(timeout=3.5)
+
+        results["LOCAL_MASTER"] = {
+            "ip": my_ip,
+            "master_time": master_time,
+            "zenoh_published": zenoh_published,
+            "total_targets": len(active_peers)
+        }
+
+        return {
+            "status": "BROADCAST_COMPLETED",
+            "master_time": master_time,
+            "master_time_str": payload_data["master_time_str"],
+            "zenoh_published": zenoh_published,
+            "targets_contacted": len(results) - 1,
+            "details": results
+        }
+
+    def get_time_sync_status(self):
+        """Returns fleet-wide time synchronization status and clock drift comparison."""
+        now = time.time()
+        my_ip = self._get_this_machine_ip()
+        my_node = next((n for n in self.nodes if n["ip"] == my_ip), None)
+        local_id = my_node["id"] if my_node else "UGV-01"
+
+        nodes_status = []
+        with self.lock:
+            for n in self.nodes:
+                is_local = (n["ip"] == my_ip) or (my_ip in ["127.0.0.1", "localhost"] and n["id"] == "UGV-01")
+                clock_info = self._format_clock_info(n["ip"], is_local=is_local)
+                nodes_status.append({
+                    "id": n["id"],
+                    "name": n["name"],
+                    "ip": n["ip"],
+                    "type": n["type"],
+                    "status": n.get("status", "OFFLINE"),
+                    "is_local": is_local,
+                    "clock_time": clock_info["clock_time"],
+                    "clock_offset_sec": clock_info["clock_offset_sec"],
+                    "clock_offset_str": clock_info["clock_offset_str"],
+                    "clock_synced": clock_info["clock_synced"]
+                })
+
+        return {
+            "master_time": now,
+            "master_time_str": datetime.datetime.fromtimestamp(now).strftime("%Y-%m-%d %H:%M:%S.%f")[:23],
+            "master_node_id": local_id,
+            "master_ip": my_ip,
+            "nodes": nodes_status
+        }
 
     def _get_this_machine_ip(self):
         """Helper to resolve exact physical host IP for this machine (192.168.3.x)."""
@@ -272,13 +483,15 @@ class TelemetryDataProvider:
                                 node["snr"] = float(primary_peer["snr"])
                     break
 
-    def attach_components(self, registry, scheduler, congestion=None, local_ip=None):
+    def attach_components(self, registry, scheduler, congestion=None, local_ip=None, forward_session=None):
         """Attaches live MeshNode registry, scheduler & congestion instances for real-time telemetry updates."""
         with self.lock:
             self.registry = registry
             self.scheduler = scheduler
             if congestion:
                 self.congestion = congestion
+            if forward_session:
+                self.forward_session = forward_session
             self.mesh_node_running = True
             if local_ip:
                 self.local_ip = local_ip
@@ -607,43 +820,118 @@ class TelemetryDataProvider:
 
         return priority, interval
 
-    def _handle_disconnected_30s_probe(self, my_ip, switching_interval=60.0):
+    def _get_physical_interface_traffic_rate(self):
         """
-        Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated Master APs.
-        RULE 13 COMPLIANCE: Ensures radio stays in current mode for FULL switching_interval seconds unless an active
-        physical link or remote peer is confirmed on NetMetal AX, in which case probe toggling is locked/held and timer reset to 0.0.
+        RULE 13 COMPLIANCE:
+        Reads /proc/net/dev to calculate real-time incoming and outgoing network traffic rate (kB/s)
+        across all physical interfaces (excluding loopback).
+        Returns rate in kB/s.
         """
         now = time.time()
-        state_start = getattr(self, "_probe_state_start", 0.0)
-        current_state = getattr(self, "_probe_state", "AP")
+        last_t = getattr(self, "_last_traffic_check_time", 0.0)
+        last_bytes = getattr(self, "_last_traffic_total_bytes", 0)
+        total_bytes = 0
+        try:
+            with open("/proc/net/dev", "r") as f:
+                for line in f:
+                    parts = line.strip().split(":")
+                    if len(parts) == 2:
+                        iface = parts[0].strip()
+                        if iface == "lo":
+                            continue
+                        fields = parts[1].split()
+                        if len(fields) >= 9:
+                            rx_b = int(fields[0])
+                            tx_b = int(fields[8])
+                            total_bytes += (rx_b + tx_b)
+        except Exception:
+            return 0.0
 
-        # Check for active REMOTE hardware peers or recent REMOTE application-level node activity (excluding self/local IPs)
+        if last_t == 0.0 or last_bytes == 0:
+            self._last_traffic_check_time = now
+            self._last_traffic_total_bytes = total_bytes
+            return 0.0
+
+        dt = now - last_t
+        if dt <= 0.0:
+            return getattr(self, "_last_traffic_rate_kBps", 0.0)
+
+        delta_bytes = max(0, total_bytes - last_bytes)
+        rate_kBps = (delta_bytes / dt) / 1024.0
+
+        self._last_traffic_check_time = now
+        self._last_traffic_total_bytes = total_bytes
+        self._last_traffic_rate_kBps = rate_kBps
+        return rate_kBps
+
+    def is_actively_connected_to_network(self, my_ip=None):
+        """
+        RULE 13 COMPLIANCE:
+        Checks whether this device is actively connected to the network via:
+        1. Physical network interface throughput (/proc/net/dev >= 10.0 kB/s)
+        2. NetMetal AX wireless registration table (active associated clients or AP link)
+        3. Active remote node application heartbeats in self.node_activity
+        """
+        now = time.time()
         local_ips = self._get_local_ips()
+        if not my_ip:
+            my_ip = self._get_this_machine_ip()
+
+        # 1. Check physical interface throughput (e.g. LiDAR streaming, telemetry)
+        traffic_rate = self._get_physical_interface_traffic_rate()
+        if traffic_rate >= 10.0:
+            return True, f"Active physical network traffic ({traffic_rate:.1f} kB/s)"
+
+        # 2. Check active hardware peers on NetMetal AX (associated wireless clients)
         raw_hw_peers = getattr(self, "local_hw_peers", []) or []
         remote_hw_peers = [
             p for p in raw_hw_peers
             if isinstance(p, dict) and p.get("ip") != my_ip and p.get("ip") not in local_ips
         ]
-        has_remote_hw_peers = len(remote_hw_peers) > 0
+        if len(remote_hw_peers) > 0:
+            return True, f"Active NetMetal AX Wi-Fi registration ({len(remote_hw_peers)} peer(s))"
 
-        has_recent_remote_activity = any(
-            (now - t) <= 30.0 
-            for ip, t in self.node_activity.items() 
-            if ip != my_ip and ip not in local_ips
-        ) if hasattr(self, "node_activity") else False
+        # 3. Check recent remote application heartbeat / topic activity
+        if hasattr(self, "node_activity"):
+            for ip, t in self.node_activity.items():
+                if ip != my_ip and ip not in local_ips and (now - t) <= 30.0:
+                    return True, f"Active remote peer heartbeat from {ip}"
 
-        # RULE 13 CONDITION B & C: Active physical Wi-Fi link or node activity confirmed! Lock radio mode & reset probe timer to 0.0
-        if has_remote_hw_peers or has_recent_remote_activity:
+        return False, "No active network traffic, hardware link, or peer heartbeat detected"
+
+    def _handle_disconnected_30s_probe(self, my_ip, switching_interval=60.0):
+        """
+        Manages strict AP <-> STATION-BRIDGE search probe cycle for isolated nodes.
+        RULE 13 COMPLIANCE:
+        - If device is actively connected to the network, switching/toggling is STRICTLY PROHIBITED.
+        - Timer is immediately reset to 0.0.
+        - Disconnected state must persist for at least 15 consecutive seconds before any probe timer runs.
+        - When truly disconnected, any device (including GCS-01) toggles on rank-staggered interval to search.
+        """
+        now = time.time()
+        state_start = getattr(self, "_probe_state_start", 0.0)
+        current_state = getattr(self, "_probe_state", "AP")
+        last_disconnected_time = getattr(self, "_last_disconnected_time", 0.0)
+
+        # RULE 13 CONDITION B: If actively connected to network, TOGGLING IS STRICTLY PROHIBITED
+        is_connected, reason = self.is_actively_connected_to_network(my_ip)
+        if is_connected:
             if state_start != 0.0:
-                print(f"[PROBE HOLD - RULE 13] NetMetal AX active link/peer detected for {my_ip}. Holding {current_state} mode & resetting probe timer to 0.0...")
+                print(f"[PROBE HOLD - RULE 13] Active network connection detected for {my_ip} ({reason}). Holding {current_state} mode & resetting probe timer to 0.0...")
             self._probe_state_start = 0.0
+            self._last_disconnected_time = 0.0
             return
 
-        # RULE 13 CONDITION A: Initial startup check — suppress forced AP promotion if active link is already present
+        # RULE 13 CONDITION C: Require at least 15 consecutive seconds of verified disconnection
+        if last_disconnected_time == 0.0:
+            self._last_disconnected_time = now
+            return
+        elif (now - last_disconnected_time) < 15.0:
+            # Under 15s disconnection threshold - hold current state without toggling
+            return
+
+        # Device is genuinely disconnected from the network (> 15 seconds)
         if state_start == 0.0:
-            if has_remote_hw_peers or has_recent_remote_activity:
-                print(f"[PROBE STARTUP HOLD - RULE 13] NetMetal AX link confirmed for {my_ip}. Suppressing startup mode toggle.")
-                return
             self._probe_state_start = now
             self._probe_state = "AP"
             self._promote_local_radio_hardware()
@@ -652,10 +940,12 @@ class TelemetryDataProvider:
         elapsed = now - state_start
 
         if elapsed >= switching_interval:
-            # RULE 13 CONDITION B: Re-verify hardware link right before executing mode switchover
-            if has_remote_hw_peers or has_recent_remote_activity:
-                print(f"[PROBE TIMER OVERRIDE - RULE 13] NetMetal AX link active upon {int(switching_interval)}s timer expiry for {my_ip}. Suppressing switchover.")
+            # Re-verify connection right before executing mode switchover
+            is_connected_recheck, reason_recheck = self.is_actively_connected_to_network(my_ip)
+            if is_connected_recheck:
+                print(f"[PROBE TIMER OVERRIDE - RULE 13] Network link active upon {int(switching_interval)}s timer expiry for {my_ip} ({reason_recheck}). Suppressing switchover.")
                 self._probe_state_start = 0.0
+                self._last_disconnected_time = 0.0
                 return
 
             self._probe_state_start = now
@@ -674,14 +964,13 @@ class TelemetryDataProvider:
             else:
                 self._demote_local_radio_hardware()
 
-
     def _master_ap_failover_election_loop(self):
         """
         Monitors health of Master AP across 9-device mesh using config/failover.yaml.
-        Determines the single highest-priority ONLINE node in the mesh:
-          - Highest priority ONLINE node (e.g. GCS-01 / UGV-01) -> Promotes to MASTER AP.
-          - All lower priority connected nodes -> Demote to STATION-BRIDGE and lock.
-          - Isolated nodes with 0 peers -> Perform rank-staggered search probe cycle.
+        RULE 13 COMPLIANCE:
+          - If actively connected to the network, switching/toggling is STRICTLY PROHIBITED.
+          - Lower hierarchy devices will NEVER toggle/switch while connected without a higher device heartbeat signal.
+          - Truly isolated devices without network probe between AP and Station to discover peers.
         """
         # Initial 12s grace period for startup heartbeat & RouterOS hardware discovery
         time.sleep(12.0)
@@ -695,6 +984,9 @@ class TelemetryDataProvider:
                     nodes_dict = {n["id"]: n for n in self.nodes}
                     my_node = next((n for n in self.nodes if n["ip"] == my_ip), None)
                     local_node_id = my_node["id"] if my_node else "UGV-01"
+
+                    # Check if THIS device is actively connected to the network
+                    is_connected, net_reason = self.is_actively_connected_to_network(my_ip)
 
                     # Find active remote mesh peers (excluding self)
                     remote_online_nodes = [
@@ -729,16 +1021,38 @@ class TelemetryDataProvider:
                             primary_fleet_master = p
                             break
 
-                    is_field_unit = local_node_id not in ["GCS-01", "GCS-02", "GCS-03", "UGV-01"]
-                    if is_field_unit and (highest_online_master_id == local_node_id or not highest_online_master_id) and not has_remote_peers:
-                        # Field unit running alone or during startup without remote peers: defer to Primary Fleet Gateway
-                        highest_online_master_id = primary_fleet_master
+                    # 4. RULE 13 CONDITION E: Higher-Hierarchy Heartbeat-Gated Role Transition
+                    # If this host is currently operating as Master AP and actively connected to the network,
+                    # it SHALL NOT yield or switch without an authenticated heartbeat signal received
+                    # from a higher-priority device over the network.
+                    local_rank = priority_order.index(local_node_id) if local_node_id in priority_order else 999
+                    higher_master_with_heartbeat = None
+                    now = time.time()
+                    for rank_idx, node_id in enumerate(priority_order):
+                        if rank_idx < local_rank:
+                            node_info = next((n for n in self.nodes if n["id"] == node_id), None)
+                            if node_info:
+                                h_ip = node_info.get("ip", "")
+                                last_hb = self.node_activity.get(h_ip, 0.0)
+                                if (now - last_hb) <= 30.0:
+                                    higher_master_with_heartbeat = node_id
+                                    break
+
+                    if is_connected and (getattr(self, "current_hardware_mode", None) == "AP" or getattr(self, "_probe_state", "") == "AP"):
+                        if higher_master_with_heartbeat:
+                            highest_online_master_id = higher_master_with_heartbeat
+                        else:
+                            # No higher device has sent a verified heartbeat -> maintain local Master AP role!
+                            highest_online_master_id = local_node_id
                     elif not highest_online_master_id:
-                        highest_online_master_id = primary_fleet_master
+                        is_field_unit = local_node_id not in ["GCS-01", "GCS-02", "GCS-03", "UGV-01"]
+                        if is_field_unit and not has_remote_peers:
+                            highest_online_master_id = primary_fleet_master
+                        else:
+                            highest_online_master_id = primary_fleet_master
 
-                    # 4. Evaluate if THIS host is the elected Master AP
+                    # 5. Evaluate if THIS host is the elected Master AP
                     i_am_master_ap = (local_node_id == highest_online_master_id)
-
 
                     if i_am_master_ap:
                         self.master_failover_event = None
@@ -750,12 +1064,13 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        if not (has_remote_peers or has_remote_hw_peers):
-                            # Isolated Master AP with 0 peers -> Run rank-staggered search probe cycle
+                        if not is_connected:
+                            # Isolated device with 0 network connection -> Run rank-staggered search probe cycle
                             self._handle_disconnected_30s_probe(my_ip, switching_interval)
                         else:
-                            # Master AP with active connected peers -> LOCK IN MASTER AP MODE!
+                            # Master AP with active network connection -> LOCK IN MASTER AP MODE!
                             self._probe_state_start = 0.0
+                            self._last_disconnected_time = 0.0
                             self._probe_state = "AP"
                             self._promote_local_radio_hardware()
                     else:
@@ -775,10 +1090,15 @@ class TelemetryDataProvider:
                                 n["is_master_ap"] = False
                                 n["ap_role"] = "STATION_BRIDGE"
 
-                        # Reset probe state and lock hardware in STATION-BRIDGE mode
-                        self._probe_state_start = 0.0
-                        self._probe_state = "STATION_BRIDGE"
-                        self._demote_local_radio_hardware()
+                        if not is_connected:
+                            # Isolated client without network connection -> Run search probe cycle to locate an AP
+                            self._handle_disconnected_30s_probe(my_ip, switching_interval)
+                        else:
+                            # Connected client in network -> Reset probe state and lock hardware in STATION-BRIDGE mode
+                            self._probe_state_start = 0.0
+                            self._last_disconnected_time = 0.0
+                            self._probe_state = "STATION_BRIDGE"
+                            self._demote_local_radio_hardware()
             except Exception as e:
                 print(f"[ELECTION ERROR] {e}")
             time.sleep(2)
@@ -941,6 +1261,12 @@ class TelemetryDataProvider:
                 else:
                     c["is_local"] = n["ip"] in local_ips
 
+                clock_info = self._format_clock_info(n["ip"], is_local=c["is_local"])
+                c["clock_time"] = clock_info["clock_time"]
+                c["clock_offset_sec"] = clock_info["clock_offset_sec"]
+                c["clock_offset_str"] = clock_info["clock_offset_str"]
+                c["clock_synced"] = clock_info["clock_synced"]
+
                 is_master = False
                 if c.get("status") == "ONLINE":
                     wifi_det = n.get("wifi_details")
@@ -1022,11 +1348,16 @@ class TelemetryDataProvider:
                 tx_rate = "288.5 Mbps (80MHz/2S)" if is_online else "N/A"
                 rx_rate = "288.5 Mbps (80MHz/2S)" if is_online else "N/A"
 
+                clock_info = self._format_clock_info(n["ip"], is_local=n.get("is_local", False))
                 peers.append({
                     "node_id": node_id,
                     "name": n["name"],
                     "ip": n["ip"],
                     "mac": mac_str,
+                    "clock_time": clock_info["clock_time"],
+                    "clock_offset_sec": clock_info["clock_offset_sec"],
+                    "clock_offset_str": clock_info["clock_offset_str"],
+                    "clock_synced": clock_info["clock_synced"],
                     "interface": f"wifi2 ({interface_mode})",
                     "rssi": rssi_val,
                     "snr": snr_val,
@@ -1117,11 +1448,16 @@ class TelemetryDataProvider:
                     }
                     score = self.neighbor_evaluator.calculate_link_score(metrics)
 
+                    clock_info = self._format_clock_info(host_ip, is_local=False)
                     candidate_peers.append({
                         "id": remote_id,
                         "mac": mac_addr,
                         "ip": host_ip,
                         "radio_ip": radio_ip,
+                        "clock_time": clock_info["clock_time"],
+                        "clock_offset_sec": clock_info["clock_offset_sec"],
+                        "clock_offset_str": clock_info["clock_offset_str"],
+                        "clock_synced": clock_info["clock_synced"],
                         "rssi": rssi,
                         "latency": lat,
                         "loss": loss,
@@ -1446,15 +1782,22 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
-        if self.path in ["/api/config/fleet", "/api/config/neighbor_selection"]:
+        if self.path in ["/api/config/fleet", "/api/config/neighbor_selection", "/api/time_sync", "/api/time_sync/apply"]:
             content_length = int(self.headers.get('Content-Length', 0))
-            post_data = self.rfile.read(content_length)
+            post_data = self.rfile.read(content_length) if content_length > 0 else b"{}"
             try:
-                payload = json.loads(post_data.decode('utf-8'))
+                payload = json.loads(post_data.decode('utf-8')) if post_data else {}
                 if self.path == "/api/config/fleet":
                     res = DATA_PROVIDER.update_fleet_config(payload)
-                else:
+                elif self.path == "/api/config/neighbor_selection":
                     res = DATA_PROVIDER.update_neighbor_config(payload)
+                elif self.path == "/api/time_sync":
+                    master_time = payload.get("master_time")
+                    res = DATA_PROVIDER.broadcast_time_sync(master_time=master_time)
+                elif self.path == "/api/time_sync/apply":
+                    master_time = payload.get("master_time", time.time())
+                    sender_ip = payload.get("sender_ip")
+                    res = DATA_PROVIDER.apply_time_sync(master_time, sender_ip=sender_ip)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
@@ -1491,6 +1834,8 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
                 data = DATA_PROVIDER.get_fleet_config()
             elif self.path == "/api/config/neighbor_selection":
                 data = DATA_PROVIDER.get_neighbor_config()
+            elif self.path == "/api/time_sync":
+                data = DATA_PROVIDER.get_time_sync_status()
             elif self.path == "/api/all":
                 data = {
                     "summary": DATA_PROVIDER.get_system_summary(),
@@ -1502,7 +1847,8 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
                     "network_peer_tables": DATA_PROVIDER.get_network_peer_tables(),
                     "network_neighbor_table": DATA_PROVIDER.get_network_neighbor_table(),
                     "fleet_config": DATA_PROVIDER.get_fleet_config(),
-                    "neighbor_config": DATA_PROVIDER.get_neighbor_config()
+                    "neighbor_config": DATA_PROVIDER.get_neighbor_config(),
+                    "time_sync": DATA_PROVIDER.get_time_sync_status()
                 }
             else:
                 data = {"error": "Endpoint not found"}

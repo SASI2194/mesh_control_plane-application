@@ -490,7 +490,7 @@ class MeshNode:
         #
 
         try:
-            DATA_PROVIDER.attach_components(self.registry, self.scheduler, self.congestion, self.my_ip)
+            DATA_PROVIDER.attach_components(self.registry, self.scheduler, self.congestion, self.my_ip, forward_session=self.forward_session)
             DATA_PROVIDER.record_node_activity(self.my_ip)
             start_dashboard_background(host="0.0.0.0", port=8080)
             print("[INFO] Web Dashboard Portal active at http://0.0.0.0:8080")
@@ -883,16 +883,34 @@ class MeshNode:
                     pass
                 return
 
+            # Check for Time Sync Broadcast
+            if "_mesh_time_sync/" in key_str:
+                parts = key_str.split("_mesh_time_sync/")
+                if len(parts) > 1:
+                    sender_ip = parts[1]
+                    if sender_ip != self.my_ip and sender_ip not in ["127.0.0.1", "localhost"]:
+                        try:
+                            import json
+                            sync_data = json.loads(payload_bytes.decode("utf-8"))
+                            master_time = float(sync_data.get("master_time", 0.0))
+                            if master_time > 0:
+                                print(f"[TIME SYNC] Received Zenoh time sync from {sender_ip}: {master_time}")
+                                DATA_PROVIDER.apply_time_sync(master_time, sender_ip=sender_ip)
+                        except Exception as e:
+                            print(f"[TIME SYNC ERROR] Failed to process Zenoh time sync: {e}")
+                return
+
             # Check for Application Control Plane Heartbeat & Peer Loss Feedback
             if "_mesh_heartbeat/" in key_str:
                 parts = key_str.split("_mesh_heartbeat/")
                 if len(parts) > 1:
                     sender_ip = parts[1]
-                    DATA_PROVIDER.record_node_activity(sender_ip)
                     try:
                         if payload_bytes.startswith(b"{"):
                             import json
                             hb_data = json.loads(payload_bytes.decode("utf-8"))
+                            hb_ts = hb_data.get("timestamp")
+                            DATA_PROVIDER.record_node_activity(sender_ip, remote_timestamp=hb_ts)
                             peer_loss = float(hb_data.get("max_loss", 0.0))
                             self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
 
@@ -904,11 +922,14 @@ class MeshNode:
                             if wifi_details is not None:
                                 DATA_PROVIDER.update_remote_node_wifi(sender_ip, wifi_details)
                         elif len(payload_bytes) >= 4:
+                            DATA_PROVIDER.record_node_activity(sender_ip)
                             import struct
                             peer_loss = struct.unpack("!f", payload_bytes[:4])[0]
                             self.bw_monitor.record_peer_loss(sender_ip, peer_loss)
+                        else:
+                            DATA_PROVIDER.record_node_activity(sender_ip)
                     except Exception:
-                        pass
+                        DATA_PROVIDER.record_node_activity(sender_ip)
                 return
 
             seq_num, timestamp, origin_ip, raw_payload = MeshSample.unpack_payload(payload_bytes)
@@ -918,7 +939,7 @@ class MeshNode:
                 return
 
             # Record remote node activity and Rx subscriber metrics for peer sample
-            DATA_PROVIDER.record_node_activity(origin_ip)
+            DATA_PROVIDER.record_node_activity(origin_ip, remote_timestamp=timestamp)
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
                 self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload), seq_num)

@@ -74,12 +74,54 @@ def main():
     assert "scoring_weights" in ns_cfg
     assert "hard_boundaries" in ns_cfg
 
-    # 5. Test HTML Index Page
+    # 5. Test /api/time_sync (GET)
+    req_ts = urllib.request.urlopen("http://127.0.0.1:8089/api/time_sync")
+    assert req_ts.status == 200
+    ts_data = json.loads(req_ts.read().decode("utf-8"))
+    print(f"\n[Time Sync API Test] Master Time: {ts_data.get('master_time_str')}")
+    assert "master_time" in ts_data
+    assert "nodes" in ts_data
+    assert len(ts_data["nodes"]) == 9
+    for n in ts_data["nodes"]:
+        assert "clock_time" in n
+        assert "clock_offset_sec" in n
+        assert "clock_synced" in n
+
+    # 6. Test /api/time_sync (POST Broadcast)
+    post_data = json.dumps({"master_time": time.time()}).encode("utf-8")
+    req_post = urllib.request.Request(
+        "http://127.0.0.1:8089/api/time_sync",
+        data=post_data,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req_post) as resp:
+        assert resp.status == 200
+        post_res = json.loads(resp.read().decode("utf-8"))
+        print(f"[Time Sync Broadcast Test] Status: {post_res.get('status')}")
+        assert post_res["status"] == "BROADCAST_COMPLETED"
+        assert "master_time" in post_res
+
+    # 7. Test /api/network_peers Clock Fields
+    req_np = urllib.request.urlopen("http://127.0.0.1:8089/api/network_peers")
+    assert req_np.status == 200
+    np_tables = json.loads(req_np.read().decode("utf-8"))
+    for local_id, table in np_tables.items():
+        peers = table.get("peers", []) if isinstance(table, dict) else table
+        for p in peers:
+            assert "clock_time" in p
+            assert "clock_offset_sec" in p
+            assert "clock_offset_str" in p
+            assert "clock_synced" in p
+
+    # 8. Test HTML Index Page
     req_html = urllib.request.urlopen("http://127.0.0.1:8089/")
     assert req_html.status == 200
     html_content = req_html.read().decode("utf-8")
     print(f"\n[HTML Portal Page Test] Length: {len(html_content)} bytes")
     assert "<title>Mesh Control Plane" in html_content
+    assert "btn-open-time-sync" in html_content
+    assert "time-sync-modal" in html_content
 
     print("\n[SUCCESS] Web Dashboard Telemetry Server Tests PASSED!")
 

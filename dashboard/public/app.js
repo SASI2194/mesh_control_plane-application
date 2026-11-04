@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNeighborFilterListeners();
     setupFleetModalListeners();
     setupNeighborModalListeners();
+    setupTimeSyncModalListeners();
     fetchTelemetryData();
     setInterval(fetchTelemetryData, 500); // Poll every 500ms (2 Hz live updates)
 });
@@ -201,6 +202,145 @@ function setupFleetModalListeners() {
     });
 }
 
+// Setup Fleet Time Synchronization Modal
+function setupTimeSyncModalListeners() {
+    const btnOpen = document.getElementById('btn-open-time-sync');
+    const btnClose = document.getElementById('btn-close-time-sync-modal');
+    const btnCancel = document.getElementById('btn-cancel-time-sync');
+    const btnBroadcast = document.getElementById('btn-broadcast-time-sync');
+    const modal = document.getElementById('time-sync-modal');
+    const masterClock = document.getElementById('time-sync-master-clock');
+    const masterId = document.getElementById('time-sync-master-id');
+    const tbody = document.getElementById('time-sync-device-tbody');
+    const banner = document.getElementById('time-sync-result-banner');
+
+    if (!btnOpen || !modal) return;
+
+    let clockInterval = null;
+
+    const updateLiveMasterClock = () => {
+        const now = new Date();
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+        const ms = String(now.getMilliseconds()).padStart(3, '0');
+        if (masterClock) masterClock.textContent = `${hrs}:${mins}:${secs}.${ms}`;
+    };
+
+    const renderTimeSyncTable = async () => {
+        try {
+            const res = await fetch('/api/time_sync');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            if (masterId && data.master_node_id) {
+                masterId.textContent = `${data.master_node_id} • ${data.master_ip}`;
+            }
+
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (data.nodes || []).forEach(node => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #1e293b';
+
+                const isOnline = node.status === 'ONLINE';
+                const statusBadge = isOnline
+                    ? `<span class="dev-status-badge online" style="font-size:9px; padding:1px 6px;">ONLINE</span>`
+                    : `<span class="dev-status-badge offline" style="font-size:9px; padding:1px 6px;">OFFLINE</span>`;
+
+                const localTag = node.is_local ? ' <small style="color:#10b981; font-weight:700;">(Local Master)</small>' : '';
+                const syncBadge = node.clock_synced
+                    ? `<span class="dev-status-badge online" style="font-size:9px; padding:1px 6px;">✓ SYNCED</span>`
+                    : `<span class="dev-status-badge offline" style="font-size:9px; padding:1px 6px;">⚠ DRIFT</span>`;
+
+                tr.innerHTML = `
+                    <td style="padding: 7px 12px; font-weight: 700; color: #f8fafc;">${node.id}${localTag}</td>
+                    <td style="padding: 7px 12px; font-family: monospace; color: #38bdf8;">${node.ip}</td>
+                    <td style="padding: 7px 12px;">${statusBadge}</td>
+                    <td style="padding: 7px 12px; font-family: monospace; color: #e2e8f0;">${node.clock_time || '--:--:--'}</td>
+                    <td style="padding: 7px 12px; font-family: monospace; font-weight: 700; color: ${node.clock_synced ? '#34d399' : '#f43f5e'};">${node.clock_offset_str || '0.00s'}</td>
+                    <td style="padding: 7px 12px;">${syncBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error('Failed to load time sync status:', e);
+        }
+    };
+
+    btnOpen.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        if (banner) banner.style.display = 'none';
+        updateLiveMasterClock();
+        renderTimeSyncTable();
+        if (clockInterval) clearInterval(clockInterval);
+        clockInterval = setInterval(() => {
+            updateLiveMasterClock();
+            renderTimeSyncTable();
+        }, 1000);
+    });
+
+    const closeModal = () => {
+        modal.style.display = 'none';
+        if (clockInterval) {
+            clearInterval(clockInterval);
+            clockInterval = null;
+        }
+    };
+
+    btnClose.addEventListener('click', closeModal);
+    btnCancel.addEventListener('click', closeModal);
+
+    btnBroadcast.addEventListener('click', async () => {
+        btnBroadcast.disabled = true;
+        btnBroadcast.innerHTML = `<span>⏳</span> Broadcasting...`;
+
+        try {
+            const res = await fetch('/api/time_sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ master_time: Date.now() / 1000 })
+            });
+
+            const data = await res.json();
+            if (banner) {
+                banner.style.display = 'block';
+                if (data.status === 'BROADCAST_COMPLETED') {
+                    const targets = data.targets_contacted || 0;
+                    banner.style.background = 'rgba(16, 185, 129, 0.2)';
+                    banner.style.border = '1px solid #10b981';
+                    banner.style.color = '#34d399';
+                    banner.innerHTML = `
+                        ✓ <strong>Fleet Time Synchronization Broadcast Dispatched!</strong><br/>
+                        Master Time: <code>${data.master_time_str}</code><br/>
+                        Zenoh Publish: <code>${data.zenoh_published ? 'SUCCESS' : 'SKIPPED (REST ONLY)'}</code> &bull; Direct HTTP Targets: <code>${targets} Peers Contacted</code>
+                    `;
+                } else {
+                    banner.style.background = 'rgba(244, 63, 94, 0.2)';
+                    banner.style.border = '1px solid #f43f5e';
+                    banner.style.color = '#f87171';
+                    banner.innerHTML = `⚠️ Broadcast returned status: ${data.status}`;
+                }
+            }
+
+            renderTimeSyncTable();
+            fetchTelemetryData();
+        } catch (e) {
+            if (banner) {
+                banner.style.display = 'block';
+                banner.style.background = 'rgba(244, 63, 94, 0.2)';
+                banner.style.border = '1px solid #f43f5e';
+                banner.style.color = '#f87171';
+                banner.textContent = `Error broadcasting time sync: ${e}`;
+            }
+        } finally {
+            btnBroadcast.disabled = false;
+            btnBroadcast.innerHTML = `<span>⏱️</span> Broadcast &amp; Sync Fleet Clocks`;
+        }
+    });
+}
+
 // Fetch Data from Telemetry REST Endpoint
 async function fetchTelemetryData() {
     try {
@@ -274,7 +414,7 @@ function renderNetworkPeerTables(peerTables) {
         if (peers.length === 0) {
             rowsHtml = `
                 <tr>
-                    <td colspan="9" style="text-align: center; color: #94a3b8; font-size: 12px; padding: 14px;">
+                    <td colspan="10" style="text-align: center; color: #94a3b8; font-size: 12px; padding: 14px;">
                         No active peers discovered on radio interface.
                     </td>
                 </tr>
@@ -291,6 +431,10 @@ function renderNetworkPeerTables(peerTables) {
                         <td><strong style="color:#f8fafc;">${p.id}</strong></td>
                         <td><code style="color:#a855f7;">${p.mac}</code></td>
                         <td><code style="color:#38bdf8;">${p.ip}</code> <span style="font-size:10px; color:#94a3b8;">(${p.radio_ip ? p.radio_ip : p.ip})</span></td>
+                        <td>
+                            <code style="color: #38bdf8; font-weight: 600;">${p.clock_time || '--:--:--'}</code>
+                            <span class="dev-status-badge ${p.clock_synced ? 'online' : 'offline'}" style="font-size:9px; padding:1px 5px; margin-left:4px; font-weight:700;">${p.clock_offset_str || '0.00s'}</span>
+                        </td>
                         <td><span style="color:${rssiColor}; font-weight:700;">${rssi} dBm</span></td>
                         <td><span style="color:#cbd5e1;">${p.latency.toFixed(1)} ms</span></td>
                         <td><span style="color:${p.loss > 5 ? '#f43f5e' : '#cbd5e1'};">${p.loss.toFixed(1)}%</span></td>
@@ -321,6 +465,7 @@ function renderNetworkPeerTables(peerTables) {
                                 <th>Peer Node ID</th>
                                 <th>MAC Address</th>
                                 <th>IP Address</th>
+                                <th>Device Clock (Δt)</th>
                                 <th>RSSI</th>
                                 <th>Latency</th>
                                 <th>Packet Loss</th>
@@ -741,6 +886,7 @@ function renderDeviceCards(nodes) {
                 <div class="device-info">
                     <strong>${dev.name}</strong>
                     <span>IP: ${dev.ip}</span>
+                    <span>Clock: <code style="color:#38bdf8; font-weight:600;">${dev.clock_time || '--:--:--'}</code> <small style="color:${dev.clock_synced ? '#34d399' : '#f43f5e'}; font-weight:700;">(${dev.clock_offset_str || '0.00s'})</small></span>
                     <span>Role: ${dev.role}</span>
                     <span>H/W: ${dev.hardware}</span>
                     ${dev.wifi_details ? `
