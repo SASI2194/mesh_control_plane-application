@@ -270,14 +270,23 @@ class ROSPublisherBridge:
 
                 self.publishers[target_t].publish(msg)
                 with self.republished_lock:
-                    self.last_republished_time[target_t] = time.time()
+                    self.last_republished_time[target_t] = time.monotonic()
         except Exception as ex:
             pass
 
-    def is_recently_republished(self, ros_topic, window_sec=0.01):
+    def is_recently_republished(self, ros_topic, window_sec=1.0):
         with self.republished_lock:
+            now = time.monotonic()
             last_t = self.last_republished_time.get(ros_topic, 0.0)
-            return (time.time() - last_t) < window_sec
+            if (now - last_t) < window_sec:
+                return True
+            clean = ros_topic.lstrip("/")
+            for t, val in self.last_republished_time.items():
+                clean_t = t.lstrip("/")
+                if clean_t == clean or clean_t.endswith("/" + clean) or clean.endswith("/" + clean_t):
+                    if (now - val) < window_sec:
+                        return True
+            return False
 
 
 class ROSSubscriberBridge:
@@ -414,7 +423,7 @@ class MeshNode:
             time.sleep(1.0)
             self.my_ip = self._detect_local_ip()
 
-        self.republished_hashes = set()
+        self.republished_hashes = {}  # payload_hash -> monotonic_expiry
         self.republished_lock = Lock()
 
         #
@@ -573,6 +582,24 @@ class MeshNode:
         self.wifi_telemetry_thread = Thread(target=self._wifi_telemetry_loop, daemon=True)
         self.wifi_telemetry_thread.start()
 
+    def _mark_payload_republished(self, payload_bytes, ttl_sec=4.0):
+        if not payload_bytes:
+            return
+        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
+        with self.republished_lock:
+            now = time.monotonic()
+            self.republished_hashes[payload_hash] = now + ttl_sec
+            if len(self.republished_hashes) > 2000:
+                self.republished_hashes = {h: exp for h, exp in self.republished_hashes.items() if exp > now}
+
+    def _is_payload_republished(self, payload_bytes):
+        if not payload_bytes:
+            return False
+        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
+        with self.republished_lock:
+            exp = self.republished_hashes.get(payload_hash, 0.0)
+            return exp > time.monotonic()
+
     #####################################################################
 
     def _detect_local_ip(self):
@@ -651,14 +678,16 @@ class MeshNode:
                 if hb_tick % 3 == 0 and hasattr(self, 'latched_payload_cache'):
                     for cached_topic, (c_payload, c_origin) in list(self.latched_payload_cache.items()):
                         try:
+                            self._mark_payload_republished(c_payload, ttl_sec=4.0)
                             if self.ros_bridge:
                                 self.ros_bridge.publish_message(cached_topic, c_payload, origin_ip=c_origin)
                             if c_origin == self.my_ip and hasattr(self, 'forward_session') and self.forward_session and self.forward_session.session:
                                 clean_t = cached_topic.lstrip("/")
                                 ns_key = f"filtered/55/{self.my_dev_ns}/{clean_t}"
-                                self.forward_session.session.put(ns_key, c_payload)
+                                packed_c = MeshSample.pack_payload(0, time.time(), c_payload, origin_ip=self.my_ip)
+                                self.forward_session.session.put(ns_key, packed_c)
                                 global_key = f"filtered/55/{clean_t}"
-                                self.forward_session.session.put(global_key, c_payload)
+                                self.forward_session.session.put(global_key, packed_c)
                         except Exception:
                             pass
             except Exception:
@@ -949,9 +978,7 @@ class MeshNode:
 
             # Re-publish original raw ROS 2 payload back onto local Zenoh session for local ROS subscribers
             local_key = key_str[len("filtered/"):]
-            payload_hash = hashlib.md5(raw_payload[:64]).digest()
-            with self.republished_lock:
-                self.republished_hashes.add(payload_hash)
+            self._mark_payload_republished(raw_payload, ttl_sec=4.0)
 
             try:
                 self.forward_session.session.put(local_key, raw_payload)
@@ -972,13 +999,10 @@ class MeshNode:
             return
 
         # Ignore local re-published samples received from mesh receiver or ROSPublisherBridge
-        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
-        with self.republished_lock:
-            if payload_hash in self.republished_hashes:
-                self.republished_hashes.remove(payload_hash)
-                return
+        if self._is_payload_republished(payload_bytes):
+            return
 
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=1.0):
             return
 
         # Perform Rule 2 Admission Control verification against live scheduler allowed set
@@ -1002,14 +1026,23 @@ class MeshNode:
 
     def on_local_ros_message(self, ros_topic, payload_bytes):
         # Ignore local re-published samples received from mesh receiver or ROSPublisherBridge
-        payload_hash = hashlib.md5(payload_bytes[:64]).digest()
-        with self.republished_lock:
-            if payload_hash in self.republished_hashes:
-                self.republished_hashes.remove(payload_hash)
-                return
-
-        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=0.01):
+        if self._is_payload_republished(payload_bytes):
             return
+
+        if self.ros_bridge and self.ros_bridge.is_recently_republished(ros_topic, window_sec=1.0):
+            return
+
+        # Ground Control Station (GCS) protection filter:
+        # A GCS station acts exclusively as a visualization (RViz2) and operator command portal.
+        # GCS NEVER produces robot sensors (LiDAR, camera, scan, odom) or robot transforms (/tf, /tf_static).
+        if hasattr(self, 'my_dev_ns') and self.my_dev_ns and self.my_dev_ns.startswith("gcs_"):
+            ROBOT_TELEMETRY = (
+                "/tf", "/tf_static", "/lidar_point_cloud", "/scan", "/scan_2d",
+                "/camera", "/back_cam", "/front_cam", "/left_cam", "/right_cam",
+                "/rtabmap", "/joint_states", "/odom", "/lidar3d_odom"
+            )
+            if any(st in ros_topic for st in ROBOT_TELEMETRY):
+                return
 
         base_topic = ros_topic
         if not self.registry.exists(base_topic):

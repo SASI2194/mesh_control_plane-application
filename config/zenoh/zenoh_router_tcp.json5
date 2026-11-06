@@ -28,11 +28,11 @@
   },
   "scouting": {
     "multicast": { "enabled": false },
-    "gossip": { "enabled": true, "multihop": true }
+    "gossip": { "enabled": true, "multihop": false }
   },
   "routing": {
     "router": {
-      "peers_failover_brokering": true
+      "peers_failover_brokering": false
     },
     "interests": {
       "timeout": 10000
@@ -126,18 +126,42 @@
     },
     "link": {
       "tx": {
+        "sequence_number_resolution": "32bit",
         "lease": 10000,
         "keep_alive": 4,
-        "batch_size": 20971520,
+        "batch_size": 65535,
         "queue": {
+          "size": {
+            "control": 16,
+            "real_time": 16,
+            "interactive_high": 8,
+            "interactive_low": 8,
+            "data_high": 8,
+            "data": 8,
+            "data_low": 4,
+            "background": 4
+          },
+          "congestion_control": {
+            "drop": {
+              "wait_before_drop": 500,
+              "max_wait_before_drop_fragments": 10000
+            },
+            "block": {
+              "wait_before_close": 2000000
+            }
+          },
           "batching": {
             "enabled": true,
             "time_limit": 1
+          },
+          "allocation": {
+            "mode": "lazy"
           }
         }
       },
       "rx": {
-        "buffer_size": 20971520
+        "buffer_size": 20971520,
+        "max_message_size": 1073741824
       }
     }
   },

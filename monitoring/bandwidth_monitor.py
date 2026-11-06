@@ -38,12 +38,12 @@ class TopicWindowStats:
         self.window_size_sec = window_size_sec
         self.samples = deque()  # (timestamp, byte_size, seq_num)
         self.sequence_number = 0
-        self.last_update_time = time.time()
+        self.last_update_time = time.monotonic()
         self.lock = Lock()
 
     def add_sample(self, byte_size, seq_num=None):
         with self.lock:
-            now = time.time()
+            now = time.monotonic()
             if seq_num is not None:
                 if getattr(self, "last_seq", None) is not None:
                     if seq_num > self.last_seq + 1:
@@ -72,7 +72,7 @@ class TopicWindowStats:
         Returns a dict containing live Mbps, Hz (pps), avg message size in bytes, and formatted string.
         """
         with self.lock:
-            now = time.time()
+            now = time.monotonic()
             self._clean_old_samples(now)
 
             if not self.samples:
@@ -232,7 +232,7 @@ class RealtimeBandwidthMonitor:
         with self.lock:
             if not hasattr(self, "peer_losses"):
                 self.peer_losses = {}
-            self.peer_losses[peer_ip] = (time.time(), float(loss_pct))
+            self.peer_losses[peer_ip] = (time.monotonic(), float(loss_pct))
 
     def get_max_loss_percent(self):
         """Calculates maximum loss percentage across active local topics and fresh peer feedback."""
@@ -251,7 +251,7 @@ class RealtimeBandwidthMonitor:
                         max_local_loss = loss
 
         max_peer_loss = 0.0
-        now = time.time()
+        now = time.monotonic()
         with self.lock:
             if hasattr(self, "peer_losses"):
                 for ip, (ts, loss) in list(self.peer_losses.items()):
