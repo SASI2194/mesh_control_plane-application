@@ -126,6 +126,9 @@ class ROSPublisherBridge:
                 self.topic_types[topic_name] = msg_class
                 if not topic_name.startswith("/"):
                     self.topic_types["/" + topic_name] = msg_class
+                base_t = topic_name if topic_name.startswith("/") else "/" + topic_name
+                for fleet_ns in IP_TO_NAMESPACE.values():
+                    self.topic_types[f"/{fleet_ns}{base_t}"] = msg_class
 
                 is_sys = registry.is_system_topic(topic_name)
                 is_latched = any(k in topic_name for k in ["robot_description", "tf_static", "map", "map_metadata"])
@@ -193,9 +196,10 @@ class ROSPublisherBridge:
             from rclpy.serialization import deserialize_message
             msg_class = self.topic_types.get(ros_topic)
             if not msg_class and hasattr(self, 'registry') and self.registry:
-                for t_name, t_info in self.registry.all_topics().items():
-                    if ros_topic.endswith(t_name):
-                        msg_class = get_message_class(t_info.get("type", "std_msgs/msg/String"))
+                for t_name in sorted(self.registry.all_topics().keys(), key=len, reverse=True):
+                    t_clean = t_name if t_name.startswith("/") else "/" + t_name
+                    if ros_topic == t_clean or ros_topic.endswith(t_clean):
+                        msg_class = get_message_class(self.registry.get(t_name).get("type", "std_msgs/msg/String"))
                         break
             if not msg_class:
                 msg_class = String
@@ -1039,15 +1043,17 @@ class MeshNode:
             ROBOT_TELEMETRY = (
                 "/tf", "/tf_static", "/lidar_point_cloud", "/scan", "/scan_2d",
                 "/camera", "/back_cam", "/front_cam", "/left_cam", "/right_cam",
-                "/rtabmap", "/joint_states", "/odom", "/lidar3d_odom"
+                "/rtabmap", "/joint_states", "/odom", "/lidar3d_odom",
+                "/cloud_obstacles", "/map", "/compressed"
             )
             if any(st in ros_topic for st in ROBOT_TELEMETRY):
                 return
 
         base_topic = ros_topic
         if not self.registry.exists(base_topic):
-            for t_name in self.registry.all_topics().keys():
-                if ros_topic.endswith(t_name):
+            for t_name in sorted(self.registry.all_topics().keys(), key=len, reverse=True):
+                t_clean = t_name if t_name.startswith("/") else "/" + t_name
+                if ros_topic == t_clean or ros_topic.endswith(t_clean):
                     base_topic = t_name
                     break
 

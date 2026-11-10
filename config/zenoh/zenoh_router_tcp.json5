@@ -91,6 +91,22 @@
           "@ros2_liveliness/**",
           "@ros2_admin/**"
         ]
+      },
+      {
+        "id": "allow_ros2_services",
+        "permission": "allow",
+        "messages": ["declare_queryable", "query", "reply"],
+        "flows": ["ingress", "egress"],
+        "key_exprs": [
+          "50/**/compressed/enable_all/**",
+          "50/*/compressed/enable_all/**",
+          "50/**/compressed/**",
+          "50/*/compressed/**",
+          "50/ugv_02/compressed/**",
+          "50/compressed/**",
+          "*/compressed/enable_all/**",
+          "50/**"
+        ]
       }
     ],
     "subjects": [
@@ -110,7 +126,7 @@
       },
       {
         "id": "remote_policy",
-        "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros2_node_discovery"],
+        "rules": ["allow_filtered_topics", "allow_mesh_control", "allow_ros2_node_discovery", "allow_ros2_services"],
         "subjects": ["all"]
       }
     ]

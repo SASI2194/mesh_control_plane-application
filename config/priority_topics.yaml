@@ -71,3 +71,57 @@ priority_topics:
     type: std_msgs/msg/String
     priority: 1
     status: ALLOW
+
+  - id: 213
+    name: /compressed/back_cam
+    type: sensor_msgs/msg/CompressedImage
+    priority: 1
+    status: ALLOW
+
+  - id: 214
+    name: /compressed/camera/color/image_raw
+    type: sensor_msgs/msg/CompressedImage
+    priority: 1
+    status: ALLOW
+
+  - id: 215
+    name: /compressed/cloud_obstacles
+    type: std_msgs/msg/UInt8MultiArray
+    priority: 1
+    status: ALLOW
+
+  - id: 216
+    name: /compressed/front_cam
+    type: sensor_msgs/msg/CompressedImage
+    priority: 1
+    status: ALLOW
+
+  - id: 217
+    name: /compressed/left_cam
+    type: sensor_msgs/msg/CompressedImage
+    priority: 1
+    status: ALLOW
+
+  - id: 218
+    name: /compressed/lidar_point_cloud
+    type: std_msgs/msg/UInt8MultiArray
+    priority: 1
+    status: ALLOW
+
+  - id: 219
+    name: /compressed/map
+    type: std_msgs/msg/UInt8MultiArray
+    priority: 1
+    status: ALLOW
+
+  - id: 220
+    name: /compressed/right_cam
+    type: sensor_msgs/msg/CompressedImage
+    priority: 1
+    status: ALLOW
+
+  - id: 221
+    name: /compressed/scan_2d
+    type: std_msgs/msg/UInt8MultiArray
+    priority: 1
+    status: ALLOW
