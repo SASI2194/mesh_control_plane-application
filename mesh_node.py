@@ -168,7 +168,7 @@ class ROSPublisherBridge:
                     if sys_topic not in self.publishers:
                         pub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched else DurabilityPolicy.VOLATILE
                         pub_qos = QoSProfile(
-                            depth=100 if is_latched else 10,
+                            depth=100 if (is_latched or "tf" in sys_topic) else 10,
                             reliability=ReliabilityPolicy.RELIABLE,
                             durability=pub_durability,
                             history=HistoryPolicy.KEEP_LAST
@@ -382,6 +382,18 @@ class ROSSubscriberBridge:
                 self.thread = Thread(target=self._spin_loop, daemon=True)
                 self.thread.start()
 
+            # Dedicated high-priority node and executor strictly for system transforms (/tf, /tf_static)
+            # to prevent queue buildup and GIL contention behind heavy sensor topics (PointCloud2, Image).
+            if not rclpy.ok():
+                rclpy.init()
+            from rclpy.executors import SingleThreadedExecutor
+            tf_node_name = f"mesh_control_plane_tf_transmitter_{device_ns}" if device_ns else "mesh_control_plane_tf_transmitter"
+            self.tf_node = rclpy.create_node(tf_node_name)
+            self.tf_executor = SingleThreadedExecutor()
+            self.tf_executor.add_node(self.tf_node)
+            self.tf_thread = Thread(target=self._tf_spin_loop, daemon=True)
+            self.tf_thread.start()
+
             sensor_sub_qos = QoSProfile(
                 depth=30,
                 reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -438,13 +450,17 @@ class ROSSubscriberBridge:
                         is_latched_sub = any(k in target_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(target_topic)
                         sub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_sub else DurabilityPolicy.VOLATILE
                         sub_reliability = ReliabilityPolicy.RELIABLE if (is_transform_sub or is_latched_sub) else ReliabilityPolicy.BEST_EFFORT
+                        # For dynamic transform (/tf), keep queue depth lean (depth=10) on the dedicated TF node
+                        # so transforms are dispatched in real-time (< 1ms) and can never suffer queue buffer lag.
+                        sub_depth = 100 if is_latched_sub else (10 if is_transform_sub else 30)
                         sub_qos = QoSProfile(
-                            depth=100 if (is_transform_sub or is_latched_sub) else 30,
+                            depth=sub_depth,
                             reliability=sub_reliability,
                             durability=sub_durability,
                             history=HistoryPolicy.KEEP_LAST
                         )
-                        sub = self.node.create_subscription(
+                        sub_node = self.tf_node if (is_transform_sub and hasattr(self, 'tf_node') and self.tf_node) else self.node
+                        sub = sub_node.create_subscription(
                             msg_class,
                             target_topic,
                             make_cb(target_topic),
@@ -462,6 +478,16 @@ class ROSSubscriberBridge:
             elif self.node:
                 import rclpy
                 rclpy.spin(self.node)
+        except Exception:
+            pass
+
+    def _tf_spin_loop(self):
+        try:
+            if hasattr(self, 'tf_executor') and self.tf_executor:
+                self.tf_executor.spin()
+            elif hasattr(self, 'tf_node') and self.tf_node:
+                import rclpy
+                rclpy.spin(self.tf_node)
         except Exception:
             pass
 
