@@ -34,7 +34,7 @@ class TopicWindowStats:
     Tracks sliding window statistics for a single topic (Publisher Tx or Subscriber Rx).
     """
 
-    def __init__(self, window_size_sec=2.0):
+    def __init__(self, window_size_sec=3.5):
         self.window_size_sec = window_size_sec
         self.samples = deque()  # (timestamp, byte_size, seq_num)
         self.sequence_number = 0
@@ -104,7 +104,7 @@ class RealtimeBandwidthMonitor:
     payload data sizes, and differential throughput across all active ROS topics.
     """
 
-    def __init__(self, window_size_sec=2.0):
+    def __init__(self, window_size_sec=3.5):
         self.window_size_sec = window_size_sec
         self.tx_stats = {}  # topic_name -> TopicWindowStats (Publisher Tx)
         self.rx_stats = {}  # topic_name -> TopicWindowStats (Subscriber Rx)

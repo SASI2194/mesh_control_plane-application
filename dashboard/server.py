@@ -1629,7 +1629,7 @@ class TelemetryDataProvider:
             result = []
             allowed = self.scheduler.allowed_topics
             for name, topic in self.registry.all_topics().items():
-                is_allowed = name in allowed
+                is_allowed = (name in allowed) or (str(topic.get("status", "")).upper() in ["ALLOW", "ALLOWED"])
                 tx_hz = topic.get("tx_hz", 0.0)
                 tx_mbps = topic.get("tx_mbps", 0.0) if is_allowed else 0.0
                 tx_data_size_str = topic.get("tx_data_size_str", "0 B") if tx_hz > 0.0 else "0 B"
@@ -1641,7 +1641,7 @@ class TelemetryDataProvider:
                 diff_mbps = round(tx_mbps - rx_mbps, 1)
                 delivery_pct = topic.get("delivery_pct", 100.0) if is_allowed else 0.0
                 role = topic.get("role", "IDLE")
-                status_str = topic.get("status", "ALLOWED" if is_allowed else "DENIED")
+                status_str = "ALLOWED" if is_allowed else "DENIED"
                 loss_pct = topic.get("loss_pct", 0.0)
                 verif_str = topic.get("verification", "UNINITIATED")
 
@@ -1660,7 +1660,9 @@ class TelemetryDataProvider:
                     "role": role,
                     "status": status_str,
                     "loss_percent": loss_pct,
-                    "verification": verif_str
+                    "verification": verif_str,
+                    "active_streams": topic.get("active_streams", []),
+                    "active_streams_count": topic.get("active_streams_count", 0)
                 })
             return sorted(result, key=lambda x: (x["priority"], x["id"]))
 

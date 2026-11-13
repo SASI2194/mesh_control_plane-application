@@ -13,12 +13,16 @@
 
 let activeFilter = 'all';
 let neighborFilter = 'all';
+let activeTopicFilter = 'all';
+let expandedTopicSet = new Set();
+let allTopicsExpanded = false;
 let cachedData = null;
 
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', () => {
     setupFilterListeners();
     setupNeighborFilterListeners();
+    setupTopicFilterListeners();
     setupFleetModalListeners();
     setupNeighborModalListeners();
     setupTimeSyncModalListeners();
@@ -55,6 +59,50 @@ function setupNeighborFilterListeners() {
         });
     });
 }
+
+// Setup Priority Topics Device Filter Buttons & Expand/Collapse All
+function setupTopicFilterListeners() {
+    const buttons = document.querySelectorAll('#topic-device-filter .pill');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeTopicFilter = btn.getAttribute('data-topic-filter') || 'all';
+            if (cachedData && cachedData.topics) {
+                renderTopics(cachedData.topics);
+            }
+        });
+    });
+
+    const toggleBtn = document.getElementById('btn-toggle-all-topics');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            allTopicsExpanded = !allTopicsExpanded;
+            toggleBtn.textContent = allTopicsExpanded ? 'Collapse All' : 'Expand All';
+            if (cachedData && cachedData.topics) {
+                if (allTopicsExpanded) {
+                    cachedData.topics.forEach(t => expandedTopicSet.add(String(t.id)));
+                } else {
+                    expandedTopicSet.clear();
+                }
+                renderTopics(cachedData.topics);
+            }
+        });
+    }
+}
+
+// Global Toggle for Individual Topic Expand/Collapse
+window.toggleTopicExpand = function(topicId) {
+    const idStr = String(topicId);
+    if (expandedTopicSet.has(idStr)) {
+        expandedTopicSet.delete(idStr);
+    } else {
+        expandedTopicSet.add(idStr);
+    }
+    if (cachedData && cachedData.topics) {
+        renderTopics(cachedData.topics);
+    }
+};
 
 // Setup Neighbor Selection Formula Configuration Modal
 function setupNeighborModalListeners() {
@@ -745,14 +793,32 @@ function renderTopology(topology) {
     svg.innerHTML = html;
 }
 
-// Render Priority Topics Table with Real-Time Hz, Msg Size, and Live Bandwidth
+// Render Priority Topics Table with Real-Time Hz, Msg Size, and Multi-Device Streams
 function renderTopics(topics) {
     if (!topics) return;
     const tbody = document.getElementById('topics-tbody');
     let html = '';
 
     topics.forEach(t => {
-        const isAllowed = t.status === 'ALLOWED';
+        const idStr = String(t.id);
+        const streams = t.active_streams || [];
+        const activeCount = t.active_streams_count !== undefined ? t.active_streams_count : streams.length;
+
+        // Check if filtering by specific device (e.g. ugv_01, ugv_02, etc.)
+        let matchingStreams = streams;
+        if (activeTopicFilter !== 'all') {
+            matchingStreams = streams.filter(s => {
+                const sNs = (s.device_ns || '').toLowerCase();
+                const sKey = (s.stream_key || '').toLowerCase();
+                return sNs === activeTopicFilter || sKey.includes(`/${activeTopicFilter}/`);
+            });
+            // If topic has active streams from other devices but none for this device, skip row
+            if (matchingStreams.length === 0 && activeCount > 0) {
+                return;
+            }
+        }
+
+        const isAllowed = t.status === 'ALLOWED' || t.status === 'ALLOW';
         const isShedded = t.status === 'SHEDDED';
         const isDenied = t.status === 'DENIED';
         let statusClass = 'allowed';
@@ -775,31 +841,45 @@ function renderTopics(topics) {
         if (role === 'PUBLISHER') roleBadge = `<span class="role-badge publisher">Tx PUBLISHER</span>`;
         else if (role === 'SUBSCRIBER') roleBadge = `<span class="role-badge subscriber">Rx SUBSCRIBER</span>`;
         else if (role === 'BOTH') roleBadge = `<span class="role-badge both">Tx/Rx DUAL</span>`;
+        else if (role === 'RELAY') roleBadge = `<span class="role-badge relay">RELAY HOP</span>`;
 
         // Tx (Publisher) metrics
         const txHz = t.tx_hz !== undefined ? t.tx_hz.toFixed(1) : '0.0';
         const txMbps = t.tx_mbps !== undefined ? t.tx_mbps.toFixed(1) : '0.0';
         const txSize = t.tx_data_size_str || '0 B';
-        const txStr = isAllowed && t.tx_hz > 0 ? `${txHz} Hz • ${txMbps} Mbps <br/><small class="text-dim">${txSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+        const txStr = t.tx_hz > 0 ? `${txHz} Hz • ${txMbps} Mbps <br/><small class="text-dim">${txSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
 
         // Rx (Subscriber) metrics
         const rxHz = t.rx_hz !== undefined ? t.rx_hz.toFixed(1) : '0.0';
         const rxMbps = t.rx_mbps !== undefined ? t.rx_mbps.toFixed(1) : '0.0';
         const rxSize = t.rx_data_size_str || '0 B';
-        const rxStr = isAllowed && t.rx_hz > 0 ? `${rxHz} Hz • ${rxMbps} Mbps <br/><small class="text-dim">${rxSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+        const rxStr = t.rx_hz > 0 ? `${rxHz} Hz • ${rxMbps} Mbps <br/><small class="text-dim">${rxSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
 
         // Throughput Differential
         const diffMbps = t.diff_mbps !== undefined ? t.diff_mbps.toFixed(1) : '0.0';
         const delPct = t.delivery_pct !== undefined ? t.delivery_pct.toFixed(1) : '100.0';
         const diffColor = Math.abs(t.diff_mbps || 0) < 1.0 ? 'text-emerald' : 'text-amber';
-        const diffStr = isAllowed ? `<span class="${diffColor} font-bold">${diffMbps} Mbps Δ</span> <br/><small class="text-cyan">${delPct}% Recv</small>` : '<span class="text-dim">0.0 Mbps Δ</span>';
+        const diffStr = (t.tx_hz > 0 || t.rx_hz > 0) ? `<span class="${diffColor} font-bold">${diffMbps} Mbps Δ</span> <br/><small class="text-cyan">${delPct}% Recv</small>` : '<span class="text-dim">0.0 Mbps Δ</span>';
 
         const formattedId = typeof t.id === 'number' ? `T${String(t.id).padStart(2, '0')}` : (String(t.id).startsWith('T') ? String(t.id) : `T${String(t.id).padStart(2, '0')}`);
 
+        const activeMatchingStreams = matchingStreams.filter(s => (s.tx_hz > 0 || s.rx_hz > 0 || (s.role && s.role !== 'IDLE')));
+        const isExpanded = expandedTopicSet.has(idStr) || (activeTopicFilter !== 'all' && matchingStreams.length > 0);
+        const hasStreams = matchingStreams.length > 0;
+        const chevronClass = isExpanded ? 'topic-chevron expanded' : 'topic-chevron';
+        const chevronHtml = hasStreams ? `<span class="${chevronClass}">▶</span>` : `<span style="display:inline-block; width:14px; margin-right:4px;"></span>`;
+        const streamBadge = activeMatchingStreams.length > 0 ? `<span class="topic-stream-count-badge"><span>🌐</span> ${activeMatchingStreams.length} ${activeMatchingStreams.length === 1 ? 'stream' : 'streams'}</span>` : '';
+
+        const rowClickAttr = hasStreams ? `onclick="toggleTopicExpand('${idStr}')"` : '';
+        const rowClass = hasStreams ? 'topic-parent-row has-streams' : 'topic-parent-row';
+
         html += `
-            <tr>
-                <td><strong>${formattedId}</strong></td>
-                <td>${t.name}</td>
+            <tr class="${rowClass}" ${rowClickAttr}>
+                <td>${chevronHtml}<strong>${formattedId}</strong></td>
+                <td>
+                    <span style="font-weight: 600;">${t.name}</span>
+                    ${streamBadge}
+                </td>
                 <td>Priority ${t.priority}</td>
                 <td>${roleBadge}</td>
                 <td><span class="text-cyan font-bold">${txStr}</span></td>
@@ -809,6 +889,59 @@ function renderTopics(topics) {
                 <td class="${verifClass}">${t.verification}</td>
             </tr>
         `;
+
+        // Render Sub-Rows for Child Device Streams if expanded
+        if (hasStreams && isExpanded) {
+            matchingStreams.forEach(s => {
+                const sRole = s.role || 'IDLE';
+                let sRoleBadge = `<span class="role-badge idle" style="font-size:0.65rem;">IDLE</span>`;
+                if (sRole === 'PUBLISHER') sRoleBadge = `<span class="role-badge publisher" style="font-size:0.65rem;">Tx PUBLISHER</span>`;
+                else if (sRole === 'SUBSCRIBER') sRoleBadge = `<span class="role-badge subscriber" style="font-size:0.65rem;">Rx SUBSCRIBER</span>`;
+                else if (sRole === 'BOTH') sRoleBadge = `<span class="role-badge both" style="font-size:0.65rem;">Tx/Rx DUAL</span>`;
+                else if (sRole === 'RELAY') sRoleBadge = `<span class="role-badge relay" style="font-size:0.65rem;">RELAY HOP</span>`;
+
+                let sVerifClass = 'text-emerald';
+                if (s.verification === 'UNINITIATED') sVerifClass = 'text-dim';
+                else if (s.verification && (s.verification.includes('LOSS') || s.verification.includes('SHEDDED') || s.verification.includes('DENY'))) sVerifClass = 'text-rose';
+
+                const sTxHz = s.tx_hz !== undefined ? s.tx_hz.toFixed(1) : '0.0';
+                const sTxMbps = s.tx_mbps !== undefined ? s.tx_mbps.toFixed(1) : '0.0';
+                const sTxSize = s.tx_data_size_str || '0 B';
+                const sTxStr = s.tx_hz > 0 ? `${sTxHz} Hz • ${sTxMbps} Mbps <br/><small class="text-dim">${sTxSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+
+                const sRxHz = s.rx_hz !== undefined ? s.rx_hz.toFixed(1) : '0.0';
+                const sRxMbps = s.rx_mbps !== undefined ? s.rx_mbps.toFixed(1) : '0.0';
+                const sRxSize = s.rx_data_size_str || '0 B';
+                const sRxStr = s.rx_hz > 0 ? `${sRxHz} Hz • ${sRxMbps} Mbps <br/><small class="text-dim">${sRxSize}</small>` : '<span class="text-dim">0.0 Hz • 0.0 Mbps</span>';
+
+                const sDiffMbps = s.diff_mbps !== undefined ? s.diff_mbps.toFixed(1) : '0.0';
+                const sDelPct = s.delivery_pct !== undefined ? s.delivery_pct.toFixed(1) : '100.0';
+                const sDiffColor = Math.abs(s.diff_mbps || 0) < 1.0 ? 'text-emerald' : 'text-amber';
+                const sDiffStr = `<span class="${sDiffColor}">${sDiffMbps} Mbps Δ</span> <br/><small class="text-cyan">${sDelPct}% Recv</small>`;
+
+                html += `
+                    <tr class="topic-sub-row">
+                        <td style="text-align: right; color: var(--accent-cyan); font-weight: 700;">↳</td>
+                        <td>
+                            <div style="display: flex; flex-direction: column;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-weight: 700; color: #38bdf8;">${s.device_name}</span>
+                                    <span class="badge badge-outline" style="font-size: 0.62rem; padding: 1px 6px;">Stream</span>
+                                </div>
+                                <small class="text-dim" style="font-family: monospace; font-size: 10px;">${s.stream_key}</small>
+                            </div>
+                        </td>
+                        <td><span class="text-dim" style="font-weight: 600;">Priority ${t.priority}</span></td>
+                        <td>${sRoleBadge}</td>
+                        <td><span class="text-cyan">${sTxStr}</span></td>
+                        <td><span class="text-purple">${sRxStr}</span></td>
+                        <td>${sDiffStr}</td>
+                        <td><span class="status-badge allowed" style="font-size: 0.65rem;">ACTIVE</span></td>
+                        <td class="${sVerifClass}" style="font-size: 0.8rem;">${s.verification}</td>
+                    </tr>
+                `;
+            });
+        }
     });
 
     tbody.innerHTML = html;

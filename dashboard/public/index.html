@@ -257,9 +257,30 @@
 
                 <!-- Live Topic Scheduler & Priority Admission -->
                 <div class="card glass-card">
-                    <div class="card-header">
-                        <h2>Priority Scheduler & Real-Time Topic Admission</h2>
-                        <span class="badge badge-cyan">Live Rates &amp; Sizes</span>
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <h2 style="display: flex; align-items: center; gap: 8px;">
+                                <span>⚡</span> Priority Scheduler &amp; Real-Time Topic Admission
+                            </h2>
+                            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                Dynamic bandwidth admission, end-to-end differential throughput, and multi-robot stream telemetry.
+                            </p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div class="topic-filter-pills" id="topic-device-filter" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <span class="pill active" data-topic-filter="all">All Fleet</span>
+                                <span class="pill" data-topic-filter="ugv_01">UGV-01</span>
+                                <span class="pill" data-topic-filter="ugv_02">UGV-02</span>
+                                <span class="pill" data-topic-filter="ugv_03">UGV-03</span>
+                                <span class="pill" data-topic-filter="ugv_04">UGV-04</span>
+                                <span class="pill" data-topic-filter="ugv_05">UGV-05</span>
+                                <span class="pill" data-topic-filter="ugv_06">UGV-06</span>
+                                <span class="pill" data-topic-filter="gcs_01">GCS-01</span>
+                                <span class="pill" data-topic-filter="gcs_02">GCS-02</span>
+                                <span class="pill" data-topic-filter="gcs_03">GCS-03</span>
+                            </div>
+                            <button id="btn-toggle-all-topics" class="pill" style="border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0, 229, 255, 0.05); cursor: pointer;">Expand All</button>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">

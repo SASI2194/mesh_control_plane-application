@@ -8,7 +8,8 @@ Mesh Control Plane
 Test Suite: Priority Scheduler & Topic Admission Logger Test
 
 Verifies that SchedulerLogger accurately records formatted text snapshots and
-CSV logs containing Rate (Hz), Msg Size, Live Bandwidth (Mbps), and Admission Status.
+CSV logs containing Rate (Hz), Msg Size, Live Bandwidth (Mbps), Admission Status,
+and multi-device child stream telemetry.
 
 ===============================================================================
 """
@@ -65,6 +66,66 @@ class TestSchedulerLogger(unittest.TestCase):
             self.assertIn("Timestamp,Topic_ID,Topic_Name", csv_lines[0])
             matched_allowed = any("ALLOWED" in line for line in csv_lines)
             self.assertTrue(matched_allowed, "No ALLOWED topic found in CSV log!")
+
+    def test_multi_device_stream_logging(self):
+        # Test stream logging with multi-robot telemetry
+        stream_metrics = {
+            "/ugv_02/lidar_point_cloud": {
+                "role": "SUBSCRIBER",
+                "tx_hz": 0.0,
+                "tx_mbps": 0.0,
+                "tx_data_size_str": "0 B",
+                "rx_hz": 20.0,
+                "rx_mbps": 150.0,
+                "rx_data_size_str": "936.0 KB",
+                "diff_mbps": -150.0,
+                "delivery_pct": 98.5
+            },
+            "/ugv_01/compressed/lidar_point_cloud": {
+                "role": "PUBLISHER",
+                "tx_hz": 15.0,
+                "tx_mbps": 25.0,
+                "tx_data_size_str": "200.0 KB",
+                "rx_hz": 0.0,
+                "rx_mbps": 0.0,
+                "rx_data_size_str": "0 B",
+                "diff_mbps": 25.0,
+                "delivery_pct": 100.0
+            }
+        }
+        self.registry.update_measured_metrics(stream_metrics)
+        self.logger.log_snapshot(self.registry, self.scheduler)
+
+        # 1. Verify priority_scheduler.log records stream lines
+        txt_path = os.path.join(self.test_dir, "priority_scheduler.log")
+        with open(txt_path, "r", encoding="utf-8") as f:
+            txt_content = f.read()
+            self.assertIn("[UGV-02] /ugv_02/lidar_point_cloud", txt_content)
+            self.assertIn("SUBSCRIBER", txt_content)
+            self.assertIn("150.0 Mbps", txt_content)
+
+        # 2. Verify priority_scheduler.csv records stream child rows
+        csv_path = os.path.join(self.test_dir, "priority_scheduler.csv")
+        with open(csv_path, "r", encoding="utf-8") as f:
+            csv_lines = f.readlines()
+            ugv02_stream = any("↳ [UGV-02] /ugv_02/lidar_point_cloud" in line for line in csv_lines)
+            self.assertTrue(ugv02_stream, "Child stream /ugv_02/lidar_point_cloud not found in priority_scheduler.csv!")
+
+        # 3. Verify dedicated active_streams.csv
+        streams_csv_path = os.path.join(self.test_dir, "active_streams.csv")
+        self.assertTrue(os.path.exists(streams_csv_path))
+        with open(streams_csv_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            self.assertGreaterEqual(len(lines), 2)
+            self.assertTrue(any("UGV-02" in l and "/ugv_02/lidar_point_cloud" in l for l in lines))
+
+        # 4. Verify dedicated active_streams.log
+        streams_txt_path = os.path.join(self.test_dir, "active_streams.log")
+        self.assertTrue(os.path.exists(streams_txt_path))
+        with open(streams_txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            self.assertIn("UGV-02", content)
+            self.assertIn("/ugv_02/lidar_point_cloud", content)
 
     def tearDown(self):
         import shutil

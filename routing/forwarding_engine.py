@@ -19,6 +19,7 @@ Responsibility:
 """
 
 from core.network_models import MeshSample
+from ros.topic_database import is_2d_occupancy_grid_topic
 
 
 class ForwardingEngine:
@@ -78,7 +79,17 @@ class ForwardingEngine:
     def has_subscribers(self, ros_topic: str) -> bool:
         """Returns True if any remote subscriber exists on the namespaced OR global Zenoh key."""
         if hasattr(self.session, "has_matching_subscribers"):
-            for key in self._all_keys_for(ros_topic):
+            keys = self._all_keys_for(ros_topic)
+            for k in list(keys):
+                if "tf_static" in k and "filtered/55/tf_static" not in keys:
+                    keys.append("filtered/55/tf_static")
+                elif "/tf" in k and not "tf_static" in k and "filtered/55/tf" not in keys:
+                    keys.append("filtered/55/tf")
+                elif is_2d_occupancy_grid_topic(k):
+                    for m_key in ["filtered/55/map", "filtered/55/rtabmap/map"]:
+                        if m_key not in keys:
+                            keys.append(m_key)
+            for key in keys:
                 if self.session.has_matching_subscribers(key):
                     return True
             return False
@@ -110,16 +121,28 @@ class ForwardingEngine:
         # Exempt latched state topics and system transform infrastructure topics.
         #################################################################
 
-        is_exempt = any(k in sample.key for k in ["robot_description", "tf_static", "tf", "map", "map_metadata", "clock", "rosout", "parameter_events"])
+        is_exempt = any(k in sample.key for k in ["robot_description", "tf_static", "tf", "clock", "rosout", "parameter_events"]) or is_2d_occupancy_grid_topic(sample.key)
 
         # Collect all Zenoh keys to attempt publishing (namespaced + global)
         all_candidate_keys = self._all_keys_for(sample.key)
-        # Also add tf-specific global mirrors as before
+        # Also add tf-specific and map-specific global mirrors
         for cand_key in list(all_candidate_keys):
             if "tf_static" in cand_key and "filtered/55/tf_static" not in all_candidate_keys:
                 all_candidate_keys.append("filtered/55/tf_static")
             elif "/tf" in cand_key and not "tf_static" in cand_key and "filtered/55/tf" not in all_candidate_keys:
                 all_candidate_keys.append("filtered/55/tf")
+            elif is_2d_occupancy_grid_topic(cand_key):
+                if "filtered/55/map" not in all_candidate_keys:
+                    all_candidate_keys.append("filtered/55/map")
+                if "filtered/55/rtabmap/map" not in all_candidate_keys:
+                    all_candidate_keys.append("filtered/55/rtabmap/map")
+                if self.device_ns:
+                    ns_map = f"filtered/55/{self.device_ns}/map"
+                    ns_rtab_map = f"filtered/55/{self.device_ns}/rtabmap/map"
+                    if ns_map not in all_candidate_keys:
+                        all_candidate_keys.append(ns_map)
+                    if ns_rtab_map not in all_candidate_keys:
+                        all_candidate_keys.append(ns_rtab_map)
 
         if not is_exempt and hasattr(self.session, "has_matching_subscribers"):
             # Determine which candidate keys actually have remote subscribers
@@ -131,7 +154,7 @@ class ForwardingEngine:
             # Only publish to keys that have live subscribers
             keys_to_publish = keys_with_subs
         else:
-            keys_to_publish = [output_key]
+            keys_to_publish = all_candidate_keys
 
         #################################################################
         # Pack payload with sequence metadata header & origin IP

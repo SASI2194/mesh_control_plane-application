@@ -540,3 +540,79 @@ body {
     background: linear-gradient(145deg, rgba(6, 182, 212, 0.08), rgba(15, 23, 42, 0.8)) !important;
     box-shadow: 0 0 16px rgba(6, 182, 212, 0.25) !important;
 }
+
+/* Hierarchical Topic Master-Detail & Multi-Device Stream Styling */
+.topic-parent-row {
+    transition: background 0.15s ease;
+}
+
+.topic-parent-row.has-streams {
+    cursor: pointer;
+}
+
+.topic-parent-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.topic-chevron {
+    display: inline-block;
+    width: 14px;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+    margin-right: 4px;
+}
+
+.topic-chevron.expanded {
+    transform: rotate(90deg);
+    color: var(--accent-cyan);
+}
+
+.topic-stream-count-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.topic-sub-row {
+    background: rgba(15, 23, 42, 0.55);
+    border-left: 3px solid var(--accent-cyan);
+    font-size: 0.82rem;
+    transition: background 0.15s ease;
+}
+
+.topic-sub-row:hover {
+    background: rgba(30, 41, 59, 0.7);
+}
+
+.topic-sub-row td {
+    padding: 7px 14px !important;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05) !important;
+}
+
+.topic-filter-pills .pill {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+}
+
+.topic-filter-pills .pill.active {
+    background: var(--accent-cyan);
+    color: #0b1120;
+    font-weight: 700;
+}
+
+.role-badge.relay {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+    border: 1px solid var(--accent-amber);
+}
