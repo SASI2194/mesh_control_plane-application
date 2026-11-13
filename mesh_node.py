@@ -140,34 +140,40 @@ class ROSPublisherBridge:
                     topics_to_prereg.append(base_t)
                 else:
                     # Application sensor topics:
-                    if device_ns:
-                        topics_to_prereg.append(f"/{device_ns}{base_t}")
-                    else:
+                    # Only pre-register publishers for REMOTE fleet entities (f_ns != device_ns).
+                    # A robot must NEVER create duplicate publishers for its own local sensor/SLAM topics.
+                    if not device_ns:
                         topics_to_prereg.append(base_t)
 
                     # For latched state topics (e.g. 2D maps, RTAB-Map 3D clouds, robot_description, tf_static),
-                    # pre-register publishers across ALL known fleet entities with TRANSIENT_LOCAL durability.
+                    # pre-register publishers across REMOTE fleet entities with TRANSIENT_LOCAL durability.
                     # This ensures late-joining subscribers (e.g. RViz2 on GCS) immediately discover the topics.
                     if is_latched:
-                        if base_t not in topics_to_prereg:
+                        if not device_ns and base_t not in topics_to_prereg:
                             topics_to_prereg.append(base_t)
                         for f_ns in IP_TO_NAMESPACE.values():
+                            if f_ns == device_ns:
+                                continue  # NEVER pre-register publishers for the local node's own namespace!
                             f_top = f"/{f_ns}{base_t}"
                             if f_top not in topics_to_prereg:
                                 topics_to_prereg.append(f_top)
                         if is_2d_occupancy_grid_topic(base_t):
                             for m_base in ["/map", "/rtabmap/map"]:
-                                if m_base not in topics_to_prereg:
+                                if not device_ns and m_base not in topics_to_prereg:
                                     topics_to_prereg.append(m_base)
                                 for f_ns in IP_TO_NAMESPACE.values():
+                                    if f_ns == device_ns:
+                                        continue
                                     f_m = f"/{f_ns}{m_base}"
                                     if f_m not in topics_to_prereg:
                                         topics_to_prereg.append(f_m)
                         if is_rtabmap_3d_cloud_topic(base_t):
                             for c_base in ["/rtabmap/cloud_obstacles", "/rtabmap/cloud_map", "/rtabmap/cloud_ground", "/rtabmap/octomap_grid"]:
-                                if c_base not in topics_to_prereg:
+                                if not device_ns and c_base not in topics_to_prereg:
                                     topics_to_prereg.append(c_base)
                                 for f_ns in IP_TO_NAMESPACE.values():
+                                    if f_ns == device_ns:
+                                        continue
                                     f_c = f"/{f_ns}{c_base}"
                                     if f_c not in topics_to_prereg:
                                         topics_to_prereg.append(f_c)
@@ -175,8 +181,14 @@ class ROSPublisherBridge:
                 for sys_topic in topics_to_prereg:
                     if sys_topic not in self.publishers:
                         pub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched else DurabilityPolicy.VOLATILE
+                        if is_2d_occupancy_grid_topic(sys_topic) or is_rtabmap_3d_cloud_topic(sys_topic):
+                            pub_depth = 5
+                        elif is_latched or "tf" in sys_topic:
+                            pub_depth = 100
+                        else:
+                            pub_depth = 10
                         pub_qos = QoSProfile(
-                            depth=100 if (is_latched or "tf" in sys_topic) else 10,
+                            depth=pub_depth,
                             reliability=ReliabilityPolicy.RELIABLE,
                             durability=pub_durability,
                             history=HistoryPolicy.KEEP_LAST
@@ -339,8 +351,14 @@ class ROSPublisherBridge:
             for target_t in targets_to_publish:
                 t_durability = DurabilityPolicy.TRANSIENT_LOCAL if ("static" in target_t or is_latched_topic) else DurabilityPolicy.VOLATILE
                 if target_t not in self.publishers:
+                    if is_2d_occupancy_grid_topic(target_t) or is_rtabmap_3d_cloud_topic(target_t):
+                        pub_depth = 5
+                    elif is_transform or "static" in target_t or is_latched_topic:
+                        pub_depth = 100
+                    else:
+                        pub_depth = 10
                     pub_qos = QoSProfile(
-                        depth=100 if (is_transform or "static" in target_t or is_latched_topic) else 10,
+                        depth=pub_depth,
                         reliability=ReliabilityPolicy.RELIABLE,
                         durability=t_durability,
                         history=HistoryPolicy.KEEP_LAST
@@ -479,7 +497,15 @@ class ROSSubscriberBridge:
                         sub_reliability = ReliabilityPolicy.RELIABLE if (is_transform_sub or is_latched_sub) else ReliabilityPolicy.BEST_EFFORT
                         # For dynamic transform (/tf), keep queue depth lean (depth=10) on the dedicated TF node
                         # so transforms are dispatched in real-time (< 1ms) and can never suffer queue buffer lag.
-                        sub_depth = 100 if is_latched_sub else (10 if is_transform_sub else 30)
+                        # For high-volume 3D clouds and occupancy grid maps, keep depth lean (depth=5) to eliminate RAM exhaustion.
+                        if is_2d_occupancy_grid_topic(target_topic) or is_rtabmap_3d_cloud_topic(target_topic):
+                            sub_depth = 5
+                        elif is_latched_sub:
+                            sub_depth = 100
+                        elif is_transform_sub:
+                            sub_depth = 10
+                        else:
+                            sub_depth = 30
                         sub_qos = QoSProfile(
                             depth=sub_depth,
                             reliability=sub_reliability,
@@ -809,9 +835,13 @@ class MeshNode:
                         # Strict safeguard: Never rebroadcast dynamic transform topics (/tf) from cache to prevent TF_OLD_DATA
                         if any(k in cached_topic for k in ["/tf", "tf"]) and "tf_static" not in cached_topic:
                             continue
+                        # Strict safeguard: Never rebroadcast high-volume 3D point cloud topics from periodic cache to prevent bandwidth saturation
+                        if is_rtabmap_3d_cloud_topic(cached_topic):
+                            continue
                         try:
                             self._mark_payload_republished(c_payload, ttl_sec=4.0)
-                            if self.ros_bridge:
+                            # Only publish cached message into local ROS if it originated from a REMOTE node (never echo local node's own cache)
+                            if self.ros_bridge and c_origin != self.my_ip:
                                 self.ros_bridge.publish_message(cached_topic, c_payload, origin_ip=c_origin)
                             if c_origin == self.my_ip and hasattr(self, 'forward_session') and self.forward_session and self.forward_session.session:
                                 clean_t = cached_topic.lstrip("/")
@@ -917,10 +947,14 @@ class MeshNode:
         """Asynchronously requests RTAB-Map to assemble and publish the 2D occupancy grid map."""
         if not dev_ns or not dev_ns.startswith("ugv_"):
             return
+        # Never trigger publish_map on the local node itself; RTAB-Map publishes continuously on the robot!
+        if hasattr(self, 'my_dev_ns') and self.my_dev_ns == dev_ns:
+            return
         now = time.time()
         if not hasattr(self, '_last_map_poll_time'):
             self._last_map_poll_time = {}
-        if now - self._last_map_poll_time.get(dev_ns, 0) < 3.0:
+        # Cooldown throttle of 60.0s to avoid hammering RTAB-Map and stalling SLAM
+        if now - self._last_map_poll_time.get(dev_ns, 0) < 60.0:
             return
         self._last_map_poll_time[dev_ns] = now
 
@@ -951,10 +985,10 @@ class MeshNode:
                 try:
                     req = PublishMap.Request()
                     req.global_map = True
-                    req.optimized = True
+                    req.optimized = False  # Avoid expensive pose graph optimization that freezes SLAM
                     req.graph_only = False
                     client.call_async(req)
-                    print(f"[RTAB-MAP] Triggered 2D occupancy grid publish via {srv_name}")
+                    print(f"[RTAB-MAP] Triggered 2D occupancy grid publish via {srv_name} (optimized=False)")
                 except Exception:
                     pass
                 break
@@ -1133,22 +1167,17 @@ class MeshNode:
                                         pass
                                     print(f"[DEMAND PAUSED] Undeclared {zenoh_key} (0 External ROS 2 Subscribers)")
 
-                    # Auto-refresh RTAB-Map 2D occupancy grid when external subscribers demand map visualization
+                    # Auto-refresh RTAB-Map 2D occupancy grid when external subscribers demand map visualization on remote GCS
                     if has_map_demand:
                         for d_ns in enabled_namespaces:
-                            if d_ns.startswith("ugv_"):
+                            if d_ns.startswith("ugv_") and d_ns != getattr(self, 'my_dev_ns', None):
                                 self._trigger_rtabmap_publish_map(d_ns)
                                 self._ensure_rtabmap_continuous_map(d_ns)
                     elif map_demand_targets:
                         for d_ns in map_demand_targets:
-                            if d_ns.startswith("ugv_"):
+                            if d_ns.startswith("ugv_") and d_ns != getattr(self, 'my_dev_ns', None):
                                 self._trigger_rtabmap_publish_map(d_ns)
                                 self._ensure_rtabmap_continuous_map(d_ns)
-
-                    # If this node is executing directly on a UGV robot, ensure local RTAB-Map publishes continuously
-                    if hasattr(self, 'my_dev_ns') and self.my_dev_ns and self.my_dev_ns.startswith("ugv_"):
-                        self._trigger_rtabmap_publish_map(self.my_dev_ns)
-                        self._ensure_rtabmap_continuous_map(self.my_dev_ns)
             except Exception:
                 pass
             time.sleep(1.0)
@@ -1372,13 +1401,6 @@ class MeshNode:
             is_cacheable_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic)
             if is_cacheable_latched:
                 self.latched_payload_cache[egress_topic] = (payload_bytes, self.my_ip)
-
-            # Local mirroring for 2D occupancy grid maps:
-            # If this machine produces a 2D map (e.g. /ugv_02/rtabmap/map), also mirror it onto
-            # local /ugv_02/map and /map so that local ROS subscribers on this robot have the map available.
-            if is_2d_occupancy_grid_topic(ros_topic) and self.ros_bridge:
-                self.ros_bridge.publish_message(ros_topic, payload_bytes, origin_ip=self.my_ip)
-
             is_demand_exempt = is_cacheable_latched or any(k in ros_topic for k in ["tf", "clock", "rosout", "parameter_events"])
             if not is_demand_exempt and hasattr(self.forwarding, "has_subscribers") and not self.forwarding.has_subscribers(egress_topic):
                 print(f"[DEMAND] {mesh_sample.key} (0 Remote Subscribers — Egress Skipped)")
