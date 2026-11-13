@@ -33,7 +33,7 @@ from scheduler.bandwidth_scheduler import BandwidthScheduler
 from scheduler.admission_controller import AdmissionController
 from scheduler.congestion_controller import CongestionController
 
-from ros.topic_database import TopicRegistry, is_2d_occupancy_grid_topic
+from ros.topic_database import TopicRegistry, is_2d_occupancy_grid_topic, is_rtabmap_3d_cloud_topic
 from utils.config_manager import ConfigManager
 from utils.scheduler_logger import SchedulerLogger
 from monitoring.bandwidth_monitor import RealtimeBandwidthMonitor
@@ -131,7 +131,7 @@ class ROSPublisherBridge:
                     self.topic_types[f"/{fleet_ns}{base_t}"] = msg_class
 
                 is_sys = registry.is_system_topic(topic_name)
-                is_latched = any(k in topic_name for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(topic_name)
+                is_latched = any(k in topic_name for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(topic_name) or is_rtabmap_3d_cloud_topic(topic_name)
                 
                 topics_to_prereg = []
                 base_t = topic_name if topic_name.startswith("/") else "/" + topic_name
@@ -145,7 +145,7 @@ class ROSPublisherBridge:
                     else:
                         topics_to_prereg.append(base_t)
 
-                    # For latched state topics (e.g. 2D maps, robot_description, tf_static),
+                    # For latched state topics (e.g. 2D maps, RTAB-Map 3D clouds, robot_description, tf_static),
                     # pre-register publishers across ALL known fleet entities with TRANSIENT_LOCAL durability.
                     # This ensures late-joining subscribers (e.g. RViz2 on GCS) immediately discover the topics.
                     if is_latched:
@@ -163,6 +163,14 @@ class ROSPublisherBridge:
                                     f_m = f"/{f_ns}{m_base}"
                                     if f_m not in topics_to_prereg:
                                         topics_to_prereg.append(f_m)
+                        if is_rtabmap_3d_cloud_topic(base_t):
+                            for c_base in ["/rtabmap/cloud_obstacles", "/rtabmap/cloud_map", "/rtabmap/cloud_ground", "/rtabmap/octomap_grid"]:
+                                if c_base not in topics_to_prereg:
+                                    topics_to_prereg.append(c_base)
+                                for f_ns in IP_TO_NAMESPACE.values():
+                                    f_c = f"/{f_ns}{c_base}"
+                                    if f_c not in topics_to_prereg:
+                                        topics_to_prereg.append(f_c)
 
                 for sys_topic in topics_to_prereg:
                     if sys_topic not in self.publishers:
@@ -223,6 +231,11 @@ class ROSPublisherBridge:
             if not msg_class:
                 if is_2d_occupancy_grid_topic(ros_topic):
                     msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+                elif is_rtabmap_3d_cloud_topic(ros_topic):
+                    if "octomap" in ros_topic:
+                        msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+                    else:
+                        msg_class = get_message_class("sensor_msgs/msg/PointCloud2")
                 elif "tf" in ros_topic:
                     msg_class = get_message_class("tf2_msgs/msg/TFMessage")
                 else:
@@ -258,7 +271,7 @@ class ROSPublisherBridge:
                 if ros_topic in SYSTEM_NAMES or any(ros_topic.endswith(st) for st in SYSTEM_NAMES):
                     is_sys = True
 
-            is_latched_topic = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic)
+            is_latched_topic = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic)
             from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
             targets_to_publish = []
@@ -298,10 +311,13 @@ class ROSPublisherBridge:
                     ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
                 targets_to_publish.append(ns_topic)
 
-                # For 2D occupancy grid maps, mirror across both /map and /rtabmap/map (plus device namespaces)
-                if is_2d_occupancy_grid_topic(ros_topic):
+                # For 2D occupancy grid maps and RTAB-Map 3D cloud maps:
+                # Refresh header.stamp to current clock time so RViz2's MessageFilter
+                # never drops the map/cloud due to 'timestamp earlier than all data in transform cache'
+                if is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic):
                     if hasattr(msg, 'header') and hasattr(self, 'node') and self.node:
                         msg.header.stamp = self.node.get_clock().now().to_msg()
+                if is_2d_occupancy_grid_topic(ros_topic):
                     for m_cand in ["/map", "/rtabmap/map"]:
                         if m_cand not in targets_to_publish:
                             targets_to_publish.append(m_cand)
@@ -312,9 +328,10 @@ class ROSPublisherBridge:
             else:
                 ns_topic = ros_topic if ros_topic.startswith("/") else "/" + ros_topic
                 targets_to_publish.append(ns_topic)
-                if is_2d_occupancy_grid_topic(ros_topic):
+                if is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic):
                     if hasattr(msg, 'header') and hasattr(self, 'node') and self.node:
                         msg.header.stamp = self.node.get_clock().now().to_msg()
+                if is_2d_occupancy_grid_topic(ros_topic):
                     for m_cand in ["/map", "/rtabmap/map"]:
                         if m_cand not in targets_to_publish:
                             targets_to_publish.append(m_cand)
@@ -444,10 +461,20 @@ class ROSSubscriberBridge:
                                 if ns_m_alt not in targets_to_sub:
                                     targets_to_sub.append(ns_m_alt)
 
+                    # For RTAB-Map 3D cloud topics, subscribe to base and device-namespaced variants
+                    if is_rtabmap_3d_cloud_topic(base_t):
+                        for c_alt in ["/rtabmap/cloud_obstacles", "/rtabmap/cloud_map", "/rtabmap/cloud_ground", "/rtabmap/octomap_grid"]:
+                            if c_alt not in targets_to_sub:
+                                targets_to_sub.append(c_alt)
+                            if device_ns:
+                                ns_c_alt = f"/{device_ns}{c_alt}"
+                                if ns_c_alt not in targets_to_sub:
+                                    targets_to_sub.append(ns_c_alt)
+
                 for target_topic in targets_to_sub:
                     if target_topic not in self.subscribers:
                         is_transform_sub = target_topic == "/tf" or target_topic == "/tf_static" or target_topic.endswith("/tf") or target_topic.endswith("/tf_static")
-                        is_latched_sub = any(k in target_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(target_topic)
+                        is_latched_sub = any(k in target_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(target_topic) or is_rtabmap_3d_cloud_topic(target_topic)
                         sub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_sub else DurabilityPolicy.VOLATILE
                         sub_reliability = ReliabilityPolicy.RELIABLE if (is_transform_sub or is_latched_sub) else ReliabilityPolicy.BEST_EFFORT
                         # For dynamic transform (/tf), keep queue depth lean (depth=10) on the dedicated TF node
@@ -637,7 +664,12 @@ class MeshNode:
         self.active_demand_subs = {}
 
         # Pre-declare permanent Zenoh subscriptions for system transform infrastructure (/tf, /tf_static) and latched state topics at startup
-        latched_keys_to_sub = ["filtered/55/tf", "filtered/55/tf_static", "filtered/55/robot_description", "filtered/55/map", "filtered/55/map_metadata", "filtered/55/rtabmap/map"]
+        latched_keys_to_sub = [
+            "filtered/55/tf", "filtered/55/tf_static", "filtered/55/robot_description",
+            "filtered/55/map", "filtered/55/map_metadata", "filtered/55/rtabmap/map",
+            "filtered/55/rtabmap/cloud_obstacles", "filtered/55/rtabmap/cloud_map",
+            "filtered/55/rtabmap/cloud_ground", "filtered/55/rtabmap/octomap_grid"
+        ]
         for dev_ns in IP_TO_NAMESPACE.values():
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf_static")
@@ -645,7 +677,9 @@ class MeshNode:
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/map_metadata")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/map")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/cloud_obstacles")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/cloud_map")
+            latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/cloud_ground")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/rtabmap/octomap_grid")
 
         for zk in latched_keys_to_sub:
@@ -1032,6 +1066,14 @@ class MeshNode:
                                     ns_map = f"/{dev_ns}/map"
                                     if ns_map not in target_topics:
                                         target_topics.append(ns_map)
+                            if is_rtabmap_3d_cloud_topic(b_clean):
+                                for c_base in ["/rtabmap/cloud_obstacles", "/rtabmap/cloud_map", "/rtabmap/cloud_ground", "/rtabmap/octomap_grid"]:
+                                    if c_base not in target_topics:
+                                        target_topics.append(c_base)
+                                    for dev_ns in enabled_namespaces:
+                                        ns_c = f"/{dev_ns}{c_base}"
+                                        if ns_c not in target_topics:
+                                            target_topics.append(ns_c)
 
                         for ns_topic in target_topics:
                             # Extract target device namespace if topic targets another fleet entity
@@ -1076,13 +1118,13 @@ class MeshNode:
                                     zenoh_sub = self.peer.subscribe(zenoh_key, self.callback)
                                     self.active_demand_subs[zenoh_key] = zenoh_sub
                                     print(f"[DEMAND ACTIVE] Subscribed to {zenoh_key} (External ROS 2 Subs: {[s.node_name for s in external_subs]})")
-                                if is_2d_occupancy_grid_topic(ns_topic):
+                                if is_2d_occupancy_grid_topic(ns_topic) or is_rtabmap_3d_cloud_topic(ns_topic):
                                     if target_dev_ns:
                                         map_demand_targets.add(target_dev_ns)
                                     else:
                                         has_map_demand = True
                             else:
-                                is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "tf", "map_metadata"]) or is_2d_occupancy_grid_topic(zenoh_key)
+                                is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "tf", "map_metadata"]) or is_2d_occupancy_grid_topic(zenoh_key) or is_rtabmap_3d_cloud_topic(zenoh_key)
                                 if not is_latched and zenoh_key in self.active_demand_subs:
                                     zenoh_sub = self.active_demand_subs.pop(zenoh_key)
                                     try:
@@ -1209,7 +1251,7 @@ class MeshNode:
             ros_topic = self.mapper.zenoh_to_ros(key_str)
             if ros_topic:
                 self.bw_monitor.record_rx_sample(ros_topic, len(raw_payload), seq_num)
-                is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic)
+                is_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic)
                 if is_latched:
                     self.latched_payload_cache[ros_topic] = (raw_payload, origin_ip)
 
@@ -1327,7 +1369,7 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            is_cacheable_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic)
+            is_cacheable_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic)
             if is_cacheable_latched:
                 self.latched_payload_cache[egress_topic] = (payload_bytes, self.my_ip)
 

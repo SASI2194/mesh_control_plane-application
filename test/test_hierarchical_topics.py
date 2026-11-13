@@ -98,6 +98,31 @@ class TestHierarchicalTopics(unittest.TestCase):
         self.assertEqual(t_tf["verification"], "FULL DATA 100%")
         self.assertEqual(t_tf["active_streams_count"], 1)
 
+    def test_rtabmap_3d_cloud_topic_classification(self):
+        from ros.topic_database import is_rtabmap_3d_cloud_topic, is_2d_occupancy_grid_topic
+
+        # RTAB-Map 3D cloud topics (must be True)
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/rtabmap/cloud_obstacles"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/ugv_02/rtabmap/cloud_obstacles"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("filtered/55/ugv_02/rtabmap/cloud_obstacles"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/rtabmap/cloud_map"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/ugv_02/rtabmap/cloud_map"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/ugv_02/rtabmap/cloud_ground"))
+        self.assertTrue(is_rtabmap_3d_cloud_topic("/ugv_02/rtabmap/octomap_grid"))
+
+        # Exclusions (must be False)
+        self.assertFalse(is_rtabmap_3d_cloud_topic("/ugv_02/compressed/cloud_obstacles"))
+        self.assertFalse(is_rtabmap_3d_cloud_topic("/ugv_02/rtabmap/map"))
+        self.assertFalse(is_rtabmap_3d_cloud_topic("/map"))
+        self.assertFalse(is_rtabmap_3d_cloud_topic("/ugv_02/scan_2d"))
+
+        # 2D occupancy grid topics
+        self.assertTrue(is_2d_occupancy_grid_topic("/map"))
+        self.assertTrue(is_2d_occupancy_grid_topic("/ugv_02/map"))
+        self.assertTrue(is_2d_occupancy_grid_topic("/rtabmap/map"))
+        self.assertTrue(is_2d_occupancy_grid_topic("/ugv_02/rtabmap/map"))
+        self.assertFalse(is_2d_occupancy_grid_topic("/ugv_02/rtabmap/cloud_obstacles"))
+
 
 if __name__ == "__main__":
     unittest.main()

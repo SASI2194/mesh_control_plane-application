@@ -40,6 +40,23 @@ def is_2d_occupancy_grid_topic(topic: str) -> bool:
     return clean in ["/map", "/rtabmap/map"] or clean.endswith("/rtabmap/map") or clean.endswith("/map")
 
 
+def is_rtabmap_3d_cloud_topic(topic: str) -> bool:
+    """
+    Checks if a topic or Zenoh key is an RTAB-Map 3D point cloud or octomap topic
+    (e.g., /rtabmap/cloud_obstacles, /rtabmap/cloud_map, /rtabmap/cloud_ground,
+    /rtabmap/octomap_grid, or namespaced variants like /ugv_02/rtabmap/cloud_obstacles,
+    filtered/55/ugv_02/rtabmap/cloud_obstacles).
+    Excludes compressed representations (/compressed/cloud_obstacles).
+    These topics publish with TRANSIENT_LOCAL durability and RELIABLE reliability.
+    """
+    if not topic:
+        return False
+    clean = topic.strip().lower()
+    if "compressed" in clean:
+        return False
+    return any(k in clean for k in ["cloud_obstacles", "cloud_map", "cloud_ground", "octomap"])
+
+
 class TopicRegistry:
 
     def __init__(self, filename="config/topics.yaml", extra_files=None):

@@ -24,6 +24,12 @@ priority_topics:
     priority: 1
     status: ALLOW
 
+  - id: 222
+    name: /rtabmap/cloud_ground
+    type: sensor_msgs/msg/PointCloud2
+    priority: 1
+    status: ALLOW
+
   - id: 205
     name: /rtabmap/global_path
     type: nav_msgs/msg/Path
