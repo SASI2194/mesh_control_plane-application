@@ -23,6 +23,7 @@ wheels/
 # Logs
 logs/*.log
 logs/*.csv
+*.log
 
 # Environments
 .env

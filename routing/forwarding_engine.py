@@ -19,7 +19,7 @@ Responsibility:
 """
 
 from core.network_models import MeshSample
-from ros.topic_database import is_2d_occupancy_grid_topic
+from ros.topic_database import is_2d_occupancy_grid_topic, is_rtabmap_3d_cloud_topic
 
 
 class ForwardingEngine:
@@ -89,6 +89,16 @@ class ForwardingEngine:
                     for m_key in ["filtered/55/map", "filtered/55/rtabmap/map"]:
                         if m_key not in keys:
                             keys.append(m_key)
+                elif is_rtabmap_3d_cloud_topic(k):
+                    for c_base in ["cloud_obstacles", "cloud_map", "cloud_ground", "octomap_grid"]:
+                        if c_base in k:
+                            glob_c = f"filtered/55/rtabmap/{c_base}"
+                            if glob_c not in keys:
+                                keys.append(glob_c)
+                            if self.device_ns:
+                                ns_c = f"filtered/55/{self.device_ns}/rtabmap/{c_base}"
+                                if ns_c not in keys:
+                                    keys.append(ns_c)
             for key in keys:
                 if self.session.has_matching_subscribers(key):
                     return True
@@ -125,7 +135,7 @@ class ForwardingEngine:
 
         # Collect all Zenoh keys to attempt publishing (namespaced + global)
         all_candidate_keys = self._all_keys_for(sample.key)
-        # Also add tf-specific and map-specific global mirrors
+        # Also add tf-specific, map-specific, and 3D cloud-specific global mirrors
         for cand_key in list(all_candidate_keys):
             if "tf_static" in cand_key and "filtered/55/tf_static" not in all_candidate_keys:
                 all_candidate_keys.append("filtered/55/tf_static")
@@ -143,6 +153,16 @@ class ForwardingEngine:
                         all_candidate_keys.append(ns_map)
                     if ns_rtab_map not in all_candidate_keys:
                         all_candidate_keys.append(ns_rtab_map)
+            elif is_rtabmap_3d_cloud_topic(cand_key):
+                for c_base in ["cloud_obstacles", "cloud_map", "cloud_ground", "octomap_grid"]:
+                    if c_base in cand_key:
+                        glob_c = f"filtered/55/rtabmap/{c_base}"
+                        if glob_c not in all_candidate_keys:
+                            all_candidate_keys.append(glob_c)
+                        if self.device_ns:
+                            ns_c = f"filtered/55/{self.device_ns}/rtabmap/{c_base}"
+                            if ns_c not in all_candidate_keys:
+                                all_candidate_keys.append(ns_c)
 
         if not is_exempt and hasattr(self.session, "has_matching_subscribers"):
             # Determine which candidate keys actually have remote subscribers
@@ -151,8 +171,17 @@ class ForwardingEngine:
                 self.dropped_packets += 1
                 self.dropped_bytes += len(sample.payload)
                 return
-            # Only publish to keys that have live subscribers
-            keys_to_publish = keys_with_subs
+            # Only publish to keys that have live subscribers.
+            # Never duplicate high-bandwidth 3D cloud payloads across multiple keys:
+            # if device-namespaced key has subscribers, publish strictly to device-namespaced key.
+            if is_rtabmap_3d_cloud_topic(sample.key):
+                ns_keys = [k for k in keys_with_subs if self.device_ns and f"/{self.device_ns}/" in k]
+                if ns_keys:
+                    keys_to_publish = ns_keys
+                else:
+                    keys_to_publish = keys_with_subs[:1]
+            else:
+                keys_to_publish = keys_with_subs
         else:
             keys_to_publish = all_candidate_keys
 

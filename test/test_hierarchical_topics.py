@@ -123,6 +123,47 @@ class TestHierarchicalTopics(unittest.TestCase):
         self.assertTrue(is_2d_occupancy_grid_topic("/ugv_02/rtabmap/map"))
         self.assertFalse(is_2d_occupancy_grid_topic("/ugv_02/rtabmap/cloud_obstacles"))
 
+    def test_forwarding_engine_3d_cloud_deduplication(self):
+        from routing.forwarding_engine import ForwardingEngine
+        from core.network_models import MeshSample
+
+        class DummySession:
+            def __init__(self, subscribed_keys):
+                self.subscribed_keys = set(subscribed_keys)
+                self.published_keys = []
+            def has_matching_subscribers(self, key):
+                return key in self.subscribed_keys
+            def publish(self, key, payload):
+                self.published_keys.append(key)
+
+        sample = MeshSample(
+            key="/ugv_02/rtabmap/cloud_obstacles",
+            payload=b"test_payload",
+            allowed=True,
+            priority=1,
+            sequence_number=1,
+            origin_ip="192.168.3.66"
+        )
+
+        # 1. When both namespaced and global keys have matching subscribers,
+        # verify deduplication: publishes strictly to device-namespaced key.
+        session = DummySession(["filtered/55/ugv_02/rtabmap/cloud_obstacles", "filtered/55/rtabmap/cloud_obstacles"])
+        engine = ForwardingEngine(session, device_ns="ugv_02")
+        engine.forward(sample)
+        self.assertEqual(session.published_keys, ["filtered/55/ugv_02/rtabmap/cloud_obstacles"])
+
+        # 2. When only the global key has subscribers, falls back to single global key.
+        session2 = DummySession(["filtered/55/rtabmap/cloud_obstacles"])
+        engine2 = ForwardingEngine(session2, device_ns="ugv_02")
+        engine2.forward(sample)
+        self.assertEqual(session2.published_keys, ["filtered/55/rtabmap/cloud_obstacles"])
+
+        # 3. When 0 remote subscribers exist, skips egress completely (Rule 8 demand filtering).
+        session3 = DummySession([])
+        engine3 = ForwardingEngine(session3, device_ns="ugv_02")
+        engine3.forward(sample)
+        self.assertEqual(session3.published_keys, [])
+
 
 if __name__ == "__main__":
     unittest.main()
