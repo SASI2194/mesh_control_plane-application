@@ -193,9 +193,17 @@ class ROSPublisherBridge:
                             durability=pub_durability,
                             history=HistoryPolicy.KEEP_LAST
                         )
-                        pub = self.node.create_publisher(msg_class, sys_topic, pub_qos)
+                        target_msg_class = msg_class
+                        if is_rtabmap_3d_cloud_topic(sys_topic):
+                            if "octomap" in sys_topic:
+                                target_msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+                            else:
+                                target_msg_class = get_message_class("sensor_msgs/msg/PointCloud2")
+                        elif is_2d_occupancy_grid_topic(sys_topic):
+                            target_msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+                        pub = self.node.create_publisher(target_msg_class, sys_topic, pub_qos)
                         self.publishers[sys_topic] = pub
-                        self.topic_types[sys_topic] = msg_class
+                        self.topic_types[sys_topic] = target_msg_class
 
             from rclpy.executors import MultiThreadedExecutor
             self.executor = MultiThreadedExecutor(num_threads=4)
@@ -324,11 +332,12 @@ class ROSPublisherBridge:
                 targets_to_publish.append(ns_topic)
 
                 # For 2D occupancy grid maps and RTAB-Map 3D cloud maps:
-                # Refresh header.stamp to current clock time so RViz2's MessageFilter
-                # never drops the map/cloud due to 'timestamp earlier than all data in transform cache'
+                # Only set header.stamp to local clock time if it was uninitialized (sec == 0)
+                # to preserve exact timestamp synchronization with the robot's TF transforms.
                 if is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic):
                     if hasattr(msg, 'header') and hasattr(self, 'node') and self.node:
-                        msg.header.stamp = self.node.get_clock().now().to_msg()
+                        if getattr(msg.header.stamp, 'sec', 0) == 0:
+                            msg.header.stamp = self.node.get_clock().now().to_msg()
                 if is_2d_occupancy_grid_topic(ros_topic):
                     for m_cand in ["/map", "/rtabmap/map"]:
                         if m_cand not in targets_to_publish:
@@ -342,7 +351,8 @@ class ROSPublisherBridge:
                 targets_to_publish.append(ns_topic)
                 if is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic):
                     if hasattr(msg, 'header') and hasattr(self, 'node') and self.node:
-                        msg.header.stamp = self.node.get_clock().now().to_msg()
+                        if getattr(msg.header.stamp, 'sec', 0) == 0:
+                            msg.header.stamp = self.node.get_clock().now().to_msg()
                 if is_2d_occupancy_grid_topic(ros_topic):
                     for m_cand in ["/map", "/rtabmap/map"]:
                         if m_cand not in targets_to_publish:
@@ -398,6 +408,8 @@ class ROSSubscriberBridge:
 
     def __init__(self, registry, on_ros_msg_cb, node=None, device_ns=None):
         self.subscribers = {}
+        self.registry = registry
+        self.device_ns = device_ns
         self.on_ros_msg_cb = on_ros_msg_cb
         self.node = node
         try:
@@ -414,8 +426,6 @@ class ROSSubscriberBridge:
                 from rclpy.executors import MultiThreadedExecutor
                 self.executor = MultiThreadedExecutor(num_threads=4)
                 self.executor.add_node(self.node)
-                self.thread = Thread(target=self._spin_loop, daemon=True)
-                self.thread.start()
 
             # Dedicated high-priority node and executor strictly for system transforms (/tf, /tf_static)
             # to prevent queue buildup and GIL contention behind heavy sensor topics (PointCloud2, Image).
@@ -426,8 +436,13 @@ class ROSSubscriberBridge:
             self.tf_node = rclpy.create_node(tf_node_name)
             self.tf_executor = SingleThreadedExecutor()
             self.tf_executor.add_node(self.tf_node)
-            self.tf_thread = Thread(target=self._tf_spin_loop, daemon=True)
-            self.tf_thread.start()
+
+            # Dedicated isolated node and executor strictly for RTAB-Map 2D/3D maps, obstacle clouds, and latched state topics
+            # so low-frequency TRANSIENT_LOCAL SLAM updates are never starved behind 300+ Mbps camera/LiDAR callbacks.
+            map_node_name = f"mesh_control_plane_map_transmitter_{device_ns}" if device_ns else "mesh_control_plane_map_transmitter"
+            self.map_node = rclpy.create_node(map_node_name)
+            self.map_executor = SingleThreadedExecutor()
+            self.map_executor.add_node(self.map_node)
 
             sensor_sub_qos = QoSProfile(
                 depth=30,
@@ -512,15 +527,52 @@ class ROSSubscriberBridge:
                             durability=sub_durability,
                             history=HistoryPolicy.KEEP_LAST
                         )
-                        sub_node = self.tf_node if (is_transform_sub and hasattr(self, 'tf_node') and self.tf_node) else self.node
-                        sub = sub_node.create_subscription(
-                            msg_class,
-                            target_topic,
-                            make_cb(target_topic),
-                            sub_qos
-                        )
+                        if is_transform_sub and hasattr(self, 'tf_node') and self.tf_node:
+                            sub_node = self.tf_node
+                        elif is_latched_sub and hasattr(self, 'map_node') and self.map_node:
+                            sub_node = self.map_node
+                        else:
+                            sub_node = self.node
+
+                        # Resolve exact message class for each alt target (e.g. octomap_grid is OccupancyGrid, clouds are PointCloud2)
+                        target_msg_class = msg_class
+                        if is_rtabmap_3d_cloud_topic(target_topic):
+                            if "octomap" in target_topic:
+                                target_msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+                            else:
+                                target_msg_class = get_message_class("sensor_msgs/msg/PointCloud2")
+                        elif is_2d_occupancy_grid_topic(target_topic):
+                            target_msg_class = get_message_class("nav_msgs/msg/OccupancyGrid")
+
+                        try:
+                            sub = sub_node.create_subscription(
+                                target_msg_class,
+                                target_topic,
+                                make_cb(target_topic),
+                                sub_qos,
+                                raw=True
+                            )
+                        except TypeError:
+                            sub = sub_node.create_subscription(
+                                target_msg_class,
+                                target_topic,
+                                make_cb(target_topic),
+                                sub_qos
+                            )
                         self.subscribers[target_topic] = sub
-            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Capturing base + /{device_ns}/... sensor topics)")
+
+            # Start all executor spin threads AFTER all subscriptions are registered to avoid rclpy waitset race conditions
+            if hasattr(self, 'executor') and self.executor:
+                self.thread = Thread(target=self._spin_loop, daemon=True)
+                self.thread.start()
+            if hasattr(self, 'tf_executor') and self.tf_executor:
+                self.tf_thread = Thread(target=self._tf_spin_loop, daemon=True)
+                self.tf_thread.start()
+            if hasattr(self, 'map_executor') and self.map_executor:
+                self.map_thread = Thread(target=self._map_spin_loop, daemon=True)
+                self.map_thread.start()
+
+            print(f"[INFO] ROS 2 Native Subscriber Bridge active (Dedicated TF & Map/3D-Cloud nodes, zero-copy raw capture for base + /{device_ns}/...)")
         except Exception as e:
             print(f"[WARNING] ROS 2 Native Subscriber Bridge initialization warning: {e}")
 
@@ -544,12 +596,76 @@ class ROSSubscriberBridge:
         except Exception:
             pass
 
+    def _map_spin_loop(self):
+        try:
+            if hasattr(self, 'map_executor') and self.map_executor:
+                self.map_executor.spin()
+            elif hasattr(self, 'map_node') and self.map_node:
+                import rclpy
+                rclpy.spin(self.map_node)
+        except Exception:
+            pass
+
     def _handle_ros_message(self, topic_name, msg):
         try:
-            payload_bytes = self.serialize_message(msg)
+            payload_bytes = bytes(msg) if isinstance(msg, (bytes, bytearray, memoryview)) else self.serialize_message(msg)
             self.on_ros_msg_cb(topic_name, payload_bytes)
         except Exception as ex:
             print(f"[CAPTURE ERROR] Failed to capture {topic_name}: {ex}")
+
+    def refresh_subscriber(self, target_topic: str):
+        """Momentarily destroys and recreates the subscriber to stimulate ROS 2 TRANSIENT_LOCAL publishers (like RTAB-Map MapsManager) to reset their latched state and re-emit data."""
+        if not self.node or target_topic not in self.subscribers:
+            return
+        if not hasattr(self, '_refreshing_topics'):
+            self._refreshing_topics = set()
+        if target_topic in self._refreshing_topics:
+            return
+        self._refreshing_topics.add(target_topic)
+
+        sub = self.subscribers.pop(target_topic, None)
+        if sub:
+            try:
+                self.node.destroy_subscription(sub)
+            except Exception:
+                pass
+
+        def _recreate():
+            time.sleep(0.25)
+            try:
+                if not self.node:
+                    return
+                from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+                is_transform_sub = target_topic in ("/tf", "/tf_static") or target_topic.endswith("/tf") or target_topic.endswith("/tf_static")
+                is_latched_sub = any(k in target_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(target_topic) or is_rtabmap_3d_cloud_topic(target_topic)
+                sub_durability = DurabilityPolicy.TRANSIENT_LOCAL if is_latched_sub else DurabilityPolicy.VOLATILE
+                sub_reliability = ReliabilityPolicy.RELIABLE if (is_transform_sub or is_latched_sub) else ReliabilityPolicy.BEST_EFFORT
+                sub_depth = 5 if (is_2d_occupancy_grid_topic(target_topic) or is_rtabmap_3d_cloud_topic(target_topic)) else 30
+                sub_qos = QoSProfile(depth=sub_depth, reliability=sub_reliability, durability=sub_durability, history=HistoryPolicy.KEEP_LAST)
+                sub_node = self.tf_node if (is_transform_sub and hasattr(self, 'tf_node') and self.tf_node) else self.node
+
+                type_str = "sensor_msgs/msg/PointCloud2" if is_rtabmap_3d_cloud_topic(target_topic) else "std_msgs/msg/String"
+                if hasattr(self, 'registry') and self.registry:
+                    for t_name, t_info in self.registry.all_topics().items():
+                        if target_topic == t_name or target_topic.endswith(t_name):
+                            type_str = t_info.get("type", type_str)
+                            break
+                msg_class = get_message_class(type_str)
+                new_sub = sub_node.create_subscription(
+                    msg_class,
+                    target_topic,
+                    lambda msg: self._handle_ros_message(target_topic, msg),
+                    sub_qos
+                )
+                self.subscribers[target_topic] = new_sub
+            except Exception:
+                pass
+            finally:
+                if hasattr(self, '_refreshing_topics'):
+                    self._refreshing_topics.discard(target_topic)
+
+        Thread(target=_recreate, daemon=True).start()
+
 
 
 class MeshNode:
@@ -683,20 +799,27 @@ class MeshNode:
         )
 
         self.receiver.start()
-        self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=None, device_ns=my_dev_ns)
 
         # In-memory payload cache for latched state topics (/tf_static, /robot_description, etc.)
         self.latched_payload_cache = {}
         self.active_demand_subs = {}
 
+        self.ros_sub_bridge = ROSSubscriberBridge(self.registry, self.on_local_ros_message, node=None, device_ns=my_dev_ns)
+
         # Pre-declare permanent Zenoh subscriptions for system transform infrastructure (/tf, /tf_static) and latched state topics at startup
         latched_keys_to_sub = [
             "filtered/55/tf", "filtered/55/tf_static", "filtered/55/robot_description",
             "filtered/55/map", "filtered/55/map_metadata", "filtered/55/rtabmap/map",
-            "filtered/55/rtabmap/cloud_obstacles", "filtered/55/rtabmap/cloud_map",
-            "filtered/55/rtabmap/cloud_ground", "filtered/55/rtabmap/octomap_grid"
         ]
+        # Only subscribe to global unnamespaced 3D cloud keys on non-UGV stations (e.g. GCS) so UGVs never self-match their own Zenoh publishers
+        if not my_dev_ns or not my_dev_ns.startswith("ugv_"):
+            latched_keys_to_sub.extend([
+                "filtered/55/rtabmap/cloud_obstacles", "filtered/55/rtabmap/cloud_map",
+                "filtered/55/rtabmap/cloud_ground", "filtered/55/rtabmap/octomap_grid"
+            ])
         for dev_ns in IP_TO_NAMESPACE.values():
+            if my_dev_ns and dev_ns == my_dev_ns:
+                continue  # NEVER pre-subscribe to own device namespace on Zenoh (prevents false matching_status & echo)
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/tf_static")
             latched_keys_to_sub.append(f"filtered/55/{dev_ns}/robot_description")
@@ -861,6 +984,11 @@ class MeshNode:
                                     self.forward_session.session.put("filtered/55/map", packed_c)
                                     self.forward_session.session.put(f"filtered/55/{dev_prefix}/rtabmap/map", packed_c)
                                     self.forward_session.session.put("filtered/55/rtabmap/map", packed_c)
+                                if is_rtabmap_3d_cloud_topic(clean_t):
+                                    for c_base in ["cloud_obstacles", "cloud_map", "cloud_ground", "octomap_grid"]:
+                                        if c_base in clean_t:
+                                            self.forward_session.session.put(f"filtered/55/{dev_prefix}/rtabmap/{c_base}", packed_c)
+                                            self.forward_session.session.put(f"filtered/55/rtabmap/{c_base}", packed_c)
                         except Exception:
                             pass
             except Exception:
@@ -944,19 +1072,19 @@ class MeshNode:
         return False
 
     def _trigger_rtabmap_publish_map(self, dev_ns: str):
-        """Asynchronously requests RTAB-Map to assemble and publish the 2D occupancy grid map."""
+        """Asynchronously requests RTAB-Map to assemble and publish the 2D occupancy grid map upon initial demand."""
         if not dev_ns or not dev_ns.startswith("ugv_"):
             return
         # Never trigger publish_map on the local node itself; RTAB-Map publishes continuously on the robot!
         if hasattr(self, 'my_dev_ns') and self.my_dev_ns == dev_ns:
             return
-        now = time.time()
-        if not hasattr(self, '_last_map_poll_time'):
-            self._last_map_poll_time = {}
-        # Cooldown throttle of 8.0s to avoid hammering RTAB-Map while ensuring continuous cloud map and obstacle refresh
-        if now - self._last_map_poll_time.get(dev_ns, 0) < 8.0:
+
+        # Trigger ONLY ONCE per device namespace on initial demand, eliminating periodic 8-second map shaking / smearing!
+        if not hasattr(self, '_map_publish_triggered'):
+            self._map_publish_triggered = set()
+        if dev_ns in self._map_publish_triggered:
             return
-        self._last_map_poll_time[dev_ns] = now
+        self._map_publish_triggered.add(dev_ns)
 
         if not hasattr(self, '_rtabmap_srv_clients'):
             self._rtabmap_srv_clients = {}
@@ -985,10 +1113,10 @@ class MeshNode:
                 try:
                     req = PublishMap.Request()
                     req.global_map = True
-                    req.optimized = False  # Avoid expensive pose graph optimization that freezes SLAM
+                    req.optimized = True  # MUST be True: optimized pose graph matches live TF tree without smearing/shake
                     req.graph_only = False
                     client.call_async(req)
-                    print(f"[RTAB-MAP] Triggered 2D occupancy grid publish via {srv_name} (optimized=False)")
+                    print(f"[RTAB-MAP] Initial 2D occupancy grid requested via {srv_name} (optimized=True)")
                 except Exception:
                     pass
                 break
@@ -1157,7 +1285,25 @@ class MeshNode:
                                         map_demand_targets.add(target_dev_ns)
                                     else:
                                         has_map_demand = True
+                                if is_rtabmap_3d_cloud_topic(ns_topic) and target_dev_ns and target_dev_ns != getattr(self, 'my_dev_ns', None):
+                                    if not hasattr(self, '_last_cloud_sub_counts'):
+                                        self._last_cloud_sub_counts = {}
+                                    if not hasattr(self, '_last_latched_sync_req_time'):
+                                        self._last_latched_sync_req_time = {}
+                                    prev_cnt = self._last_cloud_sub_counts.get(ns_topic, 0)
+                                    self._last_cloud_sub_counts[ns_topic] = sub_count
+                                    missing_cache = ns_topic not in getattr(self, 'latched_payload_cache', {})
+                                    now_req = time.time()
+                                    if (missing_cache or sub_count > prev_cnt) and (now_req - self._last_latched_sync_req_time.get(target_dev_ns, 0.0) >= 3.0):
+                                        self._last_latched_sync_req_time[target_dev_ns] = now_req
+                                        try:
+                                            self.forward_session.session.put(f"filtered/_mesh_latched_sync/{target_dev_ns}", b"sync")
+                                            print(f"[LATCHED SYNC REQ] Requested cached 3D cloud from {target_dev_ns} for {ns_topic}")
+                                        except Exception:
+                                            pass
                             else:
+                                if is_rtabmap_3d_cloud_topic(ns_topic) and hasattr(self, '_last_cloud_sub_counts'):
+                                    self._last_cloud_sub_counts[ns_topic] = 0
                                 is_latched = any(k in zenoh_key for k in ["robot_description", "tf_static", "tf", "map_metadata"]) or is_2d_occupancy_grid_topic(zenoh_key) or is_rtabmap_3d_cloud_topic(zenoh_key)
                                 if not is_latched and zenoh_key in self.active_demand_subs:
                                     zenoh_sub = self.active_demand_subs.pop(zenoh_key)
@@ -1178,9 +1324,52 @@ class MeshNode:
                             if d_ns.startswith("ugv_") and d_ns != getattr(self, 'my_dev_ns', None):
                                 self._trigger_rtabmap_publish_map(d_ns)
                                 self._ensure_rtabmap_continuous_map(d_ns)
+                    else:
+                        if hasattr(self, '_map_publish_triggered'):
+                            self._map_publish_triggered.clear()
+
+                    # Headless RTAB-Map 3D Obstacle Cloud Latched Demand Delivery:
+                    # When executing on a UGV robot and remote demand appears (e.g. GCS joins the mesh),
+                    # immediately deliver any cached 3D clouds ONCE onto the single device-namespaced Zenoh key.
+                    # Live updates stream continuously from the dedicated isolated ROS 2 map_node without ever
+                    # destroying/recreating local ROS 2 subscriptions.
+                    if hasattr(self, 'my_dev_ns') and self.my_dev_ns and self.my_dev_ns.startswith("ugv_"):
+                        cloud_top = f"/{self.my_dev_ns}/rtabmap/cloud_obstacles"
+                        has_remote_sub = hasattr(self.forwarding, "has_subscribers") and self.forwarding.has_subscribers(cloud_top)
+                        if not hasattr(self, '_remote_cloud_demanded'):
+                            self._remote_cloud_demanded = False
+
+                        if has_remote_sub:
+                            if not self._remote_cloud_demanded:
+                                self._remote_cloud_demanded = True
+                                self._deliver_cached_3d_clouds("DEMAND ACTIVE")
+                        else:
+                            if self._remote_cloud_demanded:
+                                self._remote_cloud_demanded = False
             except Exception:
                 pass
             time.sleep(1.0)
+
+    def _deliver_cached_3d_clouds(self, reason: str = "LATCHED SYNC"):
+        """Delivers latest locally-cached RTAB-Map 3D clouds ONCE onto the single device-namespaced Zenoh key."""
+        if not getattr(self, 'my_dev_ns', None) or not getattr(self, 'forward_session', None) or not self.forward_session.session:
+            return
+        now_t = time.time()
+        cache = getattr(self, 'latched_payload_cache', {})
+        for c_base in ["cloud_obstacles", "cloud_map", "cloud_ground", "octomap_grid"]:
+            for cand_k in [f"/{self.my_dev_ns}/rtabmap/{c_base}", f"/rtabmap/{c_base}"]:
+                if cand_k in cache:
+                    c_payload, c_origin = cache[cand_k]
+                    if c_origin != self.my_ip:
+                        continue
+                    try:
+                        packed_c = MeshSample.pack_payload(0, now_t, c_payload, origin_ip=self.my_ip)
+                        out_key = f"filtered/55/{self.my_dev_ns}/rtabmap/{c_base}"
+                        self.forward_session.session.put(out_key, packed_c)
+                        print(f"[{reason}] Delivered cached 3D cloud {out_key} ({len(c_payload)} B) to remote subscriber")
+                    except Exception:
+                        pass
+                    break
 
     #####################################################################
 
@@ -1194,6 +1383,18 @@ class MeshNode:
         #
 
         if key_str.startswith("filtered/"):
+            # Check for Demand-Triggered Latched 3D Cloud Sync Request from Remote GCS/Peer
+            if "_mesh_latched_sync/" in key_str:
+                parts = key_str.split("_mesh_latched_sync/")
+                if len(parts) > 1:
+                    target_ns = parts[1].strip("/")
+                    if target_ns and target_ns == getattr(self, 'my_dev_ns', None):
+                        now_r = time.time()
+                        if now_r - getattr(self, '_last_latched_sync_reply_time', 0.0) >= 2.0:
+                            self._last_latched_sync_reply_time = now_r
+                            self._deliver_cached_3d_clouds("LATCHED SYNC REPLY")
+                return
+
             # Check for Application Control Plane WiFi Hardware Telemetry Broadcast
             if "_mesh_wifi_telemetry/" in key_str:
                 import json
@@ -1386,6 +1587,9 @@ class MeshNode:
             except Exception:
                 pass
 
+        if is_rtabmap_3d_cloud_topic(ros_topic):
+            self._last_local_cloud_rx_time = time.time()
+
         # Record Publisher (Tx) metrics for local ROS topic sample
         seq_num = self.bw_monitor.record_tx_sample(base_topic, len(payload_bytes))
 
@@ -1422,7 +1626,7 @@ class MeshNode:
         )
 
         if mesh_sample.allowed:
-            is_cacheable_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic)
+            is_cacheable_latched = any(k in ros_topic for k in ["robot_description", "tf_static", "map_metadata"]) or is_2d_occupancy_grid_topic(ros_topic) or is_rtabmap_3d_cloud_topic(ros_topic)
             if is_cacheable_latched:
                 self.latched_payload_cache[egress_topic] = (payload_bytes, self.my_ip)
             is_demand_exempt = is_cacheable_latched or any(k in ros_topic for k in ["tf", "clock", "rosout", "parameter_events"])

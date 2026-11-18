@@ -164,6 +164,37 @@ class TestHierarchicalTopics(unittest.TestCase):
         engine3.forward(sample)
         self.assertEqual(session3.published_keys, [])
 
+    def test_latched_3d_cloud_sync_delivery(self):
+        from core.network_models import MeshSample
+        from mesh_node import MeshNode
+
+        class DummyRawSession:
+            def __init__(self):
+                self.puts = []
+            def put(self, key, payload):
+                self.puts.append((key, payload))
+
+        class DummyForwardSession:
+            def __init__(self):
+                self.session = DummyRawSession()
+
+        node = object.__new__(MeshNode)
+        node.my_dev_ns = "ugv_02"
+        node.my_ip = "192.168.3.66"
+        node.forward_session = DummyForwardSession()
+        node.latched_payload_cache = {
+            "/ugv_02/rtabmap/cloud_obstacles": (b"cloud_bytes", "192.168.3.66"),
+            "/ugv_01/rtabmap/cloud_obstacles": (b"remote_bytes", "192.168.3.65"),
+        }
+
+        node._deliver_cached_3d_clouds("TEST SYNC")
+        self.assertEqual(len(node.forward_session.session.puts), 1)
+        out_key, packed = node.forward_session.session.puts[0]
+        self.assertEqual(out_key, "filtered/55/ugv_02/rtabmap/cloud_obstacles")
+        seq, ts, orig_ip, raw = MeshSample.unpack_payload(packed)
+        self.assertEqual(orig_ip, "192.168.3.66")
+        self.assertEqual(raw, b"cloud_bytes")
+
 
 if __name__ == "__main__":
     unittest.main()
