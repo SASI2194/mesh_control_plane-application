@@ -95,3 +95,9 @@ topics:
     type: sensor_msgs/msg/LaserScan
     priority: 1
     status: ALLOW
+
+  - id: 17
+    name: /front_camera/heartbeat
+    type: std_msgs/msg/Int32
+    priority: 1
+    status: ALLOW

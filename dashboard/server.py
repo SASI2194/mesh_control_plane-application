@@ -586,8 +586,13 @@ class TelemetryDataProvider:
         try:
             import yaml
             from pathlib import Path
-            p = Path("config/failover.yaml")
-            if p.exists():
+            candidates = [
+                Path(os.path.join(PROJECT_ROOT, "config/failover.yaml")),
+                Path("config/failover.yaml"),
+                Path("/home/nvidia/meshcontrolplane/config/failover.yaml"),
+            ]
+            p = next((c for c in candidates if c.exists()), None)
+            if p and p.exists():
                 with open(p, "r") as f:
                     data = yaml.safe_load(f)
                     val = data.get("failover", {}).get("node_offline_timeout_seconds")
@@ -623,10 +628,13 @@ class TelemetryDataProvider:
             try:
                 import yaml
                 from pathlib import Path
-                p = Path("config/routeros.yaml")
-                if not p.exists():
-                    p = Path("/home/nvidia/meshcontrolplane/config/routeros.yaml")
-                if p.exists():
+                candidates = [
+                    Path(os.path.join(PROJECT_ROOT, "config/routeros.yaml")),
+                    Path("config/routeros.yaml"),
+                    Path("/home/nvidia/meshcontrolplane/config/routeros.yaml"),
+                ]
+                p = next((c for c in candidates if c.exists()), None)
+                if p and p.exists():
                     with open(p, "r") as f:
                         cdata = yaml.safe_load(f) or {}
                         rcfg = cdata.get("routeros", {})
@@ -717,7 +725,7 @@ class TelemetryDataProvider:
             try:
                 radio_ip_map = self._get_radio_ip_map()
                 target_ip = self._get_this_machine_ip()
-                local_radio_ip = radio_ip_map.get(target_ip, "192.168.3.3")
+                local_radio_ip = radio_ip_map.get(target_ip, "192.168.3.2")
 
                 # 1. Fetch local radio interface states
                 live_details = self._fetch_radio_interfaces(local_radio_ip)
@@ -781,8 +789,13 @@ class TelemetryDataProvider:
         try:
             import yaml
             from pathlib import Path
-            p = Path("config/failover.yaml")
-            if p.exists():
+            candidates = [
+                Path(os.path.join(PROJECT_ROOT, "config/failover.yaml")),
+                Path("config/failover.yaml"),
+                Path("/home/nvidia/meshcontrolplane/config/failover.yaml"),
+            ]
+            p = next((c for c in candidates if c.exists()), None)
+            if p and p.exists():
                 with open(p, "r") as f:
                     data = yaml.safe_load(f)
                     cfg = data.get("failover", {})
@@ -1106,9 +1119,9 @@ class TelemetryDataProvider:
     def _get_radio_ip_map(self):
         """Returns physical host IP -> NetMetal AX Radio IP mapping loaded from config/routeros.yaml or config/failover.yaml."""
         default_map = {
-            "192.168.3.65": "192.168.3.3",
-            "192.168.3.67": "192.168.3.2",
-            "192.168.3.66": "192.168.3.4",
+            "192.168.3.65": "192.168.3.2",
+            "192.168.3.66": "192.168.3.3",
+            "192.168.3.67": "192.168.3.4",
             "192.168.3.68": "192.168.3.5",
             "192.168.3.69": "192.168.3.6",
             "192.168.3.70": "192.168.3.7",
@@ -1116,26 +1129,52 @@ class TelemetryDataProvider:
             "192.168.3.72": "192.168.3.8",
             "192.168.3.73": "192.168.3.8",
         }
+        dynamic_map = {}
         try:
             import yaml
             from pathlib import Path
-            p = Path("config/routeros.yaml")
-            if not p.exists():
-                p = Path("/home/nvidia/meshcontrolplane/config/routeros.yaml")
-            if p.exists():
-                with open(p, "r") as f:
-                    cdata = yaml.safe_load(f) or {}
-                    devs = cdata.get("routeros", {}).get("device_nodes", {})
-                    dynamic_map = {}
-                    for node_id, node_info in devs.items():
-                        h_ip = node_info.get("host_ip")
-                        r_ip = node_info.get("radio_ip")
-                        if h_ip and r_ip:
-                            dynamic_map[h_ip] = r_ip
+            candidates_ros = [
+                Path(os.path.join(PROJECT_ROOT, "config/routeros.yaml")),
+                Path("config/routeros.yaml"),
+                Path("/home/nvidia/meshcontrolplane/config/routeros.yaml"),
+            ]
+            for p in candidates_ros:
+                if p.exists():
+                    with open(p, "r") as f:
+                        cdata = yaml.safe_load(f) or {}
+                        devs = cdata.get("routeros", {}).get("device_nodes", {})
+                        for node_id, node_info in devs.items():
+                            h_ip = node_info.get("host_ip")
+                            r_ip = node_info.get("radio_ip")
+                            if h_ip and r_ip:
+                                dynamic_map[str(h_ip)] = str(r_ip)
                     if dynamic_map:
-                        return dynamic_map
+                        break
+
+            candidates_failover = [
+                Path(os.path.join(PROJECT_ROOT, "config/failover.yaml")),
+                Path("config/failover.yaml"),
+                Path("/home/nvidia/meshcontrolplane/config/failover.yaml"),
+            ]
+            for fp in candidates_failover:
+                if fp.exists():
+                    with open(fp, "r") as f:
+                        fdata = yaml.safe_load(f) or {}
+                        fdevs = fdata.get("failover", {}).get("device_nodes", {})
+                        for node_id, node_info in fdevs.items():
+                            h_ip = node_info.get("host_ip")
+                            r_ip = node_info.get("radio_ip")
+                            if h_ip and r_ip and str(h_ip) not in dynamic_map:
+                                dynamic_map[str(h_ip)] = str(r_ip)
+                    if dynamic_map:
+                        break
         except Exception:
             pass
+
+        if dynamic_map:
+            merged = dict(default_map)
+            merged.update(dynamic_map)
+            return merged
         return default_map
 
 
@@ -1380,9 +1419,9 @@ class TelemetryDataProvider:
             active_nodes = [n for n in all_nodes if n["id"] in enabled_ids and n.get("status") == "ONLINE"]
 
             node_mac_map = {
-                "UGV-01": {"mac": "04:F4:1C:D3:A4:2E", "radio_ip": "192.168.3.3"},
-                "UGV-03": {"mac": "04:F4:1C:D3:A5:76", "radio_ip": "192.168.3.2"},
-                "UGV-02": {"mac": "04:F4:1C:D3:A6:10", "radio_ip": "192.168.3.4"},
+                "UGV-01": {"mac": "04:F4:1C:D3:A4:2E", "radio_ip": "192.168.3.2"},
+                "UGV-02": {"mac": "04:F4:1C:D3:A6:10", "radio_ip": "192.168.3.3"},
+                "UGV-03": {"mac": "04:F4:1C:D3:A5:76", "radio_ip": "192.168.3.4"},
                 "UGV-04": {"mac": "04:F4:1C:D3:A7:12", "radio_ip": "192.168.3.5"},
                 "UGV-05": {"mac": "04:F4:1C:D3:A8:14", "radio_ip": "192.168.3.6"},
                 "UGV-06": {"mac": "04:F4:1C:D3:A9:16", "radio_ip": "192.168.3.7"},
@@ -1390,6 +1429,7 @@ class TelemetryDataProvider:
                 "GCS-02": {"mac": "04:F4:1C:D3:B1:20", "radio_ip": "192.168.3.8"},
                 "GCS-03": {"mac": "04:F4:1C:D3:B2:22", "radio_ip": "192.168.3.8"},
             }
+            radio_ip_map = self._get_radio_ip_map()
 
             result = {}
             local_target_ip = self._get_this_machine_ip()
@@ -1411,8 +1451,8 @@ class TelemetryDataProvider:
                     remote_id = remote_n["id"]
                     dev_info = node_mac_map.get(remote_id, {})
                     mac_addr = dev_info.get("mac", remote_n.get("mac", "04:F4:1C:D3:A4:00"))
-                    radio_ip = dev_info.get("radio_ip", remote_n.get("radio_ip", "192.168.3.2"))
                     host_ip = remote_n["ip"]
+                    radio_ip = radio_ip_map.get(host_ip, dev_info.get("radio_ip", remote_n.get("radio_ip", "192.168.3.2")))
 
                     # Check if live RouterOS hardware peer match is present for this local or remote node table
                     hw_match = None
@@ -1697,7 +1737,9 @@ class TelemetryDataProvider:
             import yaml
             from utils.config_manager import ConfigManager
             cm = ConfigManager()
-            failover_path = "/home/nvidia/meshcontrolplane/config/failover.yaml"
+            failover_path = os.path.join(PROJECT_ROOT, "config/failover.yaml")
+            if not os.path.exists(failover_path):
+                failover_path = "/home/nvidia/meshcontrolplane/config/failover.yaml"
             with open(failover_path, "r") as f:
                 raw_cfg = yaml.safe_load(f) or {}
 
@@ -1729,7 +1771,9 @@ class TelemetryDataProvider:
     def update_neighbor_config(self, payload):
         try:
             import yaml
-            path = "/home/nvidia/meshcontrolplane/config/neighbor_selection.yaml"
+            path = os.path.join(PROJECT_ROOT, "config/neighbor_selection.yaml")
+            if not os.path.exists(path):
+                path = "/home/nvidia/meshcontrolplane/config/neighbor_selection.yaml"
             with open(path, "r") as f:
                 raw_cfg = yaml.safe_load(f) or {}
 

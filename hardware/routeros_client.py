@@ -39,10 +39,14 @@ class RouterOSClient:
         try:
             import yaml
             from pathlib import Path
-            p = Path("/home/nvidia/meshcontrolplane/config/routeros.yaml")
-            if not p.exists():
-                p = Path("config/routeros.yaml")
-            if p.exists():
+            project_root = Path(__file__).resolve().parent.parent
+            candidates = [
+                project_root / "config/routeros.yaml",
+                Path("config/routeros.yaml"),
+                Path("/home/nvidia/meshcontrolplane/config/routeros.yaml"),
+            ]
+            p = next((c for c in candidates if c.exists()), None)
+            if p and p.exists():
                 with open(p, "r") as f:
                     cdata = yaml.safe_load(f) or {}
                     rcfg = cdata.get("routeros", {})
